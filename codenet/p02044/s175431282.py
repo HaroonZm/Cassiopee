@@ -1,0 +1,18 @@
+while True:
+    N, M = map(int, input().split())
+    if (N | M) == 0:
+        break
+
+    A = [int(x) for x in input().split()]
+
+    ans = 0
+
+    M //= N
+
+    for a in A:
+        if a < M:
+            ans += a
+        else:
+            ans += M
+
+    print(ans)

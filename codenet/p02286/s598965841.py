@@ -1,0 +1,192 @@
+from random import random
+from collections import deque
+from copy import deepcopy
+import sys
+input = sys.stdin.readline
+
+class Treap:
+    def __init__(self, iterable=None):
+        # vertex = [left, right, key, priority, #descendants, sum of descendants]
+        self.root = None
+        if iterable: self._construct(iterable)
+    
+    def _construct(self, iterable):
+        for it in iterable: self.insert(it)
+    
+    def __len__(self): return self._count(self.root)
+    
+    @staticmethod
+    def _count(v): return v[4] if v is not None else 0
+
+    def _rotate(self, v, direction): # rotate the vertex v to the given direction
+        c = v[1 - direction] # direction == 1: right rotation
+        v[1 - direction], t = c[direction], c[1 - direction]
+        c[direction] = v
+        # update vertex's information
+        n_desc, sum_desc = c[4:] = v[4:]
+        v[4:] = n_desc - 1 - self._count(t), sum_desc - (c[2] if c[2] else 0) - (t[5] if t else 0)
+        return c # new parent
+    
+    def __contains__(self, key): # check whether the given key is in the treap
+        if self.root is None: return False
+        v = self.root
+        while v:
+            k = v[2]
+            if k == key: return True
+            v = v[key > k] # key > v[2] -> v = v[1] (right child)
+        return False
+    
+    def __getitem__(self, i): # get the i-th smallest element in the treap
+        count = self._count
+        if i < 0: i = count(self.root) + i
+        if i >= count(self.root) or i < 0: raise IndexError
+        v = self.root
+        while True:
+            n_left = count(v[0])
+            if i == n_left: return v[2]
+            elif i > n_left: i -= n_left + 1; v = v[1]
+            else: v = v[0]
+    
+    def __repr__(self): # visualize the treap
+        if not self.root: return 'Treap([])'
+        elements = []
+        q = deque([self.root])
+        while q:
+            v = q.popleft()
+            if v is None: elements.append(v); continue
+            elements.append((v[2], v[3]))
+            q.append(v[0]); q.append(v[1])
+        return 'Treap({})'.format(str(elements))
+    
+    @classmethod
+    def _treap(cls, treapnode):
+        tp = cls(); tp.root = deepcopy(treapnode)
+        return tp
+            
+    def sort(self):
+        if not self.root: return []
+        elements = []
+        stack = [(self.root, 0)]
+        while stack:
+            v, st = stack.pop()
+            [left, right, k, _, _, _] = v
+            if st == 0:
+                if right: stack.append((right, 0))
+                stack.append((v, 1))
+                if left: stack.append((left, 0))
+            if st == 1: elements.append(k)
+        return elements
+    
+    def bisect(self, key): # bisect_right
+        if self.root is None: return 0
+        v = self.root; idx = 0
+        count = self._count
+        while v:
+            left, right, k, _, _, _ = v
+            if key >= k: idx += count(left) + 1; v = right
+            else: v = left
+        return idx
+    
+    def insert(self, key, priority=None):
+        if priority is None: priority = random()
+        rotate = self._rotate
+        v = self.root; p = None; direction = None
+        stack = []
+        while v:
+            direction = (key >= v[2])
+            stack.append((v, direction))
+            v, p = v[direction], v
+        v = [None, None, key, priority, 1, key]
+        while stack:
+            p, direction = stack.pop()
+            p[direction] = v
+            p[4] += 1; p[5] += key # update vertex's information
+            if p[3] >= v[3]: break
+            v = rotate(p, 1 - direction)
+        else: self.root = v
+        for p, _ in stack: p[4] += 1; p[5] += key # update vertex's information
+        return self.root
+    
+    def delete(self, key):
+        v = self.root; p = None; direction = None
+        stack = []
+        while v:
+            if key == v[2]: break # vertex to be deleted has been found
+            direction = (key > v[2])
+            stack.append((v, direction))
+            v, p = v[direction], v
+        else: return self.root # the given key is not in the treap
+        rotate = self._rotate
+        while v[0] or v[1]: # while v is not a leaf
+            left, right, _, _, _, _ = v
+            direction = (left[3] > right[3]) if left and right else (right is None)
+            p = rotate(v, direction)
+            stack.append((p, direction)); v = p[direction]
+        v = None # delete
+        while stack:
+            p, direction = stack.pop()
+            p[direction] = v
+            p[4] -= 1; p[5] -= (key if key else 0) # update vertex's information
+            v = p
+        self.root = v
+        return self.root
+    
+    def merge(self, other):
+        r, o = self.root, other.root
+        temp_v = [r, o, None, float('inf'), 1 + r[4] + o[4], r[5] + o[5]]
+        virtual = self._treap(temp_v)
+        self.root = virtual.delete(None)
+        return self.root
+    
+    def split(self, i):
+        count = self._count
+        if i < 0: i = count(self.root) + i
+        if i >= count(self.root) or i < 0: raise IndexError
+        rotate = self._rotate
+        v = self.root; p = None; direction = None
+        stack = []
+        while v:
+            n_left = count(v[0])
+            direction = (i > n_left)
+            stack.append((v, direction))
+            if direction: i -= n_left + 1
+            v, p = v[direction], v
+        v = [None, None, None, float('inf'), 1, 0]
+        while stack:
+            p, direction = stack.pop()
+            p[direction] = v
+            p[4] += 1; p[5] += 0 # update vertex's information
+            v = rotate(p, 1 - direction)
+        l, r = v[:2]
+        self.root = l
+        return self._treap(r)
+
+def print_treap(tr):
+    preorder = ['']
+    inorder = ['']
+    def dfs(vtx):
+        v = str(vtx[2])
+        preorder.append(v)
+        if vtx[0]: dfs(vtx[0])
+        inorder.append(v)
+        if vtx[1]: dfs(vtx[1])
+    dfs(tr.root)
+    print(' '.join(inorder))
+    print(' '.join(preorder))
+    return
+    
+m = int(input())
+tr = Treap()
+for _ in range(m):
+    query, *args, = input().split()
+    if query == 'insert':
+        k, p = map(int, args)
+        tr.insert(k, p)
+    elif query == 'find':
+        k = int(args[0])
+        print('yes' if k in tr else 'no')
+    elif query == 'delete':
+        k = int(args[0])
+        tr.delete(k)
+    else:
+        print_treap(tr)

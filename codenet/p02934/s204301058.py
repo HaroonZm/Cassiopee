@@ -1,0 +1,13 @@
+N = int(input())
+A = list(map(int, input().split()))
+
+rev_sum = 0
+
+for a_part in A:
+  if a_part != 0:
+    rev_sum += 1 / a_part
+
+if rev_sum != 0:
+  print(1 / rev_sum)
+else:
+  print(0)

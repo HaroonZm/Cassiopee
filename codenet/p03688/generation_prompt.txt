@@ -1,0 +1,127 @@
+Voici un énoncé de problème :
+
+Score :
+700
+points
+Problem Statement
+There are
+N
+cats.
+We number them from
+1
+through
+N
+.
+Each of the cats wears a hat.
+Cat
+i
+says: "there are exactly
+a_i
+different colors among the
+N - 1
+hats worn by the cats except me."
+Determine whether there exists a sequence of colors of the hats that is consistent with the remarks of the cats.
+Constraints
+2 ≤ N ≤ 10^5
+1 ≤ a_i ≤ N-1
+Input
+Input is given from Standard Input in the following format:
+N
+a_1
+a_2
+...
+a_N
+Output
+Print
+Yes
+if there exists a sequence of colors of the hats that is consistent with the remarks of the cats; print
+No
+otherwise.
+Sample Input 1
+3
+1 2 2
+Sample Output 1
+Yes
+For example, if cat
+1
+,
+2
+and
+3
+wears red, blue and blue hats, respectively, it is consistent with the remarks of the cats.
+Sample Input 2
+3
+1 1 2
+Sample Output 2
+No
+From the remark of cat
+1
+, we can see that cat
+2
+and
+3
+wear hats of the same color.
+Also, from the remark of cat
+2
+, we can see that cat
+1
+and
+3
+wear hats of the same color.
+Therefore, cat
+1
+and
+2
+wear hats of the same color, which contradicts the remark of cat
+3
+.
+Sample Input 3
+5
+4 3 4 3 4
+Sample Output 3
+No
+Sample Input 4
+3
+2 2 2
+Sample Output 4
+Yes
+Sample Input 5
+4
+2 2 2 2
+Sample Output 5
+Yes
+Sample Input 6
+5
+3 3 3 3 3
+Sample Output 6
+No
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+# 解説AC
+N = int(input())
+A = [int(i) for i in input().split()]
+
+MAXA = max(A)
+MINA = min(A)
+
+if MAXA - MINA >= 2:
+    flag = False
+elif MAXA - MINA == 0:
+    # 全てalone -> 種類数はN
+    flag = True if (A[0] == N - 1) else False
+    # 全てaloneではない -> 種類数はN/2以下
+    flag |= True if (2 * A[0] <= N) else False
+else:
+    x = A.count(MINA) # alonaな猫の匹数
+    y = A.count(MAXA) # aloneではない猫の匹数
+    # MAXA - x: aloneではない猫の種類数
+    flag = True if (x < MAXA and 2 * (MAXA - x) <= y) else False
+
+if flag:
+    print('Yes')
+else:
+    print('No')
+```

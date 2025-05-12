@@ -1,0 +1,118 @@
+Voici un énoncé de problème :
+
+Problem Statement
+Snuke loves colorful balls. He has a total of
+N×K
+balls,
+K
+in each of his favorite
+N
+colors. The colors are numbered
+1
+through
+N
+.
+He will arrange all of the balls in a row from left to right, in arbitrary order. Then, for each of the
+N
+colors, he will paint the leftmost ball of that color into color
+0
+, a color different from any of the
+N
+original colors.
+After painting, how many sequences of the colors of the balls are possible? Find this number modulo
+10^9+7
+.
+Constraints
+1≤N,K≤2,000
+Input
+The input is given from Standard Input in the following format:
+N
+K
+Output
+Print the number of the possible sequences of the colors of the balls after painting, modulo
+10^9+7
+.
+Sample Input 1
+2 2
+Sample Output 1
+4
+The following
+4
+sequences are possible:
+(0,1,0,2)
+(0,0,1,2)
+(0,2,0,1)
+(0,0,2,1)
+Sample Input 2
+3 1
+Sample Output 2
+1
+The following
+1
+sequence is possible:
+(0,0,0)
+Sample Input 3
+2 3
+Sample Output 3
+14
+Sample Input 4
+2000 2000
+Sample Output 4
+546381702
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def pow_mod(MOD, a, n):
+    ret = 1
+    while n != 0:
+        if n % 2 == 1: ret = ret * a % MOD
+        a = a * a % MOD
+        n //= 2
+    return ret
+
+def fac(n):
+    MOD = 1000000007
+    ret = 1
+    for i in range(1, n + 1):
+        ret = ret * i % MOD
+    return ret
+
+def fac_gen(first, last):
+    MOD = 1000000007
+    ret = fac(first)
+    yield ret
+    for i in range(first + 1, last):
+        ret = ret * i % MOD
+        yield ret
+
+def build_comb_list(f, m, K):
+    MOD = 1000000007
+    v = pow_mod(MOD, f[m - K * 2] * f[0], MOD - 2)
+    for i in range(m - K, -1, -1):
+        f[i] *= v
+        v = v * i % MOD
+
+def solve_dp(n, k, comb):
+    MOD = 1000000007
+    dp = [1] * (n + 1)
+    for i in range(2, n + 1):
+        ci = (i - 1) * (k - 1)
+        v = 0
+        for j, c in zip(range(i), comb[ci:ci + i]):
+            v = (v + dp[j] * c) % MOD
+            dp[j] = v
+        dp[i] = v
+    return dp[n] * fac(n) % MOD
+
+def solve(n, k):
+    if n == 1 or k == 1: return 1
+    m = n * k
+    comb = list(fac_gen(k - 2, m - 1))
+    build_comb_list(comb, m - 2, k - 2)
+    return solve_dp(n, k, comb)
+
+n, k = (int(s) for s in input().split(' '))
+print(solve(n, k))
+```

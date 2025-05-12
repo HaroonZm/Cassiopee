@@ -1,0 +1,136 @@
+Voici un énoncé de problème :
+
+K: トーナメント
+問題文
+京都大学クスノキ前にて、$2$ 人用対戦ゲームのトーナメントが行われようとしています。
+このトーナメントの参加者は $2^N$ 人いて、 $1$ から $2^N$ までの番号がついています。
+参加者のうちの $2$ 人が戦った時の勝敗は、$0$ と $1$ からなる長さ $2^N-1$ の文字列 $S$ によって表されます。
+人 $x$ と人 $y$ $(1 \le x < y \le 2^N)$ が戦ったとき、
+$S_{y-x} = 0$ のとき、人 $x$ が勝ち、
+$S_{y-x} = 1$ のとき、人 $y$ が勝つ
+ことが分かっています。
+トーナメントは参加者が一列に並ぶことで始まり、以下の通りに進行します。
+列の先頭から $2$ 人ずつペアを作る。すべてのペアについて、ペア内の $2$ 人が戦う。
+1 の対戦で勝った人は列に残り、負けた人は列から抜ける。
+残っている人が $2$ 人以上いるときは、列を詰めて 1 に戻る。
+残っている人が $1$ 人となったら、その人が優勝者となる。
+いま、参加者は初期状態として、先頭から $i$ 番目 $(1 \le i \le 2^N)$ が人 $P_i$ となるように並んでいます。
+$0 \le k \le 2^N-1$ を満たすすべての整数 $k$ について、以下の問題を解いてください。
+初期状態から先頭 $k$ 人が、その順番を変えずに列の末尾に移動する。
+つまり、移動後の列における参加者の番号を先頭から挙げていくと、 $P_{k+1}, P_{k+2}, ..., P_{2^N}, P_1, P_2, ..., P_k$ となる。
+移動後の列からトーナメントを始めたときの、優勝者の番号を求めよ。
+制約
+$1 \leq N \leq 18$
+$N$ は整数である。
+$S$ は $0$ と $1$ からなる長さ $2^N-1$ の文字列である。
+$P$ は $1$ から $2^N$ までの整数を並べ替えた順列である。
+入力
+入力は以下の形式で標準入力から与えられる。
+$N$
+$S_1S_2 \ldots S_{2^N-1}$
+$P_1$ $P_2$ $\ldots$ $P_{2^N}$
+出力
+$2^N$ 行出力せよ。
+$i$ 行目 $(1 \le i \le 2^N)$ には、$k = i-1$ としたときの上記の問題の答えを出力せよ。
+入力例1
+2
+100
+1 4 2 3
+出力例1
+1
+2
+1
+2
+例えば $k = 2$ としたとき、移動後の列における参加者の番号を先頭から挙げていくと、 $2, 3, 1, 4$ となります。
+人 $2$ と 人 $3$ が戦うと、 $S_1 = 1$ より人 $3$ が勝ちます。
+人 $1$ と 人 $4$ が戦うと、 $S_3 = 0$ より人 $1$ が勝ちます。
+人 $3$ と 人 $1$ が戦うと、 $S_2 = 0$ より人 $1$ が勝ちます。
+したがって、 $k = 2$ の場合の優勝者は、人 $1$ となります。
+入力例2
+4
+101011100101000
+8 15 2 9 12 5 1 7 14 10 11 3 4 6 16 13
+出力例2
+16
+1
+16
+2
+16
+12
+10
+14
+16
+1
+16
+2
+16
+12
+10
+14
+入力例3
+1
+0
+1 2
+出力例3
+1
+1
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#!usr/bin/env python3
+from collections import defaultdict, deque
+from heapq import heappush, heappop
+from itertools import permutations, accumulate
+import sys
+import math
+import bisect
+def LI(): return [int(x) for x in sys.stdin.readline().split()]
+def I(): return int(sys.stdin.readline())
+def LS():return [list(x) for x in sys.stdin.readline().split()]
+def S():
+    res = list(sys.stdin.readline())
+    if res[-1] == "\n":
+        return res[:-1]
+    return res
+def IR(n):
+    return [I() for i in range(n)]
+def LIR(n):
+    return [LI() for i in range(n)]
+def SR(n):
+    return [S() for i in range(n)]
+def LSR(n):
+    return [LS() for i in range(n)]
+
+sys.setrecursionlimit(1000000)
+mod = 1000000007
+
+def solve():
+    def f(a, b):
+        return max(a, b) if s[abs(a-b)-1] == "1" else min(a,b)
+    n = I()
+    s = S()
+    # print(s)
+    p = LI()
+    dp = [[0 if j else p[i] for j in range(n+1)] for i in range(1 << n)]
+    maxn = 1 << n
+    for j in range(n):
+        j1 = 1 << j
+        for i in range(1 << n):
+            if i + j1 >= maxn:
+                # print(i+j1-n,i,j)
+                dp[i][j+1] = f(dp[i][j],dp[i+j1-maxn][j])
+            else:
+                dp[i][j+1] = f(dp[i][j],dp[i+j1][j])
+    # print(dp[0][0],dp[1][0],f(dp[0][0],dp[1][0]))
+    # print(dp)
+    for i in range(1 << n):
+        print(dp[i][-1])
+        # pass
+    return
+
+#Solve
+if __name__ == "__main__":
+    solve()
+```

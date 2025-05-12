@@ -1,0 +1,27 @@
+def s(n,a):
+    N=n*(n+1)/2
+    sa=sum(a)
+    if sa%N!=0:
+        return False
+    if sa<N:
+        return False
+    sn=sa/N
+    da=[]
+    for i in xrange(n-1):
+        da.append(a[i+1]-a[i])
+    da.append(a[0]-a[n-1])
+    if max(da)>sn:
+        return False
+    if sum(da)!=0:
+        return False
+    for di in da:
+        if (sn-di)%n!=0:
+            return False
+    return True
+    
+n = int(raw_input())
+a = [int(i) for i in raw_input().split(" ")]
+if s(n,a):
+    print "YES"
+else:
+    print "NO"

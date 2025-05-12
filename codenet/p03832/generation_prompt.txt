@@ -1,0 +1,180 @@
+Voici un énoncé de problème :
+
+Score :
+600
+points
+Problem Statement
+There are
+N
+people, conveniently numbered
+1
+through
+N
+.
+We want to divide them into some number of groups, under the following two conditions:
+Every group contains between
+A
+and
+B
+people, inclusive.
+Let
+F_i
+be the number of the groups containing exactly
+i
+people. Then, for all
+i
+, either
+F_i=0
+or
+C≤F_i≤D
+holds.
+Find the number of these ways to divide the people into groups.
+Here, two ways to divide them into groups is considered different if and only if there exists two people such that they belong to the same group in exactly one of the two ways.
+Since the number of these ways can be extremely large, print the count modulo
+10^9+7
+.
+Constraints
+1≤N≤10^3
+1≤A≤B≤N
+1≤C≤D≤N
+Input
+The input is given from Standard Input in the following format:
+N
+A
+B
+C
+D
+Output
+Print the number of ways to divide the people into groups under the conditions, modulo
+10^9+7
+.
+Sample Input 1
+3 1 3 1 2
+Sample Output 1
+4
+There are four ways to divide the people:
+(1,2),(3)
+(1,3),(2)
+(2,3),(1)
+(1,2,3)
+The following way to divide the people does not count:
+(1),(2),(3)
+. This is because it only satisfies the first condition and not the second.
+Sample Input 2
+7 2 3 1 3
+Sample Output 2
+105
+The only ways to divide the people under the conditions are the ones where there are two groups of two people, and one group of three people.
+There are
+105
+such ways.
+Sample Input 3
+1000 1 1000 1 1000
+Sample Output 3
+465231251
+Sample Input 4
+10 3 4 2 5
+Sample Output 4
+0
+The answer can be
+0
+.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def examC():
+    ans = 0
+    print(ans)
+    return
+
+def examD():
+    ans = 0
+    print(ans)
+    return
+
+def examE():
+    class combination():
+        # 素数のmod取るときのみ　速い
+        def __init__(self, n, mod):
+            self.n = n
+            self.mod = mod
+            self.fac = [1] * (n + 1)
+            self.inv = [1] * (n + 1)
+            for j in range(1, n + 1):
+                self.fac[j] = self.fac[j - 1] * j % mod
+
+            self.inv[n] = pow(self.fac[n], mod - 2, mod)
+            for j in range(n - 1, -1, -1):
+                self.inv[j] = self.inv[j + 1] * (j + 1) % mod
+
+        def comb(self, n, r):
+            if r > n or n < 0 or r < 0:
+                return 0
+            return self.fac[n] * self.inv[n - r] * self.inv[r] % self.mod
+        def combinv(self,n,r):
+            if r > n or n < 0 or r < 0:
+                return 0
+            return self.inv[n] * self.fac[n - r] * self.fac[r] % self.mod
+    N, A, B, C, D = LI()
+    Comb = combination(N+1,mod)
+    dp = [[0]*(N+1)for _ in range(B+1)]
+    for i in range(A):
+        dp[i][0] = 1
+    for i in range(A,B+1):
+        for j in range(N+1):
+            loop = (N-j) // i + 1
+            cnt_comb = 1
+            dp[i][j] += dp[i-1][j]
+            for k in range(C):
+                cnt_comb *= Comb.comb(N-j-k*i,i)
+                cnt_comb %= mod
+            for k in range(C,min(loop,D+1)):
+                dp[i][k*i+j] += dp[i-1][j]*cnt_comb * Comb.inv[k]
+                dp[i][k*i+j] %= mod
+                cnt_comb *= Comb.comb(N-j-k*i,i)
+                cnt_comb %= mod
+                #print(Comb.comb(N-j-k*i,i),Comb.inv[k+1])
+    #print(dp)
+    ans = dp[-1][-1]%mod
+    print(ans)
+    return
+
+def examF():
+    ans = 0
+    print(ans)
+    return
+
+from decimal import Decimal as dec
+import sys,bisect,itertools,heapq,math,random
+from copy import deepcopy
+from heapq import heappop,heappush,heapify
+from collections import Counter,defaultdict,deque
+read = sys.stdin.buffer.read
+readline = sys.stdin.buffer.readline
+readlines = sys.stdin.buffer.readlines
+def I(): return int(input())
+def LI(): return list(map(int,sys.stdin.readline().split()))
+def DI(): return dec(input())
+def LDI(): return list(map(dec,sys.stdin.readline().split()))
+def LSI(): return list(map(str,sys.stdin.readline().split()))
+def LS(): return sys.stdin.readline().split()
+def SI(): return sys.stdin.readline().strip()
+global mod,mod2,inf,alphabet,_ep
+mod = 10**9 + 7
+mod2 = 998244353
+inf = 10**18
+_ep = dec("0.000000000001")
+alphabet = [chr(ord('a') + i) for i in range(26)]
+alphabet_convert = {chr(ord('a') + i): i for i in range(26)}
+
+sys.setrecursionlimit(10**7)
+
+if __name__ == '__main__':
+    examE()
+
+"""
+10 1 1 1 10
+"""
+```

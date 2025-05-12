@@ -1,0 +1,18 @@
+while 1:
+    n = input()
+    if n == 0: break
+    card1 = sorted([input() for i in range(n)])
+    card2 = [i for i in range(1,2*n+1) if i not in card1]
+    ba = 0
+    turn = 1
+    while card1 and card2:
+        card = card1 if turn else card2
+        for i in range(len(card)):
+            if card[i] > ba:
+                ba = card.pop(i)
+                break
+        else:
+            ba = 0
+        turn ^= 1
+    print len(card2)
+    print len(card1)

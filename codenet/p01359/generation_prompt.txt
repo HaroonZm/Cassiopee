@@ -1,0 +1,145 @@
+Voici un énoncé de problème :
+
+Problem A:
+Era Name
+As many of you know, we have two major calendar systems used in Japan today. One of them
+is Gregorian calendar which is widely used across the world. It is also known as “Western
+calendar” in Japan.
+The other calendar system is era-based calendar, or so-called “Japanese calendar.” This system
+comes from ancient Chinese systems. Recently in Japan it has been a common way to associate
+dates with the Emperors. In the era-based system, we represent a year with an era name given
+at the time a new Emperor assumes the throne. If the era name is “A”, the first regnal year
+will be “A 1”, the second year will be “A 2”, and so forth.
+Since we have two different calendar systems, it is often needed to convert the date in one
+calendar system to the other. In this problem, you are asked to write a program that converts
+western year to era-based year, given a database that contains association between several
+western years and era-based years.
+For the simplicity, you can assume the following:
+A new era always begins on January 1st of the corresponding Gregorian year.
+The first year of an era is described as 1.
+There is no year in which more than one era switch takes place.
+Please note that, however, the database you will see may be incomplete. In other words, some
+era that existed in the history may be missing from your data. So you will also have to detect
+the cases where you cannot determine exactly which era the given year belongs to.
+Input
+The input contains multiple test cases. Each test case has the following format:
+N Q
+EraName
+1
+EraBasedYear
+1
+WesternYear
+1
+.
+.
+.
+EraName
+N
+EraBasedYear
+N
+WesternYear
+N
+Query
+1
+.
+.
+.
+Query
+Q
+The first line of the input contains two positive integers
+N
+and
+Q
+(1 ≤
+N
+≤ 1000, 1 ≤
+Q
+≤ 1000).
+N
+is the number of database entries, and Q is the number of queries.
+Each of the following N lines has three components: era name, era-based year number and the
+corresponding western year (1 ≤
+EraBasedYear
+i
+≤
+WesternYear
+i
+≤ 10
+9
+). Each of era names
+consist of at most 16 Roman alphabet characters. Then the last
+Q
+lines of the input specifies
+queries (1 ≤
+Query
+i
+≤ 10
+9
+), each of which is a western year to compute era-based representation.
+The end of input is indicated by a line containing two zeros. This line is not part of any dataset
+and hence should not be processed.
+You can assume that all the western year in the input is positive integers, and that there is no
+two entries that share the same era name.
+Output
+For each query, output in a line the era name and the era-based year number corresponding to
+the western year given, separated with a single whitespace. In case you cannot determine the
+era, output “
+Unknown
+” without quotes.
+Sample Input
+4 3
+meiji 10 1877
+taisho 6 1917
+showa 62 1987
+heisei 22 2010
+1868
+1917
+1988
+1 1
+universalcentury 123 2168
+2010
+0 0
+Output for the Sample Input
+meiji 1
+taisho 6
+Unknown
+Unknown
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#! /usr/bin/python
+
+def bm_search(dat, q, l, r):
+    #print q, l, r
+    if l == r:
+        if q <= dat[l][2]:
+            return int(l)
+        else:
+            return l+1
+    elif q <= dat[l+(r-l)/2][2]:
+        return bm_search(dat, q, l, l+(r-l)/2)
+    elif dat[l+(r-l)/2][2] < q:
+        return bm_search(dat, q, l+(r-l)/2+1, r)
+
+while True:
+    (N, Q) = map(int, raw_input().split())
+    if N == 0: break
+    
+    dat = []
+    for i in range(N):
+        dat.append(raw_input().split())
+    for i in range(N):
+        dat[i][1] = int(dat[i][1])
+        dat[i][2] = int(dat[i][2])
+    dat.sort(key = lambda x:x[2])
+        
+    for i in range(Q):
+        q = int(raw_input())
+        p = bm_search(dat, q, 0, N-1)
+        if p < N and dat[p][1] > dat[p][2]-q:
+            print dat[p][0], dat[p][1]-(dat[p][2]-q)
+        else:
+            print "Unknown"
+```

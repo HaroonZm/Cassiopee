@@ -1,0 +1,126 @@
+Voici un énoncé de problème :
+
+Balls and Boxes 5
+Balls
+Boxes
+Any way
+At most one ball
+At least one ball
+Distinguishable
+Distinguishable
+1
+2
+3
+Indistinguishable
+Distinguishable
+4
+5
+6
+Distinguishable
+Indistinguishable
+7
+8
+9
+Indistinguishable
+Indistinguishable
+10
+11
+12
+Problem
+You have $n$ balls and $k$ boxes. You want to put these balls into the boxes.
+Find the number of ways to put the balls under the following conditions:
+Each ball is
+not
+distinguished from the other.
+Each box is distinguished from the other.
+Each ball can go into only one box and no one remains outside of the boxes.
+Each box can contain at most one ball.
+Note that you must print this count modulo $10^9+7$.
+Input
+$n$ $k$
+The first line will contain two integers $n$ and $k$.
+Output
+Print the number of ways modulo $10^9+7$ in a line.
+Constraints
+$1 \le n \le 1000$
+$1 \le k \le 1000$
+Sample Input 1
+3 5
+Sample Output 1
+10
+Sample Input 2
+5 10
+Sample Output 2
+252
+Sample Input 3
+100 200
+Sample Output 3
+407336795
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import defaultdict
+    
+class Combinatorics:
+    def __init__(self, N, mod):
+        '''
+        Preprocess for calculating binomial coefficients nCr (0 <= r <= n, 0 <= n <= N)
+        over the finite field Z/(mod)Z.
+        Input:
+            N (int): maximum n
+            mod (int): a prime number. The order of the field Z/(mod)Z over which nCr is calculated.
+        '''
+        self.mod = mod
+        self.fact = {i: None for i in range(N+1)}         # n!
+        self.inverse = {i: None for i in range(1, N+1)}   # inverse of n in the field Z/(MOD)Z
+        self.fact_inverse = {i: None for i in range(N+1)} # inverse of n! in the field Z/(MOD)Z
+        
+        # preprocess
+        self.fact[0] = self.fact[1] = 1
+        self.fact_inverse[0] = self.fact_inverse[1] = 1
+        self.inverse[1] = 1
+        for i in range(2, N+1):
+            self.fact[i] = i * self.fact[i-1] % self.mod
+            q, r = divmod(self.mod, i)
+            self.inverse[i] = (- (q % self.mod) * self.inverse[r]) % self.mod
+            self.fact_inverse[i] = self.inverse[i] * self.fact_inverse[i-1] % self.mod
+    
+    def perm(self, n, r):
+        '''
+        Calculate nPr = n! / (n-r)! % mod
+        '''
+        if n < r or n < 0 or r < 0:
+            return 0
+        else:
+            return (self.fact[n] * self.fact_inverse[n-r]) % self.mod
+    
+    def binom(self, n, r):
+        '''
+        Calculate nCr = n! /(r! (n-r)!) % mod
+        '''
+        if n < r or n < 0 or r < 0:
+            return 0
+        else:
+            return self.fact[n] * (self.fact_inverse[r] * self.fact_inverse[n-r] % self.mod) % self.mod
+        
+    def hom(self, n, r):
+        '''
+        Calculate nHr = {n+r-1}Cr % mod.
+        Assign r objects to one of n classes.
+        Arrangement of r circles and n-1 partitions:
+            o o o | o o | | | o | | | o o | | o
+        '''
+        if n == 0 and r > 0:
+            return 0
+        if n >= 0 and r == 0:
+            return 1
+        return self.binom(n + r - 1, r)
+    
+n, k = map(int, input().split())
+MOD = 10**9 + 7
+com = Combinatorics(k, MOD)
+ans = com.binom(k, n)
+print(ans)
+```

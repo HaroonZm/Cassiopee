@@ -1,0 +1,29 @@
+import sys
+import math
+
+N = int(input())
+C = []
+S = []
+F = []
+
+for i in range(N - 1):
+    c, s, f = [int(x) for x in input().split()]
+    C.append(c)
+    S.append(s)
+    F.append(f)
+
+def f(idx, t):
+    depT = -1
+    if t <= S[idx]:
+        depT = S[idx]
+    else:
+        depT = S[idx] + F[idx] * math.ceil((t - S[idx]) / F[idx])
+    return depT + C[idx]
+
+for i in range(N - 1):
+    t = 0
+    for j in range(i, N - 1):
+        t = f(j, t)
+    print(t)
+
+print(0)

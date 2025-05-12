@@ -1,0 +1,128 @@
+Voici un énoncé de problème :
+
+Score :
+100
+points
+Problem Statement
+You are given strings
+s
+and
+t
+.
+Find one longest string that is a subsequence of both
+s
+and
+t
+.
+Notes
+A
+subsequence
+of a string
+x
+is the string obtained by removing zero or more characters from
+x
+and concatenating the remaining characters without changing the order.
+Constraints
+s
+and
+t
+are strings consisting of lowercase English letters.
+1 \leq |s|, |t| \leq 3000
+Input
+Input is given from Standard Input in the following format:
+s
+t
+Output
+Print one longest string that is a subsequence of both
+s
+and
+t
+.
+If there are multiple such strings, any of them will be accepted.
+Sample Input 1
+axyb
+abyxb
+Sample Output 1
+axb
+The answer is
+axb
+or
+ayb
+; either will be accepted.
+Sample Input 2
+aa
+xayaz
+Sample Output 2
+aa
+Sample Input 3
+a
+z
+Sample Output 3
+The answer is
+(an empty string).
+Sample Input 4
+abracadabra
+avadakedavra
+Sample Output 4
+aaadara
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+stdin = sys.stdin
+ 
+sys.setrecursionlimit(10**7) 
+ 
+def li(): return map(int, stdin.readline().split())
+def li_(): return map(lambda x: int(x)-1, stdin.readline().split())
+def lf(): return map(float, stdin.readline().split())
+def ls(): return stdin.readline().split()
+def ns(): return stdin.readline().rstrip()
+def lc(): return list(ns())
+def ni(): return int(stdin.readline())
+def nf(): return float(stdin.readline())
+
+s = ns()
+t = ns()
+
+lens = len(s)
+lent = len(t)
+
+dp = [[0]*(lent+1) for _ in range(lens+1)]
+
+for idx in range(lens):
+    for jdx in range(lent):
+        dp[idx+1][jdx+1] = max(dp[idx][jdx] + bool(s[idx] == t[jdx]),
+                               dp[idx+1][jdx],
+                               dp[idx][jdx+1])
+    
+def lcs(spos: int, tpos: int, cur: str, s:str, t:str, dp: list) -> str:
+
+    if spos == 0 or tpos == 0:
+        return cur
+    
+    else:
+        nrth = dp[spos-1][tpos]
+        west = dp[spos][tpos-1]
+        ntws = dp[spos-1][tpos-1]
+
+        mx = max(nrth, west, ntws)
+        
+        if mx == ntws and ntws+1 == dp[spos][tpos]:
+            return lcs(spos-1, tpos-1, cur+s[spos-1], s,t,dp)
+ 
+        
+        elif mx == nrth:
+            return lcs(spos-1, tpos, cur, s, t, dp)
+        
+        else:
+            return lcs(spos, tpos-1, cur, s, t, dp)
+            
+           
+
+            
+            
+print(lcs(lens, lent, "", s, t, dp)[::-1])
+```

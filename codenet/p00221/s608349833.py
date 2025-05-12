@@ -1,0 +1,43 @@
+"""
+http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=0221
+
+"""
+import sys
+from sys import stdin
+from collections import deque
+input = stdin.readline
+
+def fb_gen(count=1):
+    while True:
+        if count % 15 == 0:
+            ans = 'FizzBuzz'
+        elif count % 5 == 0:
+            ans = 'Buzz'
+        elif count % 3 == 0:
+            ans = 'Fizz'
+        else:
+            ans = str(count)
+        yield ans
+        count += 1
+
+def main(args):
+    while True:
+        m, n = map(int, input().split())
+        if m == 0 and n == 0:
+            break
+        players = deque(range(1, m+1))
+        fb = fb_gen()
+        for _ in range(n):
+            p = input().strip()
+            if p != fb.__next__():
+                if len(players) > 1:
+                    players.popleft()
+            else:
+                players.rotate(-1)
+
+        result = list(players)
+        result.sort()
+        print(*result)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

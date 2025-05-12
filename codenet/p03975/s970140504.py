@@ -1,0 +1,1 @@
+n,a,b,*s=map(int,open(0).read().split());print(sum(t<a or b<=t for t in s))

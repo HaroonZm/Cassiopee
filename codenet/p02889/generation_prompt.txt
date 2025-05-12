@@ -1,0 +1,247 @@
+Voici un énoncé de problème :
+
+Score :
+500
+points
+Problem Statement
+There are
+N
+towns numbered
+1
+to
+N
+and
+M
+roads. The
+i
+-th road connects Town
+A_i
+and Town
+B_i
+bidirectionally and has a length of
+C_i
+.
+Takahashi will travel between these towns by car, passing through these roads. The fuel tank of his car can contain at most
+L
+liters of fuel, and one liter of fuel is consumed for each unit distance traveled. When visiting a town while traveling, he can full the tank (or choose not to do so). Travel that results in the tank becoming empty halfway on the road cannot be done.
+Process the following
+Q
+queries:
+The tank is now full. Find the minimum number of times he needs to full his tank while traveling from Town
+s_i
+to Town
+t_i
+. If Town
+t_i
+is unreachable, print
+-1
+.
+Constraints
+All values in input are integers.
+2 \leq N \leq 300
+0 \leq M \leq \frac{N(N-1)}{2}
+1 \leq L \leq 10^9
+1 \leq A_i, B_i \leq N
+A_i \neq B_i
+\left(A_i, B_i\right) \neq \left(A_j, B_j\right)
+(if
+i \neq j
+)
+\left(A_i, B_i\right) \neq \left(B_j, A_j\right)
+(if
+i \neq j
+)
+1 \leq C_i \leq 10^9
+1 \leq Q \leq N\left(N-1\right)
+1 \leq s_i, t_i \leq N
+s_i \neq t_i
+\left(s_i, t_i\right) \neq \left(s_j, t_j\right)
+(if
+i \neq j
+)
+Input
+Input is given from Standard Input in the following format:
+N
+M
+L
+A_1
+B_1
+C_1
+:
+A_M
+B_M
+C_M
+Q
+s_1
+t_1
+:
+s_Q
+t_Q
+Output
+Print
+Q
+lines.
+The
+i
+-th line should contain the minimum number of times the tank needs to be fulled while traveling from Town
+s_i
+to Town
+t_i
+. If Town
+t_i
+is unreachable, the line should contain
+-1
+instead.
+Sample Input 1
+3 2 5
+1 2 3
+2 3 3
+2
+3 2
+1 3
+Sample Output 1
+0
+1
+To travel from Town
+3
+to Town
+2
+, we can use the second road to reach Town
+2
+without fueling the tank on the way.
+To travel from Town
+1
+to Town
+3
+, we can first use the first road to get to Town
+2
+, full the tank, and use the second road to reach Town
+3
+.
+Sample Input 2
+4 0 1
+1
+2 1
+Sample Output 2
+-1
+There may be no road at all.
+Sample Input 3
+5 4 4
+1 2 2
+2 3 2
+3 4 3
+4 5 2
+20
+2 1
+3 1
+4 1
+5 1
+1 2
+3 2
+4 2
+5 2
+1 3
+2 3
+4 3
+5 3
+1 4
+2 4
+3 4
+5 4
+1 5
+2 5
+3 5
+4 5
+Sample Output 3
+0
+0
+1
+2
+0
+0
+1
+2
+0
+0
+0
+1
+1
+1
+0
+0
+2
+2
+1
+0
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+input = sys.stdin.readline
+
+def dijkstra(start, matrix):
+    # O(V^2)ダイクストラ
+    INF = 10 ** 18
+    n = len(matrix)
+    used = [False] * n
+    # 補給回数: 少ないほうがいい
+    # 使用燃料: 少ないほうがいい
+    # 補給回数が少ないほうがより嬉しい
+    # dist[v] = 補給回数 * (10 ** 15) + 使用燃料
+    dist = [INF] * n
+    dist[start] = 0
+    while True:
+        v = -1
+        for u in range(n):
+            if not used[u] and (v == -1 or dist[u] < dist[v]):
+                v = u
+        if v == -1:
+            break
+        used[v] = True
+        for nxt_v in range(n):
+            tmp = merge(dist[v], matrix[v][nxt_v])
+            dist[nxt_v] = min(dist[nxt_v], tmp)
+    return dist
+
+def merge(d, cost):
+    div_d, mod_d = divmod(d + cost, 10 ** 15)
+    if mod_d > l:
+        new_d = (div_d + 1) * 10 ** 15 + cost
+    else:
+        new_d = d + cost
+    return new_d
+
+n, m, l = map(int, input().split())
+info = [list(map(int, input().split())) for i in range(m)]
+q = int(input())
+query = [list(map(int, input().split())) for i in range(q)]
+INF = 10 ** 18
+
+# 隣接行列
+matrix = [[INF] * n for i in range(n)]
+for i in range(n):
+    matrix[i][i] = 0
+for a, b, cost in info:
+    a -= 1
+    b -= 1
+    if cost > l:
+        continue
+    matrix[a][b] = cost
+    matrix[b][a] = cost
+
+ans = [[0] * n for i in range(n)] 
+for i in range(n):
+    tmp = dijkstra(i, matrix)
+    for j in range(n):
+        ans[i][j] = tmp[j] // (10 ** 15)
+
+for a, b in query:
+    a -= 1
+    b -= 1
+    if ans[a][b] == 1000:
+        print(-1)
+    else:
+        print(ans[a][b])
+```

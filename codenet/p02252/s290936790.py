@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+#
+# FileName: 	fractional_knapsack
+# CreatedDate:  2020-06-08 21:46:16 +0900
+# LastModified: 2020-06-08 21:53:14 +0900
+#
+
+import os
+import sys
+#import numpy as np
+#import pandas as pd
+
+def main():
+    N,W = map(int,input().split())
+    p = []
+    for _ in range(N):
+        v,w = map(int,input().split())
+        p.append([v/w,v,w])
+#    print(p)
+    p.sort(reverse=True)
+    index=0
+    profit=0
+    while W>0 and index<N:
+        if W>=p[index][2]:
+            profit+=p[index][1]
+            W-=p[index][2]
+        else:
+            profit+=p[index][1]*W/p[index][2]
+            W-=W
+        index+=1
+    print(profit)
+
+if __name__ == "__main__":
+    main()

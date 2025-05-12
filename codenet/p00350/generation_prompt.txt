@@ -1,0 +1,194 @@
+Voici un énoncé de problème :
+
+文字列ゲーム
+あなたは、双子のアイ君とヅー君に文字列を使ったゲームのプログラムをプレゼントしました。このゲームでは、アイ君とヅー君が文字列の中から部分文字列をそれぞれ選び、それらを比較して小さい方を選んだ人に得点が加算されます。二人は競い合い、何度もゲームを行いました。ところが、同じ文字列に対して何度もゲームをしているうちに飽きてしまいました。そこであなたは、文字列が変化するようにプログラムを修正することにしました。
+長さ
+N
+の文字列
+U
+と
+Q
+個の命令文が与えられたとき、以下の命令を処理するプログラムを作成せよ。
+文字列
+U
+の指定された範囲にあるすべての文字を、指定された文字に置き換える。
+文字列
+U
+の指定された２つの部分文字列
+S
+,
+T
+を辞書順で比較して、それらの大小関係を出力する。
+Input
+入力は以下の形式で与えられる。
+N
+U
+Q
+query
+1
+query
+2
+:
+query
+Q
+１行目に文字列の長さ
+N
+(1 ≤
+N
+≤ 200000)、２行目に文字列
+U
+(英小文字のみを含む文字列)が与えられる。３行目に命令の数
+Q
+(1 ≤
+Q
+≤ 100000) が与えられる。続く
+Q
+行に
+i
+番目の命令
+query
+i
+が与えられる。各
+query
+i
+は、以下のいずれかの形式で与えられる。
+set
+x
+y
+z
+または
+comp
+a
+b
+c
+d
+set
+x
+y
+z
+は文字列
+U
+の
+x
+文字目から
+y
+文字目までを、指定された文字
+z
+に置き換えることを表す。ただし、1 ≤
+x
+≤
+y
+≤
+N
+であり、
+z
+は英小文字である。
+comp
+a
+b
+c
+d
+は文字列
+U
+の
+a
+文字目から
+b
+文字目までの部分文字列を
+S
+、文字列
+U
+の
+c
+文字目から
+d
+文字目までの部分文字列を
+T
+としたとき、文字列
+S
+と文字列
+T
+を辞書順で比較することを表す。ただし、1 ≤
+a
+≤
+b
+≤
+N
+かつ 1 ≤
+c
+≤
+d
+≤
+N
+である。
+Output
+各 comp 命令について、
+S
+の方が小さいならば「s」、
+T
+の方が小さいならば「t」、両者が一致しているならば「e」と１行に出力する。
+Sample Input 1
+13
+aizualgorithm
+9
+comp 1 1 4 5
+comp 2 6 1 5
+set 9 12 b
+comp 9 9 10 10
+comp 5 8 1 4
+set 1 10 z
+set 11 13 x
+comp 8 10 1 5
+comp 1 5 1 5
+Sample Output 1
+s
+t
+e
+t
+s
+e
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+n = int(raw_input())
+u = raw_input()
+q = int(raw_input())
+
+def cmd_set(q,u):
+    x = int(q[0])
+    y = int(q[1])
+    z = q[2]
+
+    h = u[:x-1]
+    t = u[y:]
+    zz= z*(y-x+1)
+
+    return h+zz+t
+
+def cmd_comp(q, u):
+    a = int(q[0])
+    b = int(q[1])
+    c = int(q[2])
+    d = int(q[3])
+
+    s = u[a-1:b]
+    t = u[c-1:d]
+    if s < t:
+        print "s"
+    elif s > t:
+        print "t"
+    else:
+        print "e"
+
+for i in range(q):
+    q = raw_input().split()
+    cmd = q[0]
+    q.pop(0)
+
+    if cmd == 'comp':
+        cmd_comp(q, u)
+    elif cmd == 'set':
+        u = cmd_set(q, u)
+```

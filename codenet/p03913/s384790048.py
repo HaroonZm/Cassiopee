@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+
+from collections import deque
+import itertools as it
+import sys
+import math
+
+sys.setrecursionlimit(10000000)
+
+N, A = map(int, raw_input().split())
+ans = 10 ** 18
+
+for num in range(1, 65):
+    p = int(N ** (1.0 / num))
+    ls = [p] * num
+    pos = 0
+    while True:
+        cnt = 1
+        for p in ls:
+            cnt *= p
+        if cnt >= N:
+            break
+        ls[pos] += 1
+        pos += 1
+        pos %= num
+    ans = min(ans, sum(ls) + A * (num - 1))
+print ans

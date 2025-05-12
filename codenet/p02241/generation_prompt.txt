@@ -1,0 +1,61 @@
+Voici un énoncé de problème :
+
+Minimum Spanning Tree
+For a given weighted graph $G = (V, E)$, find the minimum spanning tree (MST) of $G$ and print total weight of edges belong to the MST.
+Input
+In the first line, an integer $n$ denoting the number of vertices in $G$ is given. In the following $n$ lines, a $n \times n$ adjacency matrix $A$ which represents $G$ is given.
+$a_{ij}$ denotes the weight of edge connecting vertex $i$ and vertex $j$. If there is no edge between $i$ and $j$, $a_{ij}$ is given by -1.
+Output
+Print the total weight of the minimum spanning tree of $G$.
+Constraints
+$1 \leq n \leq 100$
+$0 \leq a_{ij} \leq 2,000$ (if $a_{ij} \neq -1$)
+$a_{ij} = a_{ji}$
+$G$ is a connected graph
+Sample Input 1
+5
+-1 2 3 1 -1
+2 -1 -1 4 -1
+3 -1 -1 1 1
+1 4 1 -1 3
+-1 -1 1 3 -1
+Sample Output 1
+5
+Reference
+Introduction to Algorithms, Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, and Clifford Stein. The MIT Press.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+n=int(input())
+matrix=[list(map(int,input().split())) for _ in range(n)]
+weight=[]
+for x in range(n):
+    for y in range(x,n):
+        if matrix[x][y]>=0: weight.append((x,y,matrix[x][y]))
+weight.sort(key=lambda x:x[2])
+ans=0
+p=[i for i in range(n)]
+
+def root(x):
+    path_to_root=[]
+    while p[x]!=x:
+        path_to_root.append(x)
+        x=p[x]
+    for node in path_to_root:
+        p[node]=x
+    return x
+    
+def is_same_set(x,y):
+    return root(x)==root(y)
+    
+def unite(x,y):
+    p[root(x)]=root(y)
+        
+for x,y,w in weight:
+    if not is_same_set(x,y):
+        unite(x,y)
+        ans+=w
+print(ans)
+```

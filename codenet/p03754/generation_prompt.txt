@@ -1,0 +1,124 @@
+Voici un énoncé de problème :
+
+Max Score: $800$ Points
+Problem Statement
+There is an undirected connected graph with $N$ vertices and $N-1$ edges. The
+i
+-th edge connects
+u_i
+and
+v_i
+.
+E869120 the coder moves in the graph as follows:
+He move to adjacent vertex, but he can't a visit vertex two or more times.
+He ends move when there is no way to move.
+Otherwise, he moves randomly. (equal probability) If he has $p$ way to move this turn, he choose each vertex with $1/p$ probability.
+Calculate the expected value of the number of turns, when E869120 starts from vertex
+i
+, for all
+i (1 ≤ i ≤ N)
+.
+Input
+The input is given from standard input in the following format.
+N
+u_1
+v_1
+u_2
+v_2
+:
+u_{N-1}
+v_{N-1}
+Output
+In
+i
+-th
+(1 ≤ i ≤ N)
+line, print the expected vaule of the number of turns E869120 moves.
+The relative error or absolute error of output should be within
+10^{-6}
+.
+Constraints
+$1 \le N \le 150,000$
+The graph is connected.
+Subtasks
+Subtask 1 [ $190$ points ]
+There is no vertex which degree is more than 2.
+This means the graph looks like a list.
+Subtask 2 [ $220$ points ]
+1 ≤ N ≤ 1000
+.
+Subtask 3 [ $390$ points ]
+There are no additional constraints.
+Sample Input 1
+4
+1 2
+2 3
+2 4
+Sample Output 1
+2.0
+1.0
+2.0
+2.0
+Sample Input 2
+4
+1 2
+2 4
+4 3
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+input = sys.stdin.readline
+from collections import deque, Counter
+
+N = int(input())
+X = [[] for i in range(N)]
+L = [0]*N
+for i in range(N-1):
+    x, y = map(int, input().split())
+    X[x-1].append(y-1)
+    X[y-1].append(x-1)
+    L[x-1] += 1
+    L[y-1] += 1
+
+P = [-1] * N
+Q = deque([0])
+R = []
+while Q:
+    i = deque.popleft(Q)
+    R.append(i)
+    for a in X[i]:
+        if a != P[i]:
+            P[a] = i
+            X[a].remove(i)
+            deque.append(Q, a)
+
+C = Counter(P)
+##### Settings
+unit = 0
+merge = lambda a, b: a + b
+adj_bu = lambda a, i: (a+1)/C[P[i]]
+adj_td = lambda a, i, p: ((XX[p]*L[p]-XX[i]*C[p])/max(1,L[p]-1)+1)/max(1,C[i])
+adj_fin = lambda a, i: a*max(1,C[i])/L[i]
+#####
+
+ME = [unit] * N
+XX = [0] * N
+TD = [unit] * N
+for i in R[1:][::-1]:
+    XX[i] = adj_bu(ME[i], i)
+    p = P[i]
+    ME[p] = merge(ME[p], XX[i])
+XX[R[0]] = adj_fin(ME[R[0]], R[0])
+
+for i in R:
+    ac = unit
+    for j in reversed(X[i]):
+        TD[j] = adj_td(merge(TD[j], ac), j, i)
+        ac = merge(ac, XX[j])
+        XX[j] = adj_fin(merge(ME[j], TD[j]), j)
+
+print(*XX, sep = "\n")
+```

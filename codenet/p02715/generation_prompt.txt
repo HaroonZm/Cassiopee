@@ -1,0 +1,119 @@
+Voici un énoncé de problème :
+
+Score :
+500
+points
+Problem Statement
+Consider sequences
+\{A_1,...,A_N\}
+of length
+N
+consisting of integers between
+1
+and
+K
+(inclusive).
+There are
+K^N
+such sequences. Find the sum of
+\gcd(A_1, ..., A_N)
+over all of them.
+Since this sum can be enormous, print the value modulo
+(10^9+7)
+.
+Here
+\gcd(A_1, ..., A_N)
+denotes the greatest common divisor of
+A_1, ..., A_N
+.
+Constraints
+2 \leq N \leq 10^5
+1 \leq K \leq 10^5
+All values in input are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+K
+Output
+Print the sum of
+\gcd(A_1, ..., A_N)
+over all
+K^N
+sequences, modulo
+(10^9+7)
+.
+Sample Input 1
+3 2
+Sample Output 1
+9
+\gcd(1,1,1)+\gcd(1,1,2)+\gcd(1,2,1)+\gcd(1,2,2)
++\gcd(2,1,1)+\gcd(2,1,2)+\gcd(2,2,1)+\gcd(2,2,2)
+=1+1+1+1+1+1+1+2=9
+Thus, the answer is
+9
+.
+Sample Input 2
+3 200
+Sample Output 2
+10813692
+Sample Input 3
+100000 100000
+Sample Output 3
+742202979
+Be sure to print the sum modulo
+(10^9+7)
+.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#!/usr/bin/env python
+
+import sys
+sys.setrecursionlimit(10**7)
+from pprint import pprint as pp
+from pprint import pformat as pf
+# @pysnooper.snoop()
+#import pysnooper 
+import math
+#from sortedcontainers import SortedList, SortedDict, SortedSet # no in atcoder
+import bisect
+
+class Solver:
+
+    def __init__(self, n, k):
+        self.n = n
+        self.k = k
+        #fprint('k') 
+        self.ans_list = [0] * (k + 1) # var[i] = count of gcd() == i case
+        #fprint('self.ans_list') 
+        self.m = 10 ** 9 + 7
+
+    def gcd_count(self, i):
+        times = k // i
+        cases = pow(times, n, self.m)
+        j = i * 2
+        while not (j > k):
+            cases -= self.ans_list[j]
+            j += i
+        #fprint('i') 
+        self.ans_list[i] = cases % self.m
+
+    def run(self):
+        for i in range(k, 0, -1):
+            #print('i') 
+            self.gcd_count(i)
+        ans = 0
+        for i, a in enumerate(self.ans_list):
+            ans += i * a
+        #fprint('self.ans_list') 
+        return ans % self.m
+
+if __name__ == '__main__':
+    n, k = list(map(int, input().split()))
+    ans = Solver(n, k).run()
+    #fprint('ans') 
+
+    #fprint('\33[32m' + 'end' + '\033[0m')
+```

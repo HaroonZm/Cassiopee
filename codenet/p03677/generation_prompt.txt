@@ -1,0 +1,159 @@
+Voici un énoncé de problème :
+
+Score :
+700
+points
+Problem Statement
+Snuke is buying a lamp.
+The light of the lamp can be adjusted to
+m
+levels of brightness, represented by integers from
+1
+through
+m
+, by the two buttons on the remote control.
+The first button is a "forward" button. When this button is pressed, the brightness level is increased by
+1
+, except when the brightness level is
+m
+, in which case the brightness level becomes
+1
+.
+The second button is a "favorite" button. When this button is pressed, the brightness level becomes the favorite brightness level
+x
+, which is set when the lamp is purchased.
+Snuke is thinking of setting the favorite brightness level
+x
+so that he can efficiently adjust the brightness.
+He is planning to change the brightness
+n-1
+times. In the
+i
+-th change, the brightness level is changed from
+a_i
+to
+a_{i+1}
+. The initial brightness level is
+a_1
+.
+Find the number of times Snuke needs to press the buttons when
+x
+is set to minimize this number.
+Constraints
+2 \leq n,m \leq 10^5
+1 \leq a_i\leq m
+a_i \neq a_{i+1}
+n
+,
+m
+and
+a_i
+are integers.
+Input
+Input is given from Standard Input in the following format:
+n
+m
+a_1
+a_2
+…
+a_n
+Output
+Print the minimum number of times Snuke needs to press the buttons.
+Sample Input 1
+4 6
+1 5 1 4
+Sample Output 1
+5
+When the favorite brightness level is set to
+1
+,
+2
+,
+3
+,
+4
+,
+5
+and
+6
+, Snuke needs to press the buttons
+8
+,
+9
+,
+7
+,
+5
+,
+6
+and
+9
+times, respectively.
+Thus, Snuke should set the favorite brightness level to
+4
+.
+In this case, the brightness is adjusted as follows:
+In the first change, press the favorite button once, then press the forward button once.
+In the second change, press the forward button twice.
+In the third change, press the favorite button once.
+Sample Input 2
+10 10
+10 9 8 7 6 5 4 3 2 1
+Sample Output 2
+45
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+input = sys.stdin.readline
+
+class BIT:
+    def __init__(self, size):
+        self.bit = [0] * (size + 1)
+        self.size = size
+
+    def sum(self, i):
+        i += 1
+        s = 0
+        while i > 0:
+            s += self.bit[i]
+            i -= i & -i
+        return s
+
+    def add(self, i, x):
+        i += 1
+        while i <= self.size:
+            self.bit[i] += x
+            i += i & -i
+
+n, m = map(int, input().split())
+a = list(map(lambda x: int(x) - 1, input().split()))
+
+bit0 = BIT(m)
+bit1 = BIT(m)
+for i in range(n-1):
+    x, y = a[i], a[i+1]
+    bit1.add(0, (y - x) % m)
+    if (y - x) % m < 2:
+        continue
+    x = (x + 2) % m
+    if x <= y:
+        bit0.add(x, -1)
+        bit1.add(x, x - 1)
+        bit0.add(y + 1, 1)
+        bit1.add(y + 1, -(x - 1))
+    else:
+        bit0.add(x, -1)
+        bit1.add(x, x - 1)
+
+        b = (0 - (x - 1)) % m
+        bit0.add(0, -1)
+        bit1.add(0, -b)
+        bit0.add(y + 1, 1)
+        bit1.add(y + 1, b)
+
+ans = min(bit0.sum(i) * i + bit1.sum(i) for i in range(m))
+print(ans)
+```

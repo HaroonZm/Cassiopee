@@ -1,0 +1,188 @@
+Voici un énoncé de problème :
+
+Biased Dice
+Professor Random, known for his research on randomized algorithms, is now conducting an experiment on biased dice. His experiment consists of dropping a number of dice onto a plane, one after another from a fixed position above the plane. The dice fall onto the plane or dice already there, without rotating, and may roll and fall according to their property. Then he observes and records the status of the stack formed on the plane, specifically, how many times each number appears on the faces visible from above. All the dice have the same size and their face numbering is identical, which we show in Figure C-1.
+Figure C-1: Numbering of a die
+The dice have very special properties, as in the following.
+(1) Ordinary dice can roll in four directions, but the dice used in this experiment never roll in the directions of faces 1, 2 and 3; they can only roll in the directions of faces 4, 5 and 6. In the situation shown in Figure C-2, our die can only roll to one of two directions.
+Figure C-2: An ordinary die and a biased die
+(2) The die can only roll when it will fall down after rolling, as shown in Figure C-3. When multiple possibilities exist, the die rolls towards the face with the largest number among those directions it can roll to.
+Figure C-3: A die can roll only when it can fall
+(3) When a die rolls, it rolls exactly 90 degrees, and then falls straight down until its bottom face touches another die or the plane, as in the case [B] or [C] of Figure C-4.
+(4) After rolling and falling, the die repeatedly does so according to the rules (1) to (3) above.
+Figure C-4: Example stacking of biased dice
+For example, when we drop four dice all in the same orientation, 6 at the top and 4 at the front, then a stack will be formed as shown in Figure C-4.
+Figure C-5: Example records
+After forming the stack, we count the numbers of faces with 1 through 6 visible from above and record them. For example, in the left case of Figure C-5, the record will be "0 2 1 0 0 0", and in the right case, "0 1 1 0 0 1".
+Input
+The input consists of several datasets each in the following format.
+n
+t
+1
+f
+1
+t
+2
+f
+2
+...
+t
+n
+f
+n
+Here,
+n
+(1 ≤
+n
+≤ 100) is an integer and is the number of the dice to be dropped.
+t
+i
+and
+f
+i
+(1 ≤
+t
+i
+,
+f
+i
+≤ 6) are two integers separated by a space and represent the numbers on the top and the front faces of the
+i
+-th die, when it is released, respectively.
+The end of the input is indicated by a line containing a single zero.
+Output
+For each dataset, output six integers separated by a space. The integers represent the numbers of faces with 1 through 6 correspondingly, visible from above. There may not be any other characters in the output.
+Sample Input
+4
+6 4
+6 4
+6 4
+6 4
+2
+5 3
+5 3
+8
+4 2
+4 2
+4 2
+4 2
+4 2
+4 2
+4 2
+4 2
+6
+4 6
+1 5
+2 3
+5 3
+2 4
+4 2
+0
+Output for the Sample Input
+0 1 1 0 0 1
+1 0 0 0 1 0
+1 2 2 1 0 0
+2 3 0 0 0 0
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+class Dice:
+
+  def __init__(self, top=1, front=2, left=4, right=3, back=5, bottom=6):
+    self.d = {"TOP": top, "FRONT": front, "LEFT": left, "RIGHT": right, "BACK": back, "BOTTOM": bottom}
+
+  def roll_x(self):
+    self._roll("TOP", "FRONT", "BOTTOM", "BACK")
+
+  def roll_y(self):
+    self._roll("FRONT", "LEFT", "BACK", "RIGHT")
+
+  def roll_z(self):
+    self._roll("TOP", "LEFT", "BOTTOM", "RIGHT")
+
+  def _roll(self, a, b, c, d):
+    self.d[a], self.d[b], self.d[c], self.d[d] = self.d[b], self.d[c], self.d[d], self.d[a]
+
+  def all_rolls(self):
+    import copy
+    ret = []
+    for i in range(6):
+      if i % 2:
+        self.roll_x()
+      else:
+        self.roll_y()
+      for _ in range(4):
+        self.roll_z()
+        ret.append(copy.deepcopy(self))
+    return ret
+
+import copy
+from collections import defaultdict
+while True:
+  n = int(input())
+  if n==0:
+    break
+
+  board = [[0 for i in range(100)] for j in range(100)]
+  height = [[0 for i in range(100)] for j in range(100)]
+
+  for i in range(n):
+    t, f = list(map(int, input().split()))
+    dice = Dice()
+    for di in dice.all_rolls():
+      if di.d["TOP"]==t and di.d["FRONT"]==f:
+        break
+
+    x, y = 50, 50
+    while True:
+      dxy = []
+      for s in ["FRONT", "LEFT", "BACK", "RIGHT"]:
+        tt = di.d[s]
+        if tt>=4:
+          dxy.append((tt, s))
+      dxy.sort(reverse=True)
+
+      move = False
+      for _, s in dxy:
+        newdice = copy.deepcopy(di)
+        if s=="FRONT":
+          dx = 0
+          dy = 1
+          newdice.roll_x()
+          newdice.roll_x()
+          newdice.roll_x()
+        elif s=="LEFT":
+          dx = -1
+          dy = 0
+          newdice.roll_z()
+          newdice.roll_z()
+          newdice.roll_z()
+        elif s=="BACK":
+          dx = 0
+          dy = -1
+          newdice.roll_x()
+        elif s=="RIGHT":
+          dx = 1
+          dy = 0
+          newdice.roll_z()
+
+        if height[x][y]>height[x+dx][y+dy]:
+          x = x+dx
+          y = y+dy
+          di = newdice
+          move = True
+          break
+
+      if not move:
+        board[x][y] = di.d["TOP"]
+        height[x][y] += 1
+        break
+
+  ans = defaultdict(int)
+  for e in board:
+    for ee in e:
+      ans[ee] += 1
+  print(*[ans[i] for i in range(1, 7)])
+```

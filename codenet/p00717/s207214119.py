@@ -1,0 +1,82 @@
+# python template for atcoder1
+import sys
+sys.setrecursionlimit(10**9)
+input = sys.stdin.readline
+
+def solve():
+    N = int(input())
+    if N == 0:
+        exit()
+    n = int(input())
+    true_Poly = [list(map(int, input().split())) for _ in range(n)]
+
+    serach_Polys = []
+    for _ in range(N):
+        n = int(input())
+        serach_Polys.append([list(map(int, input().split()))
+                             for _ in range(n)])
+
+    ans = []
+    for i, poly in enumerate(serach_Polys):
+        if is_same(true_Poly, poly):
+            ans.append(i+1)
+    if ans:
+        print("\n".join(map(str, ans)))
+    print("+"*5)
+
+def is_same(poly1, poly2):
+    if len(poly1) != len(poly2):
+        return False
+
+    poly_1_turn = calc_turn(poly1)
+    poly_1_len = calc_dist(poly1)
+
+    poly_2_turn = calc_turn(poly2)
+    poly_2_len = calc_dist(poly2)
+    if all(a == b for a, b in zip(poly_2_turn, poly_1_turn)) and all(a == b for a, b in zip(poly_2_len, poly_1_len)):
+        return True
+
+    poly_2_rev_turn = calc_turn(list(reversed(poly2)))
+    poly_2_rev_len = calc_dist(list(reversed(poly2)))
+    if all(a == b for a, b in zip(poly_2_rev_turn, poly_1_turn)) and all(a == b for a, b in zip(poly_2_rev_len, poly_1_len)):
+        return True
+    return False
+
+def dist(p1, p2):
+    return sum([abs(x1-x2) for x1, x2 in zip(p1, p2)])
+
+def calc_dist(poly):
+    return [dist(p1, p2) for p1, p2 in zip(poly, poly[1:])]
+
+def turn(p1, p2, p3):
+    """
+    右回りが1 左が-1
+    """
+    if p1[0] == p2[0]:
+        if p1[1] < p2[1]:
+            if p3[0] > p2[0]:
+                return 1
+            else:
+                return 0
+        else:
+            if p3[0] > p2[0]:
+                return 0
+            else:
+                return 1
+    else:
+        if p1[0] < p2[0]:
+            if p3[1] > p2[1]:
+                return 0
+            else:
+                return 1
+        else:
+            if p3[1] > p2[1]:
+                return 1
+            else:
+                return 0
+
+def calc_turn(poly):
+    return [turn(p1, p2, p3) for p1, p2, p3 in zip(poly, poly[1:], poly[2:])]
+
+while True:
+    solve()

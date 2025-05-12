@@ -1,0 +1,9 @@
+t = int(input())
+for _ in range(t):
+    n = int(input())
+    blocks = list(map(int, input().split()))
+    maxv = minv = 0
+    for i in range(1, n):
+        maxv = max(maxv, blocks[i] - blocks[i-1])
+        minv = max(minv, blocks[i-1] - blocks[i])
+    print(maxv, minv)

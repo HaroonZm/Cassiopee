@@ -1,0 +1,126 @@
+Voici un énoncé de problème :
+
+Score :
+700
+points
+Problem Statement
+There are
+N
+stones arranged in a row. The
+i
+-th stone from the left is painted in the color
+C_i
+.
+Snuke will perform the following operation zero or more times:
+Choose two stones painted in the same color. Repaint all the stones between them, with the color of the chosen stones.
+Find the number of possible final sequences of colors of the stones, modulo
+10^9+7
+.
+Constraints
+1 \leq N \leq 2\times 10^5
+1 \leq C_i \leq 2\times 10^5(1\leq i\leq N)
+All values in input are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+C_1
+:
+C_N
+Output
+Print the number of possible final sequences of colors of the stones, modulo
+10^9+7
+.
+Sample Input 1
+5
+1
+2
+1
+2
+2
+Sample Output 1
+3
+We can make three sequences of colors of stones, as follows:
+(1,2,1,2,2)
+, by doing nothing.
+(1,1,1,2,2)
+, by choosing the first and third stones to perform the operation.
+(1,2,2,2,2)
+, by choosing the second and fourth stones to perform the operation.
+Sample Input 2
+6
+4
+2
+5
+4
+2
+4
+Sample Output 2
+5
+Sample Input 3
+7
+1
+3
+1
+2
+3
+3
+2
+Sample Output 3
+5
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+MOD=10**9+7
+N=int(input())
+
+clist=[]
+for i in range(N):
+  c=int(input())
+  clist.append(c)  
+#print(clist)
+
+c2list=clist[:1]
+for i in range(1,N):
+  if clist[i]!=c2list[-1]:
+    c2list.append(clist[i])
+#print(c2list)
+N2=len(c2list)
+
+cdic={}
+for i in range(N2):
+  c=c2list[i]
+  if not c in cdic:
+    cdic[c]=[i]
+  else:
+    cdic[c].append(i)
+#print(cdic)
+
+dp=[1]+[0]*(N2-1)
+for i in range(1,N2):
+  c=c2list[i]
+  dp[i]=dp[i-1]
+  
+  if len(cdic[c])<5:
+    for j in reversed(cdic[c]):
+      if j<i:
+        dp[i]+=dp[j]
+        break
+  else:
+    l,r=0,len(cdic[c])
+    while(l<=r):
+      mid=(l+r)//2
+      if cdic[c][mid]<i and cdic[c][mid+1]>=i:
+        dp[i]+=dp[cdic[c][mid]]
+        break
+      elif cdic[c][mid]>=i:
+        r=mid-1
+      elif cdic[c][mid+1]<i:
+        l=mid+1
+      else:
+        print("error")
+    
+#print(dp)
+print(dp[-1]%MOD)
+```

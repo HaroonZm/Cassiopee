@@ -1,0 +1,12 @@
+while(True):
+    n, r = map(int, input().split())
+    if n == 0 and r == 0: exit()
+
+    ope = [list(map(int, input().split())) for _ in range(r)]
+    d = [n-i for i in range(n)]
+
+    for i in range(r):
+        tv = d[ope[i][0]-1:ope[i][0]-1+ope[i][1]]
+        to = d[:ope[i][0]-1] + d[ope[i][0]-1+ope[i][1]:]
+        d = tv + to
+    print(d[0])

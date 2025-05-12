@@ -1,0 +1,15 @@
+from bisect import bisect_left as bl
+from bisect import bisect_right as br
+
+n = int(input())
+
+gpa = []
+for _ in range(n):
+    gpa.append(float(input()))
+
+gpa_s = sorted(gpa)
+
+for g in gpa:
+    less = bl(gpa_s, g)
+    more = br(gpa_s, g)
+    print(less * 3 + (more-less-1))

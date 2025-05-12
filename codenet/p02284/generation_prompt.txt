@@ -1,0 +1,120 @@
+Voici un énoncé de problème :
+
+Binary Search Tree II
+Write a program which performs the following operations to a binary search tree $T$ by adding the find operation to A: Binary Search Tree I.
+insert
+$k$: Insert a node containing $k$ as key into $T$.
+find
+$k$: Report whether $T$ has a node containing $k$.
+print
+: Print the keys of the binary search tree by inorder tree walk and preorder tree walk respectively.
+Input
+In the first line, the number of operations $m$ is given. In the following $m$ lines, operations represented by
+insert
+$k$,
+find
+$k$ or
+print
+are given.
+Output
+For each
+find
+$k$ operation, print "
+yes
+" if $T$ has a node containing $k$, "
+no
+" if not.
+In addition, for each
+print
+operation, print a list of keys obtained by inorder tree walk and preorder tree walk in a line respectively. Put a space character
+before each key
+.
+Constraints
+The number of operations $\leq 500,000$
+The number of print operations $\leq 10$.
+$-2,000,000,000 \leq key \leq 2,000,000,000$
+The height of the binary tree does not exceed 100 if you employ the above pseudo code.
+The keys in the binary search tree are all different.
+Sample Input 1
+10
+insert 30
+insert 88
+insert 12
+insert 1
+insert 20
+find 12
+insert 17
+insert 25
+find 16
+print
+Sample Output 1
+yes
+no
+1 12 17 20 25 30 88
+30 12 1 20 17 25 88
+Reference
+Introduction to Algorithms, Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, and Clifford Stein. The MIT Press.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+class BinarySearchTree(object):
+    __slots__ = ['root']
+
+    def __init__(self):
+        self.root = None
+
+    def insert(self, key):
+        new_node = [key, None, None]
+
+        if self.root is None:
+            self.root = new_node
+            return
+
+        parent, child = None, self.root
+        while child:
+            parent = child
+            child = child[1] if key < child[0] else child[2]
+
+        if key < parent[0]:
+            parent[1] = new_node
+        else:
+            parent[2] = new_node
+
+    def find(self, key):
+        current = self.root
+        while current and current[0] != key:
+            current = current[1] if key < current[0] else current[2]
+
+        return current
+
+    def walk(self, walk_type):
+        a = []
+        self._walk(self.root, a, walk_type)
+        return a
+
+    def _walk(self, node, a, walk_type):
+        if walk_type == 0:
+            a.append(node[0])
+        if node[1]:
+            self._walk(node[1], a, walk_type)
+        if walk_type == 1:
+            a.append(node[0])
+        if node[2]:
+            self._walk(node[2], a, walk_type)
+
+if __name__ == '__main__':
+    import sys
+    input()
+    tree = BinarySearchTree()
+
+    for cmd in (l.split() for l in sys.stdin):
+        if cmd[0] == 'insert':
+            tree.insert(int(cmd[1]))
+        elif cmd[0] == 'find':
+            print('yes' if tree.find(int(cmd[1])) else 'no')
+        else:
+            print('', *tree.walk(1))
+            print('', *tree.walk(0))
+```

@@ -1,0 +1,110 @@
+Voici un énoncé de problème :
+
+Closest Pair
+For given
+n
+points in metric space, find the distance of the closest points.
+Input
+n
+x
+0
+y
+0
+x
+1
+y
+1
+:
+x
+n-1
+y
+n-1
+The first integer
+n
+is the number of points.
+In the following
+n
+lines, the coordinate of the
+i
+-th point is given by two real numbers
+x
+i
+and
+y
+i
+. Each value is a real number with at most 6 digits after the decimal point.
+Output
+Print the distance in a line. The output values should be in a decimal fraction with an error less than 0.000001.
+Constraints
+2 ≤
+n
+≤ 100,000
+-100 ≤
+x
+,
+y
+≤ 100
+Sample Input 1
+2
+0.0 0.0
+1.0 0.0
+Sample Output 1
+1.000000
+Sample Input 2
+3
+0.0 0.0
+2.0 0.0
+1.0 1.0
+Sample Output 2
+1.41421356237
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+INF = 10**16
+
+# ソートしてから入れる
+def ClosestDFS(Points):
+    l = len(Points)
+    if l <= 1: return INF, Points
+    d1, nearPoints1 = ClosestDFS(Points[:l//2])
+    d2, nearPoints2 = ClosestDFS(Points[l//2:])
+    retPoints = []
+    ind = 0
+    for p1x, p1y in nearPoints1:
+        while ind != len(nearPoints2) and nearPoints2[ind][1] < p1y:
+            retPoints.append(nearPoints2[ind])
+            ind += 1
+        retPoints.append((p1x, p1y))
+    while ind != len(nearPoints2):
+        retPoints.append(nearPoints2[ind])
+        ind += 1
+    
+    d = min(d1, d2)
+    B = []
+    border_x = Points[l//2][0]
+    for px, py in retPoints:
+        if abs(border_x-px) > d: continue
+        for bx, by in reversed(B):
+            if py - by > d: break
+            d = min(d, ((px-bx)**2+(py-by)**2)**0.5)
+        B.append((px, py))
+    return d, retPoints
+
+def ClosestPair(Points):
+    Points.sort()
+    d, _ = ClosestDFS(Points)
+    return d
+
+import sys
+input = sys.stdin.readline
+
+def main():
+    N = int(input())
+    Points = [list(map(float, input().split())) for _ in range(N)]
+    print("{:.8f}".format(ClosestPair(Points)))
+
+if __name__ == "__main__":
+    main()
+```

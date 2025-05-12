@@ -1,0 +1,78 @@
+Voici un énoncé de problème :
+
+Problem F: Ghost Legs
+Problem
+縦線が３本のあみだくじが$N$個ある。
+どの線からスタートしてもスタートした線で終わるあみだくじを良いあみだくじとする。
+あみだくじを１つ以上選んで縦に自由な順序でつなぐことができる。
+良いあみだくじを作ることができるのであれば"yes"、そうでなければ"no"を出力せよ。
+$i$番目のあみだくじには横線が$w_i$本ある。
+$a_{i,j}$はあみだくじ$i$の上から$j$番目の横棒が中央の縦線から左右どちらに伸びているかを表し、
+$a_{i,j}$が0ならば左に、1ならば右に伸びていることを表す。
+Input
+入力は以下の形式で与えられる。
+$N$
+$w_1$ $a_{1,1}$ $a_{1,2}$ ... $a_{1,w_1}$
+$w_2$ $a_{2,1}$ $a_{2,2}$ ... $a_{2,w_2}$
+...
+$w_N$ $a_{N,1}$ $a_{N,2}$ ... $a_{N,w_N}$
+入力はすべて整数で与えられる。
+1行目に$N$が与えられる。
+続く$N$行に$w_i$と$w_i$個の$a_{i,j}$が空白区切りで与えられる。
+Constraints
+入力は以下の条件を満たす。
+$1 \le N \le 50$
+$0 \le w_i \le 100$
+$a_{i,j}$は0または1
+Output
+良いあみだくじを作ることができるのであれば"yes"、そうでなければ"no"を出力する。
+Sample Input 1
+3
+2 0 0
+1 1
+5 1 0 0 1 0
+Sample Output 1
+yes
+Sample Input 2
+2
+1 1
+1 0
+Sample Output 2
+no
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+N = int(input())
+C = [0]*6
+S = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+L = [1, 2, 2, 3, 3, 2]
+P = []
+init = [0, 1, 2]
+for i in range(N):
+    w, *A = map(int, input().split())
+    state = init[:]
+    for a in A:
+        if a:
+            state[1], state[2] = state[2], state[1]
+        else:
+            state[0], state[1] = state[1], state[0]
+    j = S.index(state)
+    C[j] += 1
+    if C[j] >= L[j]:
+        print('yes')
+        exit(0)
+    P.append(state)
+
+# case: "L <= [0, 1, 1, 2, 2, 1]"
+from itertools import permutations
+for p in permutations(P):
+    s = init[:]
+    for q in p:
+        s[0], s[1], s[2] = s[q[0]], s[q[1]], s[q[2]]
+    if s == init:
+        print('yes')
+        exit(0)
+print('no')
+```

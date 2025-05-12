@@ -1,0 +1,76 @@
+Voici un énoncé de problème :
+
+Score :
+500
+points
+Problem Statement
+You are given a tree with
+N
+vertices and
+N-1
+edges. The vertices are numbered
+1
+to
+N
+, and the
+i
+-th edge connects Vertex
+a_i
+and
+b_i
+.
+You have coloring materials of
+K
+colors.
+For each vertex in the tree, you will choose one of the
+K
+colors to paint it, so that the following condition is satisfied:
+If the distance between two different vertices
+x
+and
+y
+is less than or equal to two,
+x
+and
+y
+have different colors.
+How many ways are there to paint the tree? Find the count modulo
+1\ 000\ 000\ 007
+.
+What is tree?
+A tree is a kind of graph. For detail, please see:
+Wikipedia "Tree (graph theory)"
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+n,k=map(int,input().split())
+ki=[[] for _ in range(n)]
+for _ in range(n-1):
+  a,b=map(int,input().split())
+  a,b=a-1,b-1
+  ki[a].append(b)
+  ki[b].append(a)
+mod=pow(10,9)+7
+from collections import deque
+seen=[-1]*n
+seen[0]=k
+todo=deque([0])
+while todo:
+  t=todo.popleft()
+  s=max(k-2,seen[t]-1)
+  for li in ki[t]:
+    if seen[li]==-1:
+      if s<=0:
+        print(0)
+        exit()
+      seen[li]=s
+      s-=1
+      todo.append(li)
+ans=1
+for s in seen:
+  ans*=s
+  ans%=mod
+print(ans)
+```

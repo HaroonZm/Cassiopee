@@ -1,0 +1,217 @@
+Voici un énoncé de problème :
+
+Problem F:
+Cleaning Robot
+Here, we want to solve path planning for a mobile robot cleaning a
+rectangular room floor with furniture.
+Consider the room floor paved with square tiles whose size fits
+the cleaning robot (1 × 1).
+There are 'clean tiles' and 'dirty tiles', and the robot can change
+a 'dirty tile' to a 'clean tile' by visiting the tile.
+Also there may be some obstacles (furniture) whose size fits a
+tile in the room. If there is an obstacle on a tile, the robot cannot visit
+it.
+The robot moves to an adjacent tile with one move.
+The tile onto which the robot moves must be one of four tiles
+(i.e., east, west, north or south) adjacent to the tile where the
+robot is present. The robot may visit a tile twice or more.
+Your task is to write a program which computes the minimum number of
+moves for the robot to change all 'dirty tiles' to 'clean tiles',
+if ever possible.
+Input
+The input consists of multiple maps, each representing the size
+and arrangement of the room. A map is given in the following format.
+w h
+c
+11
+c
+12
+c
+13
+...
+c
+1
+w
+c
+21
+c
+22
+c
+23
+...
+c
+2
+w
+...
+c
+h
+1
+c
+h
+2
+c
+h
+3
+...
+c
+hw
+The integers
+w
+and
+h
+are the lengths of the two sides
+of the floor of the room in terms of widths of floor tiles.
+w
+and
+h
+are less than or equal to 20. The character
+c
+yx
+represents
+what is initially on the tile with coordinates (
+x, y
+) as follows.
+'
+.
+' : a clean tile
+'
+*
+' : a dirty tile
+'
+x
+' : a piece of furniture (obstacle)
+'
+o
+' : the robot (initial position)
+In the map the number of 'dirty tiles' does not exceed 10.
+There is only one 'robot'.
+The end of the input is indicated by a line containing two zeros.
+Output
+For each map, your program should output a line containing the minimum
+number of moves. If the map includes 'dirty tiles' which the robot cannot reach,
+your program should output -1.
+Sample Input
+7 5
+.......
+.o...*.
+.......
+.*...*.
+.......
+15 13
+.......x.......
+...o...x....*..
+.......x.......
+.......x.......
+.......x.......
+...............
+xxxxx.....xxxxx
+...............
+.......x.......
+.......x.......
+.......x.......
+..*....x....*..
+.......x.......
+10 10
+..........
+..o.......
+..........
+..........
+..........
+.....xxxxx
+.....x....
+.....x.*..
+.....x....
+.....x....
+0 0
+Output for the Sample Input
+8
+49
+-1
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from heapq import heappush, heappop
+INF = 10 ** 10
+
+direct = ((0, -1), (0, 1), (-1, 0), (1, 0))
+
+def dist(fr, to, mp):
+  que = []
+  heappush(que, (0, fr))
+  visited = [[False] * len(mp[0]) for _ in range(len(mp))]
+  visited[fr[1]][fr[0]] = True
+  while que:
+    d, point = heappop(que)
+    x, y = point
+    for dx, dy in direct:
+      nx, ny = x + dx, y + dy
+      if (nx, ny) == to:
+        return d + 1
+      if not visited[ny][nx] and mp[ny][nx] != "x":
+        visited[ny][nx] = True
+        heappush(que, (d + 1, (nx, ny)))
+  else:
+    return -1
+
+def my_hash(rest):
+  ret = 0
+  for i in rest:
+    ret += 10 ** i
+  return ret
+
+def shortest(fr, rest, edges, dp):
+  if rest == set():
+    return 0
+  h = my_hash(rest)
+  if h in dp[fr]:
+    return dp[fr][h]
+  ret = INF
+  for d, to in edges[fr]:
+    if to in rest:
+      score = d + shortest(to, rest - {to}, edges, dp)
+      if score < ret:
+        ret = score
+  dp[fr][h] = ret
+  return ret
+
+def main():
+  while True:
+    w, h = map(int, input().split())
+    if w == 0:
+      break
+    mp = ["x" + input() + "x" for _ in range(h)]
+    mp.insert(0, "x" * (w + 2))
+    mp.append("x" * (w + 2))
+    
+    stains = []
+    for y in range(1, h + 1):
+      for x in range(1, w + 1):
+        if mp[y][x] == "*":
+          stains.append((x, y))
+        elif mp[y][x] == "o":
+          start = len(stains)
+          stains.append((x, y))
+    
+    stain_num = len(stains)
+    edges = [[] for _ in range(stain_num)]
+    miss_flag = False
+    for i in range(stain_num):
+      for j in range(i + 1, stain_num):
+        fr = stains[i]
+        to = stains[j]
+        d = dist(fr, to, mp)
+        if d == -1:
+          miss_flag = True
+        edges[i].append((d, j))
+        edges[j].append((d, i))
+    if miss_flag:
+      print(-1)
+      continue
+
+    dp = [{} for _ in range(stain_num)]
+    print(shortest(start, {i for i in range(stain_num) if i != start}, edges, dp))
+
+main()
+```

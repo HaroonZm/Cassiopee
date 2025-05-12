@@ -1,0 +1,1 @@
+s=input();print("No"if s!=s[::-1].translate(str.maketrans({'b': 'd', 'd': 'b',"p":"q","q":"p"}))else"Yes")

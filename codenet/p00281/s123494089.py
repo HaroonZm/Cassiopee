@@ -1,0 +1,14 @@
+def main():
+  n, m = map(int, input().split())
+  works =[[] for _ in range(n + 1)]
+  while True:
+    s, t, e = map(int, input().split())
+    if s == 0:
+      break
+    works[s - 1].append((t - 1, e))
+  
+  l = int(input())
+  for _ in range(l):
+    blst = tuple(map(int, input().split()))
+    print(*[sum([blst[t] * e for t, e in works[i]]) for i in range(n)])
+main()

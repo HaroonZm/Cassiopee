@@ -1,0 +1,48 @@
+from collections import deque
+dd = [(-1, 0), (0, -1), (1, 0), (0, 1)]
+while 1:
+    w, h = map(int, raw_input().split())
+    if w == h == 0:
+        break
+    P = [list(raw_input()) for i in xrange(h)]
+    L = [[None]*w for i in xrange(h)]
+
+    deq = deque()
+    cnt = 0
+    g = []; XL = []; XR = []; M = []; C = []
+    for i in xrange(h):
+        for j in xrange(w):
+            if P[i][j] is '.':
+                continue
+            if L[i][j] is None:
+                p = P[i][j]
+                deq.append((j, i))
+                L[i][j] = cnt
+                if i == h-1 or p != P[i+1][j] != '.':
+                    xl = xr = j
+                else:
+                    xl = w; xr = -1;
+                s = 2 + j
+                while deq:
+                    x, y = deq.popleft()
+                    for dx, dy in dd:
+                        nx = x + dx; ny = y + dy
+                        if 0 <= nx < w and 0 <= ny < h and p == P[ny][nx] and L[ny][nx] is None:
+                            deq.append((nx, ny))
+                            L[ny][nx] = cnt
+                            s += nx
+                            if ny == h-1 or p != P[ny+1][nx] != '.':
+                                xl = min(xl, nx); xr = max(xr, nx)
+                cnt += 1
+                g.append(set()); M.append(s); C.append(4); XL.append(xl); XR.append(xr+1)
+            if i:
+                if L[i][j] != L[i-1][j] != None and L[i-1][j] not in g[L[i][j]]:
+                    g[L[i][j]].add(L[i-1][j])
+                    M[L[i][j]] += M[L[i-1][j]]
+                    C[L[i][j]] += C[L[i-1][j]]
+    for i in xrange(cnt):
+        if not XL[i]*C[i] < M[i] < XR[i]*C[i]:
+            print "UNSTABLE"
+            break
+    else:
+        print "STABLE"

@@ -1,0 +1,15 @@
+n,*t=map(int,open(0).read().split())
+x=sorted(zip(t[1:n*2:2],t[:n*2:2]))
+y=sorted(zip(t[n*2::2],t[n*2+1::2]))[::-1]
+c=0
+while y:
+  i,j=y.pop()
+  k=len(x)-1
+  while k>=0:
+    b,a=x[k]
+    if a<i and b<j:
+      c+=1
+      del x[k]
+      break
+    k-=1
+print(c)

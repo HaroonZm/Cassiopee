@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# DSL_3_A: The Smallest Window I
+# binary search
+
+def find(xs, size, s):
+    sum_ = sum(xs[:size])
+    if s <= sum_:
+        return True
+    for i in range(len(xs)-size):
+        sum_ -= xs[i]
+        sum_ += xs[i+size]
+        if s <= sum_:
+            return True
+    return False
+
+def run():
+    n, s = [int(i) for i in input().split()]
+    li = [int(i) for i in input().split()]
+
+    if s > sum(li):
+        print(0)
+        return
+    elif s < max(li):
+        print(1)
+        return
+
+    i, j = 0, n
+    while i+1 < j:
+        # assert(not find(li, i, s))
+        # assert(find(li, j, s))
+        mid = (i + j) // 2
+        # print(i, j, mid)
+        if find(li, mid, s):
+            j = mid
+        else:
+            i = mid
+
+    print(j)
+
+if __name__ == '__main__':
+    run()

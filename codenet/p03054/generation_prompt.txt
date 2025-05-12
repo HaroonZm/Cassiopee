@@ -1,0 +1,200 @@
+Voici un énoncé de problème :
+
+Score :
+600
+points
+Problem Statement
+We have a rectangular grid of squares with
+H
+horizontal rows and
+W
+vertical columns. Let
+(i,j)
+denote the square at the
+i
+-th row from the top and the
+j
+-th column from the left.
+On this grid, there is a piece, which is initially placed at square
+(s_r,s_c)
+.
+Takahashi and Aoki will play a game, where each player has a string of length
+N
+.
+Takahashi's string is
+S
+, and Aoki's string is
+T
+.
+S
+and
+T
+both consist of four kinds of letters:
+L
+,
+R
+,
+U
+and
+D
+.
+The game consists of
+N
+steps. The
+i
+-th step proceeds as follows:
+First, Takahashi performs a move. He either moves the piece in the direction of
+S_i
+, or does not move the piece.
+Second, Aoki performs a move. He either moves the piece in the direction of
+T_i
+, or does not move the piece.
+Here, to move the piece in the direction of
+L
+,
+R
+,
+U
+and
+D
+, is to move the piece from square
+(r,c)
+to square
+(r,c-1)
+,
+(r,c+1)
+,
+(r-1,c)
+and
+(r+1,c)
+, respectively. If the destination square does not exist, the piece is removed from the grid, and the game ends, even if less than
+N
+steps are done.
+Takahashi wants to remove the piece from the grid in one of the
+N
+steps.
+Aoki, on the other hand, wants to finish the
+N
+steps with the piece remaining on the grid.
+Determine if the piece will remain on the grid at the end of the game when both players play optimally.
+Constraints
+2 \leq H,W \leq 2 \times 10^5
+2 \leq N \leq 2 \times 10^5
+1 \leq s_r \leq H
+1 \leq s_c \leq W
+|S|=|T|=N
+S
+and
+T
+consists of the four kinds of letters
+L
+,
+R
+,
+U
+and
+D
+.
+Input
+Input is given from Standard Input in the following format:
+H
+W
+N
+s_r
+s_c
+S
+T
+Output
+If the piece will remain on the grid at the end of the game, print
+YES
+; otherwise, print
+NO
+.
+Sample Input 1
+2 3 3
+2 2
+RRL
+LUD
+Sample Output 1
+YES
+Here is one possible progress of the game:
+Takahashi moves the piece right. The piece is now at
+(2,3)
+.
+Aoki moves the piece left. The piece is now at
+(2,2)
+.
+Takahashi does not move the piece. The piece remains at
+(2,2)
+.
+Aoki moves the piece up. The piece is now at
+(1,2)
+.
+Takahashi moves the piece left. The piece is now at
+(1,1)
+.
+Aoki does not move the piece. The piece remains at
+(1,1)
+.
+Sample Input 2
+4 3 5
+2 2
+UDRRR
+LLDUD
+Sample Output 2
+NO
+Sample Input 3
+5 6 11
+2 1
+RLDRRUDDLRL
+URRDRLLDLRD
+Sample Output 3
+NO
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+
+H,W,N=map(int,input().split())
+sr,sc=map(int,input().split())
+sr-=1
+sc-=1
+S=list(input())
+T=list(input())
+#4方向全てにおいて阻止できるか
+dic1={"U":0,"D":1,"R":2,"L":3}
+dic2={"U":1,"D":0,"R":3,"L":2}
+dic3={"U":-1,"D":1,"R":1,"L":-1}
+data=[[sr],[sr],[sc],[sc]]
+for i in range(N):
+    data[dic1[S[i]]].append(dic3[S[i]])
+    data[dic2[T[i]]].append(dic3[T[i]])
+
+h=data[0]
+for i in range(1,len(h)):
+    h[i]=min(H-1,h[i]+h[i-1])
+    if h[i]==-1:
+        print("NO")
+        sys.exit()
+h=data[1]
+for i in range(1,len(h)):
+    h[i]=max(0,h[i]+h[i-1])
+    if h[i]==H:
+        print("NO")
+        sys.exit()
+h=data[3]
+for i in range(1,len(h)):
+    h[i]=min(W-1,h[i]+h[i-1])
+    if h[i]==-1:
+        print("NO")
+        sys.exit()
+h=data[2]
+for i in range(1,len(h)):
+    h[i]=max(0,h[i]+h[i-1])
+    if h[i]==W:
+        print("NO")
+        sys.exit()
+print("YES")
+```

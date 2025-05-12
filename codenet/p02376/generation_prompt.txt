@@ -1,0 +1,116 @@
+Voici un énoncé de problème :
+
+Maximum Flow
+A flow network is a directed graph which has a $source$ and a $sink$. In a flow network, each edge $(u, v)$ has a capacity $c(u, v)$. Each edge receives a flow, but the amount of flow on the edge can not exceed the corresponding capacity. Find the maximum flow from the $source$ to the $sink$.
+Input
+A flow network is given in the following format.
+$|V|\;|E|$
+$u_0\;v_0\;c_0$
+$u_1\;v_1\;c_1$
+:
+$u_{|E|-1}\;v_{|E|-1}\;c_{|E|-1}$
+$|V|$, $|E|$ is the number of vertices and edges of the flow network respectively. The vertices in $G$ are named with the numbers 0, 1,..., $|V|-1$. The source is 0 and the sink is $|V|-1$.
+$u_i$, $v_i$, $c_i$ represent $i$-th edge of the flow network.
+A pair of $u_i$ and $v_i$ denotes that there is an edge from $u_i$ to $v_i$ and $c_i$ is the capacity of $i$-th edge.
+Output
+Print the maximum flow.
+Constraints
+$2 \leq |V| \leq 100$
+$1 \leq |E| \leq 1000$
+$0 \leq c_i \leq 10000$
+Sample Input 1
+4 5
+0 1 2
+0 2 1
+1 2 1
+1 3 1
+2 3 2
+Sample Output 1
+3
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import deque
+
+class Edge:
+    def __init__(self, to, flow, cap, rev, is_rev):
+        self.to = to
+        self.flow = flow
+        self.cap = cap
+        self.rev = rev
+        self.is_rev = is_rev
+
+class Dinic:
+    def __init__(self, num_of_node: int):
+        assert num_of_node > 0
+
+        self.graph = [list() for _ in range(num_of_node)]   # グラフの隣接リスト表現
+        self.level = [None] * num_of_node      # sからの距離
+        self.ite = [None] * num_of_node       # どこまで調べ終わったか
+
+    # fromからtoへ向かう容量capの辺をグラフに追加する
+    def add_edge(self, f: int, t: int, cap: int):
+        self.graph[f].append(Edge(t, 0, cap, len(self.graph[t]), False))
+        self.graph[t].append(Edge(f, cap, cap, len(self.graph[f]) - 1, True))
+
+    # sからtへの最大流を求める
+    def max_flow(self, s: int, t: int):
+        flow = 0
+        while True:
+            self.bfs(s)
+            if self.level[t] < 0:
+                return flow
+
+            self.ite = [0] * len(self.ite)
+            while True:
+                f = self.dfs(s, t, 10 ** 10)
+                if f > 0:
+                    flow += f
+                else:
+                    break
+
+    # sからの最短距離をBFSで計算する
+    def bfs(self, s: int):
+        self.level = [-1] * len(self.level)
+        que = deque()
+        que.append(s)
+        self.level[s] = 0
+        while len(que):
+            v = que.popleft()
+
+            for i in range(len(self.graph[v])):
+                e = self.graph[v][i]
+                if e.cap - e.flow > 0 and self.level[e.to] < 0:
+                    self.level[e.to] = self.level[v] + 1
+                    que.append(e.to)
+
+    # 増加パスをDFSで探す
+    def dfs(self, v: int, t: int, f: int):
+        if v == t:
+            return f
+
+        for i in range(self.ite[v], len(self.graph[v])):
+            e = self.graph[v][i]
+            if e.cap - e.flow > 0 and self.level[v] < self.level[e.to]:
+                d = self.dfs(e.to, t, min(f, e.cap - e.flow))
+                if d > 0:
+                    self.graph[v][i].flow += d
+                    self.graph[e.to][e.rev].flow -= d
+                    return d
+            self.ite[v] = i
+        return 0
+
+def main():
+    V, E = map(int, input().split())
+    dinic = Dinic(V)
+    for _ in range(E):
+        u, v, c = map(int, input().split())
+        dinic.add_edge(u, v, c)
+
+    print(dinic.max_flow(0, V - 1))
+
+if __name__ == '__main__':
+    main()
+```

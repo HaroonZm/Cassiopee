@@ -1,0 +1,13 @@
+from math import *
+from decimal import Decimal
+
+N = int(input())
+T, A = 1, 1
+
+for i in range(N):
+	t, a = list(map(int, input().split()))
+	n = Decimal(max(ceil(T / t), ceil(A / a)))
+	T = n * t
+	A = n * a
+
+print(T + A)

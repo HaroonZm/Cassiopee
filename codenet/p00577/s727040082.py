@@ -1,0 +1,27 @@
+def found_min(x, y):
+    if x == -1 and y == -1:
+        return -1
+    elif x == -1:
+        return y
+    elif y == -1:
+        return x
+    else:
+        if x >= y:
+            return y
+        else:
+            return x
+n = int(input())
+Stamp = input()
+
+OXStamp = 0
+index = 0
+
+while True:
+    
+    i = found_min(Stamp[index:].find("OX"), Stamp[index:].find("XO"))
+    if i == -1:
+        break
+    else:
+        OXStamp += 1
+        index += i + 2
+print(OXStamp)

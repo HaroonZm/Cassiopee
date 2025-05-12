@@ -1,0 +1,178 @@
+Voici un énoncé de problème :
+
+Score :
+1400
+points
+Problem Statement
+Process the
+Q
+queries below.
+You are given two integers
+A_i
+and
+M_i
+. Determine whether there exists a positive integer
+K_i
+not exceeding
+2 × 10^{18}
+such that
+A_i^{K_i} ≡ K_i
+(mod
+M_i)
+, and find one if it exists.
+Constraints
+1 \leq Q \leq 100
+0 \leq A_i \leq 10^9(1 \leq i \leq Q)
+1 \leq M_i \leq 10^9(1 \leq i \leq Q)
+Inputs
+Input is given from Standard Input in the following format:
+Q
+A_1
+M_1
+:
+A_Q
+M_Q
+Outputs
+In the
+i
+-th line, print
+-1
+if there is no integer
+K_i
+that satisfies the condition.
+Otherwise, print an integer
+K_i
+not exceeding
+2 × 10^{18}
+such that
+A_i^{K_i} ≡ K_i
+(mod
+M_i)
+. If there are multiple solutions, any of them will be accepted.
+Sample Input 1
+4
+2 4
+3 8
+9 6
+10 7
+Sample Output 1
+4
+11
+9
+2
+It can be seen that the condition is satisfied:
+2^4 = 16 ≡ 4
+(mod
+4)
+,
+3^{11} = 177147 ≡ 11
+(mod
+8)
+,
+9^9 = 387420489 ≡ 9
+(mod
+6)
+and
+10^2 = 100 ≡ 2
+(mod
+7)
+.
+Sample Input 2
+3
+177 168
+2028 88772
+123456789 987654321
+Sample Output 2
+7953
+234831584
+471523108231963269
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def extgcd(a, b):
+  if b == 0:
+    return 1
+  else:
+    x, y, u, v, k, l = 1, 0, 0, 1, a, b
+    while l != 0:
+      x, y, u, v = u, v, x - u * (k // l), y - v * (k // l)
+      k, l = l, k % l
+    return x
+def inved(x, m):
+  return x % m
+def gcd(x, y):
+  while y != 0:
+    x, y = y, x % y
+  return x
+def doubling(n, m, mod):
+  y = 1
+  base = n
+  while m != 0:
+    if m % 2 == 1:
+      y *= base
+      y %= mod
+    base *= base
+    base %= mod
+    m //= 2
+  return y
+def factorization(n):
+  if n == 1:
+    return {1: 1}
+  else:
+    D = {}
+    base = n
+    p = 2
+    while n != 1:
+      i = 0
+      while n % p == 0:
+        i += 1
+        n //= p
+      if i != 0:
+        D[p] = i
+      p += 1
+      if p * p > base and n != 1:
+        D[n] = 1
+        break
+    return D
+def Torshent(n):
+  dic = factorization(n)
+  S = n
+  for i in dic:
+    S //= i
+    S *= i - 1
+  return S
+def bin_digits(n):
+  cnt = 0
+  while n != 0:
+    cnt += 1
+    n //= 2
+  return cnt
+def Resque(a, mod):
+  if mod == 1:
+    return 1
+  M = Torshent(mod)
+  MM = gcd(M, mod)
+  R = Resque(a, MM)
+  k = doubling(a, R, mod)
+  m, modmod = M // MM, mod // MM
+  Tm = Torshent(modmod)
+  invm = doubling(m, Tm-1, modmod)
+  t = ((k - R) // MM) * invm
+  R += t * M
+  R %= (mod * M // MM)
+  R += (mod * M // MM)
+  return R
+
+#---------------------------------------------------------------#
+
+Q = int(input())
+for i in range(Q):
+  A, M = map(int, input().split())
+  if M == 1:
+    print(1)
+  else:
+    R = Resque(A, M)
+    print(R)
+```

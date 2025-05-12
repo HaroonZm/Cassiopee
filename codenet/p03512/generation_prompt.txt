@@ -1,0 +1,166 @@
+Voici un énoncé de problème :
+
+Score :
+100
+points
+Problem Statement
+Consider an infinite sequence
+a_1,
+a_2,
+…
+Initially, the values of all the terms are
+0
+, and from this state we will sequentially perform
+Q
+operations. The
+i
+-th operation
+(1 ≤ i ≤ Q)
+is as follows:
+For every positive integer
+j
+, add
+x_i
+to the value of
+a_{j × m_i}
+.
+Find the value of the largest term after these
+Q
+operations.
+Constraints
+1 ≤ Q ≤ 299
+2 ≤ m_i ≤ 300
+-10^6 ≤ x_i ≤ 10^6
+All
+m_i
+are distinct.
+All input values are integers.
+Input
+Input is given from Standard Input in the following format:
+Q
+m_1
+x_1
+:
+m_Q
+x_Q
+Output
+Print the value of the largest term after the
+Q
+operations.
+Sample Input 1
+3
+2 10
+3 -20
+6 15
+Sample Output 1
+10
+The values of each terms in the sequence
+a_1,
+a_2,
+…
+change as follows:
+Before the operations:
+0,
+0,
+0,
+0,
+0,
+0,
+…
+After the
+1
+-st operation:
+0,
+10,
+0,
+10,
+0,
+10,
+…
+After the
+2
+-nd operation:
+0,
+10,
+-20,
+10,
+0,
+-10,
+…
+After the
+3
+-rd operation:
+0,
+10,
+-20,
+10,
+0,
+5,
+…
+The value of the largest term after all the operations is
+10
+.
+Sample Input 2
+3
+10 -3
+50 4
+100 -5
+Sample Output 2
+1
+Sample Input 3
+5
+56 114834
+72 -149861
+100 190757
+192 -132693
+240 133108
+Sample Output 3
+438699
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from itertools import product
+
+Q = int(input())
+mxs = [tuple(map(int, input().split())) for _ in range(Q)]
+
+p1s = [2,3,5,7,11,13,17]
+nums = [9,6,4,3,3,3,3]
+rangeNums = [range(num) for num in nums]
+p2s = [19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293]
+
+mx1s = []
+mx2ss = [[] for _ in range(len(p2s))]
+for m, x in mxs:
+    for i, p2 in enumerate(p2s):
+        if m % p2 == 0:
+            mx2ss[i].append((m, x))
+            break
+    else:
+        mx1s.append((m, x))
+
+ans = 0
+for es in product(*rangeNums):
+    f = 1
+    for p1, e in zip(p1s, es):
+        f *= p1**e
+
+    A = 0
+    for m1, x1 in mx1s:
+        if f % m1 == 0:
+            A += x1
+
+    for p2, mx2s in zip(p2s, mx2ss):
+        A2 = 0
+        for m2, x2 in mx2s:
+            if f*p2 % m2 == 0:
+                A2 += x2
+        if A2 > 0:
+            A += A2
+
+    ans = max(ans, A)
+
+print(ans)
+```

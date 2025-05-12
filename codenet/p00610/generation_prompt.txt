@@ -1,0 +1,127 @@
+Voici un énoncé de problème :
+
+Problem F:
+Cleaning Robot 2.0
+Dr. Asimov, a robotics researcher, released cleaning robots he developed (see Problem B). His robots soon became very popular and he got much income. Now he is pretty rich. Wonderful.
+First, he renovated his house. Once his house had 9 rooms that were arranged in a square, but now his house has
+N
+×
+N
+rooms arranged in a square likewise. Then he laid either black or white carpet on each room.
+Since still enough money remained, he decided to spend them for development of a new robot. And finally he completed.
+The new robot operates as follows:
+The robot is set on any of
+N
+×
+N
+rooms, with directing any of north, east, west and south.
+The robot detects color of carpets of lefthand, righthand, and forehand adjacent rooms if exists. If there is exactly one room that its carpet has the same color as carpet of room where it is, the robot changes direction to and moves to and then cleans the room. Otherwise, it halts. Note that halted robot doesn't clean any longer. Following is some examples of robot's movement.
+Figure 1. An example of the room
+In Figure 1,
+robot that is on room (1,1) and directing north directs east and goes to (1,2).
+robot that is on room (0,2) and directing north directs west and goes to (0,1).
+robot that is on room (0,0) and directing west halts.
+Since the robot powered by contactless battery chargers that are installed in every rooms, unlike the previous robot, it never stops because of running down of its battery. It keeps working until it halts.
+Doctor's house has become larger by the renovation. Therefore, it is not efficient to let only one robot clean. Fortunately, he still has enough budget. So he decided to make a number of same robots and let them clean simultaneously.
+The robots interacts as follows:
+No two robots can be set on same room.
+It is still possible for a robot to detect a color of carpet of a room even if the room is occupied by another robot.
+All robots go ahead simultaneously.
+When robots collide (namely, two or more robots are in a single room, or two robots exchange their position after movement), they all halt. Working robots can take such halted robot away.
+On every room dust stacks slowly but constantly. To keep his house pure, he wants his robots to work so that dust that stacked on any room at any time will eventually be cleaned.
+After thinking deeply, he realized that there exists a carpet layout such that no matter how initial placements of robots are, this condition never can be satisfied. Your task is to output carpet layout that there exists at least one initial placements of robots that meets above condition. Since there may be two or more such layouts, please output the
+K
+-th one lexicographically.
+Input
+Input file contains several data sets.
+One data set is given in following format:
+N K
+Here,
+N
+and
+K
+are integers that are explained in the problem description.
+The end of input is described by a case where
+N
+=
+K
+= 0. You should output nothing for this case.
+Output
+Print the
+K
+-th carpet layout if exists, "
+No
+" (without quotes) otherwise.
+The carpet layout is denoted by
+N
+lines of string that each has exactly
+N
+letters. A room with black carpet and a room with white carpet is denoted by a letter '
+E
+' and '
+.
+' respectively. Lexicographically order of carpet layout is defined as that of a string that is obtained by concatenating the first row, the second row, ..., and the
+N
+-th row in this order.
+Output a blank line after each data set.
+Constraints
+Judge data consists of at most 100 data sets.
+1 ≤
+N
+< 64
+1 ≤
+K
+< 2
+63
+Sample Input
+2 1
+2 3
+6 4
+0 0
+Output for the Sample Input
+..
+..
+No
+..EEEE
+..E..E
+EEE..E
+E..EEE
+E..E..
+EEEE..
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+while True:
+    n, k = map(int, raw_input().split())
+    if k == 0:
+        break
+    A = [['.' for i in range(n)] for j in range(n)]
+    k = bin(k - 1)[2:].zfill(n / 2)
+    if n % 2 == 1 or len(k) > n / 2:
+        print "No\n"
+        continue
+    for i in range(n / 2):
+        if k[i] == '1':
+            A[0][i * 2] = 'E'
+            A[0][i * 2 + 1] = 'E'
+    print ''.join(A[0])
+    for i in range(n - 1):
+        for j in range(n):
+            cnt = 0
+            if i > 0 and A[i][j] == A[i - 1][j]:
+                cnt += 1
+            if j > 0 and A[i][j] == A[i][j - 1]:
+                cnt += 1
+            if j < n - 1 and A[i][j] == A[i][j + 1]:
+                cnt += 1
+            if cnt == 1:
+                A[i + 1][j] = A[i][j]
+            elif A[i][j] == '.':
+                A[i + 1][j] = 'E'
+            else:
+                A[i + 1][j] = '.'
+        print ''.join(A[i + 1])
+    print
+```

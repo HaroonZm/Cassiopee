@@ -1,0 +1,18 @@
+m=10000000019
+x=0
+def mod(x):return (x%m+m)%m
+def pow(x,a):
+    ret=1
+    while a:
+        if(a&1):ret=mod(x*ret)
+        x=mod(x*x)
+        a>>=1
+    return ret
+
+for _ in range(int(input())):
+    o,y=map(int,input().split())
+    if o==1:x=(x+y)%m
+    elif o==2:x=(x-y)%m
+    elif o==3:x=mod(x*y)
+    else:x=mod(x*pow(y,m-2))
+print(x if x<(1<<31)else x-m)

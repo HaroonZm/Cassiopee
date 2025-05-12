@@ -1,0 +1,13 @@
+# AOJ 1119: Exploring Caves
+# Python3 2018.7.14 bal4u
+
+for _ in range(int(input())):
+	ans = x = y = tx = ty = 0
+	while True:
+		dx, dy = map(int, input().split())
+		if (dx | dy) == 0: break
+		x += dx; y += dy
+		d = x*x+y*y
+		if d > ans: ans, tx, ty = d, x, y
+		elif d == ans and tx < x: tx, ty = x, y
+	print(tx, ty)

@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+
+import copy
+
+def rdp_connect() -> bool:
+    global n, m, c
+    n, m = map(int, input().split())
+    if n == m == 0:
+        return False
+    c = [list(input()) for _ in range(n)]
+    return True
+
+def rdp_check() -> bool:
+    DY = (0, 1,  0, -1)
+    DX = (1, 0, -1,  0)
+    def refresh(d: int, x1: int, y1: int, x2: int, y2: int) -> bool:
+        global c
+        st = copy.deepcopy(c)
+        y, x = y1, x1
+        flag = True
+        while flag or not ((y, x) == (y1, x1) or (y, x) == (y2, x2)):
+            st[y][x] = '#'
+            for _ in range(4):
+                fy, fx = y + DY[d], x + DX[d]
+                ly, lx = y + DY[(d + 3) % 4], x + DX[(d + 3) % 4]
+                if 0 <= ly < n and 0 <= lx < m and c[ly][lx] == '.':
+                    y, x = ly, lx
+                    d = (d + 3) % 4
+                    flag = False
+                    break
+                elif 0 <= fy < n and 0 <= fx < m and c[fy][fx] == '.':
+                    y, x = fy, fx
+                    flag = False
+                    break
+                d = (d + 1) % 4
+            if flag:
+                return d, False
+        st[y1][x1] = '.'
+        c = st
+        return d, (y, x) == (y2, x2)
+    d, flag = refresh(0, 0, 0, m - 1, 0)
+    if not flag:
+        return False
+    d, flag = refresh(d, m - 1, 0, m - 1, n - 1)
+    if not flag:
+        return False
+    d, flag = refresh(d, m - 1, n - 1, 0, n - 1)
+    if not flag:
+        return False
+    return refresh(d, 0, n - 1, 0, 0)[1]
+
+if __name__ == '__main__':
+    while rdp_connect():
+        if rdp_check():
+            print('YES')
+        else:
+            print('NO')

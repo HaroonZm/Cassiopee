@@ -1,0 +1,93 @@
+Voici un énoncé de problème :
+
+Problem B:
+Prime Gap
+The sequence of
+n
+- 1 consecutive composite numbers (positive integers that are not prime and
+not equal to 1) lying between two successive prime numbers
+p
+and
+p
++
+n
+is called a
+prime
+gap of length
+n
+. For example, (24, 25, 26, 27, 28) between 23 and 29 is a prime gap of length 6.
+Your mission is to write a program to calculate, for a given positive integer
+k
+, the length of the prime gap that contains
+k
+. For convenience, the length is considered 0 in case no prime gap
+contains
+k
+.
+Input
+The input is a sequence of lines each of which contains a single positive integer. Each positive
+integer is greater than 1 and less than or equal to the 100000th prime number, which is 1299709.
+The end of the input is indicated by a line containing a single zero.
+Output
+The output should be composed of lines each of which contains a single non-negative integer. It
+is the length of the prime gap that contains the corresponding positive integer in the input if it
+is a composite number, or 0 otherwise. No other characters should occur in the output.
+Sample Input
+10
+11
+27
+2
+492170
+0
+Output for the Sample Input
+4
+0
+6
+0
+114
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#!/usr/bin/env python3
+
+import array
+import bisect
+
+MAX_PRIME = 1299709
+
+def sieve_of_eratosthenes(end, typecode="L"):
+    assert end > 1
+    is_prime = array.array("B", (True for i in range(end)))
+    is_prime[0] = False
+    is_prime[1] = False
+    primes = array.array(typecode)
+    for i in range(2, end):
+        if is_prime[i]:
+            primes.append(i)
+            for j in range(2 * i, end, i):
+                is_prime[j] = False
+    return primes
+
+def main():
+    primes = sieve_of_eratosthenes(MAX_PRIME + 1)
+
+    def length_of_gap_containing(n):
+        index = bisect.bisect_left(primes, n)
+        next_prime = primes[index]
+        if next_prime == n:
+            return 0
+        else:
+            prev_prime = primes[index - 1]
+            return next_prime - prev_prime
+    while True:
+        n = int(input())
+        if n == 0:
+            break
+        else:
+            print(length_of_gap_containing(n))
+
+if __name__ == '__main__':
+    main()
+```

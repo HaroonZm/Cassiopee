@@ -1,0 +1,83 @@
+Voici un énoncé de problème :
+
+Union of Rectangles
+Given a set of $N$ axis-aligned rectangles in the plane, find the area of regions which are covered by at least one rectangle.
+Input
+The input is given in the following format.
+$N$
+$x1_1$ $y1_1$ $x2_1$ $y2_1$
+$x1_2$ $y1_2$ $x2_2$ $y2_2$
+:
+$x1_N$ $y1_N$ $x2_N$ $y2_N$
+($x1_i, y1_i$) and ($x2_i, y2_i$) are the coordinates of the top-left corner and the bottom-right corner of the $i$-th rectangle respectively.
+Constraints
+$ 1 \leq N \leq 2000 $
+$ −10^9 \leq x1_i < x2_i\leq 10^9 $
+$ −10^9 \leq y1_i < y2_i\leq 10^9 $
+Output
+Print the area of the regions.
+Sample Input 1
+2
+0 0 3 4
+1 2 4 3
+Sample Output 1
+13
+Sample Input 2
+3
+1 1 2 5
+2 1 5 2
+1 2 2 5
+Sample Output 2
+7
+Sample Input 3
+4
+0 0 3 1
+0 0 1 3
+0 2 3 3
+2 0 3 3
+Sample Output 3
+8
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+N = int(input())
+
+XS = set(); YS = set()
+
+P = []
+for i in range(N):
+    x1, y1, x2, y2 = map(int, input().split())
+    XS.add(x1); XS.add(x2)
+    YS.add(y1); YS.add(y2)
+    P.append((x1, y1, x2, y2))
+
+X = sorted(XS); Y = sorted(YS)
+MX = {x: i for i, x in enumerate(X)}
+MY = {y: i for i, y in enumerate(Y)}
+
+H = len(Y); W = len(X)
+S = [[0]*(W+1) for i in range(H+1)]
+for x1, y1, x2, y2 in P:
+    p1 = MY[y1]; q1 = MX[x1]
+    p2 = MY[y2]; q2 = MX[x2]
+
+    S[p1][q1] += 1
+    S[p1][q2] -= 1
+    S[p2][q1] -= 1
+    S[p2][q2] += 1
+
+for i in range(H):
+    for j in range(W):
+        S[i][j+1] += S[i][j]
+for j in range(W):
+    for i in range(H):
+        S[i+1][j] += S[i][j]
+ans = 0
+for i in range(H):
+    for j in range(W):
+        if S[i][j]:
+            ans += (Y[i+1] - Y[i]) * (X[j+1] - X[j])
+print(ans)
+```

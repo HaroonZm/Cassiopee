@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+while True:
+    t, n = input().split()
+    t = int(t)
+    if t == 0:
+        exit()
+    L = len(n)
+    m = 0
+    parts = []
+    f = False
+    for b in range(1 << (L - 1)):
+        c = int(n[0])
+        s = 0
+        li = []
+        for k in range(L - 1):
+            if b >> k & 1 == 1:
+                s += c
+                li.append(c)
+                c = 0
+            c = 10 * c + int(n[k + 1])
+        s += c
+        li.append(c)
+        c = 0
+        if s > t:
+            continue
+        if s >= m:
+            f = (s == m)
+            m = s
+            parts = li
+    if f:
+        print('rejected')
+    elif m == 0:
+        print('error')
+    else:
+        print(m, *parts, sep=' ')

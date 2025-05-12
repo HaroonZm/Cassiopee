@@ -1,0 +1,101 @@
+Voici un énoncé de problème :
+
+Score :
+100
+points
+Problem Statement
+You are given an array
+a_0, a_1, ..., a_{N-1}
+of length
+N
+. Process
+Q
+queries of the following types.
+0 p x
+:
+a_p \gets a_p + x
+1 l r
+: Print
+\sum_{i = l}^{r - 1}{a_i}
+.
+Constraints
+1 \leq N, Q \leq 500,000
+0 \leq a_i, x \leq 10^9
+0 \leq p < N
+0 \leq l_i < r_i \leq N
+All values in Input are integer.
+Input
+Input is given from Standard Input in the following format:
+N
+Q
+a_0
+a_1
+...
+a_{N - 1}
+\textrm{Query}_0
+\textrm{Query}_1
+:
+\textrm{Query}_{Q - 1}
+Output
+For each query of the latter type, print the answer.
+Sample Input 1
+5 5
+1 2 3 4 5
+1 0 5
+1 2 4
+0 3 10
+1 0 5
+1 0 3
+Sample Output 1
+15
+7
+25
+6
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+class SegmentTree: #1-indexed
+    def __init__(self,list,f=lambda x,y:x+y,inf=0):
+        self.height=(len(list)-1).bit_length()+1 #木の高さ
+        self.id=inf #単位元
+        self.tree=[self.id]*(2**self.height) #木を単位元で初期化
+        self.f=f
+        for i in range(len(list)):
+            self.tree[2**(self.height-1)+i]=list[i]
+        for i in range(2**(self.height-1)-1,0,-1):
+            self.tree[i]=self.f(self.tree[2*i],self.tree[2*i+1])
+        
+    def update(self,i,x): #i番目の要素をxに変更
+        i+=2**(self.height-1)
+        self.tree[i]+=x
+        while i>1:
+            i//=2
+            self.tree[i]=self.f(self.tree[2*i],self.tree[2*i+1])
+    
+    def query(self,l,r):
+        l+=2**(self.height-1)
+        r+=2**(self.height-1)
+        lf,rf=self.id,self.id
+        while l<r:
+            if l&1:
+                lf=self.f(lf,self.tree[l])
+                l+=1
+            if r&1:
+                r-=1
+                rf=self.f(self.tree[r],rf)
+            l//=2
+            r//=2
+        return self.f(lf,rf)
+
+n,q=map(int,input().split())
+x=list(map(int,input().split()))
+S=SegmentTree(x)
+for i in range(q):
+    a,b,c=map(int,input().split())
+    if a==0:
+        S.update(b,c)
+    else:
+        print(S.query(b,c))
+```

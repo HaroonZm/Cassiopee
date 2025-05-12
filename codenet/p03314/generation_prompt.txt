@@ -1,0 +1,208 @@
+Voici un énoncé de problème :
+
+Score :
+1100
+points
+Problem Statement
+You are given integers
+N, K
+, and an integer sequence
+A
+of length
+M
+.
+An integer sequence where each element is between
+1
+and
+K
+(inclusive) is said to be
+colorful
+when there exists a contiguous subsequence of length
+K
+of the sequence that contains one occurrence of each integer between
+1
+and
+K
+(inclusive).
+For every colorful integer sequence of length
+N
+, count the number of the contiguous subsequences of that sequence which coincide with
+A
+, then find the sum of all the counts.
+Here, the answer can be extremely large, so find the sum modulo
+10^9+7
+.
+Constraints
+1 \leq N \leq 25000
+1 \leq K \leq 400
+1 \leq M \leq N
+1 \leq A_i \leq K
+All values in input are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+K
+M
+A_1
+A_2
+...
+A_M
+Output
+For every colorful integer sequence of length
+N
+, count the number of the contiguous subsequences of that sequence which coincide with
+A
+, then print the sum of all the counts modulo
+10^9+7
+.
+Sample Input 1
+3 2 1
+1
+Sample Output 1
+9
+There are six colorful sequences of length
+3
+:
+(1,1,2)
+,
+(1,2,1)
+,
+(1,2,2)
+,
+(2,1,1)
+,
+(2,1,2)
+and
+(2,2,1)
+.
+The numbers of the contiguous subsequences of these sequences that coincide with
+A=(1)
+are
+2
+,
+2
+,
+1
+,
+2
+,
+1
+and
+1
+, respectively.
+Thus, the answer is their sum,
+9
+.
+Sample Input 2
+4 2 2
+1 2
+Sample Output 2
+12
+Sample Input 3
+7 4 5
+1 2 3 1 2
+Sample Output 3
+17
+Sample Input 4
+5 4 3
+1 1 1
+Sample Output 4
+0
+Sample Input 5
+10 3 5
+1 1 2 3 3
+Sample Output 5
+1458
+Sample Input 6
+25000 400 4
+3 7 31 127
+Sample Output 6
+923966268
+Sample Input 7
+9954 310 12
+267 193 278 294 6 63 86 166 157 193 168 43
+Sample Output 7
+979180369
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+MOD = 10 ** 9 + 7
+n, k, m = map(int, input().split())
+a = list(map(int, input().split()))
+def include_perm(a):
+    for i in range(m - k + 1):
+        seen = [False] * (k + 1)
+        for j in range(i, i + k):
+            if seen[a[j]]:
+                break
+            seen[a[j]] = True
+        else:
+            return True
+    return False
+def unique_len(a):
+    seen = [False] * (k+1)
+    ans = 0
+    for ai in a:
+        if seen[ai]:
+            break
+        seen[ai] = True
+        ans += 1
+    return ans
+if unique_len(a) < m:
+    dp_fw = [[0] * k for _ in range(n-m+1)]
+    dp_bw = [[0] * k for _ in range(n-m+1)]
+    if not include_perm(a):
+        dp_fw[0][unique_len(reversed(a))] = 1
+        dp_bw[0][unique_len(a)] = 1
+    for i in range(n-m):
+        for j in range(k):
+            dp_fw[i+1][j] = dp_fw[i][j]
+            dp_bw[i+1][j] = dp_bw[i][j]
+        for j in range(k-2, 0, -1):
+            dp_fw[i+1][j] += dp_fw[i+1][j+1]
+            dp_fw[i+1][j] %= MOD
+            dp_bw[i+1][j] += dp_bw[i+1][j+1]
+            dp_bw[i+1][j] %= MOD
+        for j in range(k-1):
+            dp_fw[i+1][j+1] += dp_fw[i][j] * (k-j)
+            dp_fw[i+1][j] %= MOD
+            dp_bw[i+1][j+1] += dp_bw[i][j] * (k-j)
+            dp_bw[i+1][j] %= MOD
+    ans = 0
+    tot = pow(k, n-m, MOD)
+    for i in range(n-m+1):
+        lcnt = i
+        rcnt = n - m - i
+        t = tot - sum(dp_fw[rcnt]) * sum(dp_bw[lcnt])
+        ans = (ans + t) % MOD
+    print(ans)
+else:
+    dp = [[0] * k for _ in range(n+1)]
+    dp2 = [[0] * k for _ in range(n+1)]
+    dp[0][0] = 1
+    for i in range(n):
+        for j in range(1, k):
+            dp[i+1][j] = dp[i][j]
+            dp2[i+1][j] = dp2[i][j]
+        for j in range(k-2, 0, -1):
+            dp[i+1][j] += dp[i+1][j+1]
+            dp[i+1][j] %= MOD
+            dp2[i+1][j] += dp2[i+1][j+1]
+            dp2[i+1][j] %= MOD
+        for j in range(k-1):
+            dp[i+1][j+1] += dp[i][j] * (k-j)
+            dp[i+1][j+1] %= MOD
+            dp2[i+1][j+1] += dp2[i][j] * (k-j)
+            dp2[i+1][j+1] %= MOD
+        for j in range(m, k):
+            dp2[i+1][j] += dp[i+1][j]
+            dp2[i+1][j] %= MOD
+    f = 1
+    for i in range(m):
+        f = f * (k - i) % MOD
+    t = sum(dp2[n]) * pow(f, MOD-2, MOD) % MOD
+    ans = ((n-m+1) * pow(k, n-m, MOD) - t) % MOD
+    print(ans)
+```

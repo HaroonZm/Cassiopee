@@ -1,0 +1,5 @@
+n = int(input())
+a = list(map(int, input().split()))
+b = list(map(lambda x: x%2, a))
+c = b.count(1)
+print('YES' if c%2 == 0 else 'NO')

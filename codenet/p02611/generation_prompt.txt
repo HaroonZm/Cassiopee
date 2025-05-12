@@ -1,0 +1,145 @@
+Voici un énoncé de problème :
+
+Score :
+600
+points
+Problem Statement
+Given is an integer
+N
+. Snuke will choose integers
+s_1
+,
+s_2
+,
+n_1
+,
+n_2
+,
+u_1
+,
+u_2
+,
+k_1
+,
+k_2
+,
+e_1
+, and
+e_2
+so that all of the following six conditions will be satisfied:
+0 \leq s_1 < s_2
+0 \leq n_1 < n_2
+0 \leq u_1 < u_2
+0 \leq k_1 < k_2
+0 \leq e_1 < e_2
+s_1 + s_2 + n_1 + n_2 + u_1 + u_2 + k_1 + k_2 + e_1 + e_2 \leq N
+For every possible choice
+(s_1,s_2,n_1,n_2,u_1,u_2,k_1,k_2,e_1,e_2)
+, compute
+(s_2 − s_1)(n_2 − n_1)(u_2 − u_1)(k_2 - k_1)(e_2 - e_1)
+, and find the sum of all computed values, modulo
+(10^{9} +7)
+.
+Solve this problem for each of the
+T
+test cases given.
+Constraints
+All values in input are integers.
+1 \leq T \leq 100
+1 \leq N \leq 10^{9}
+Input
+Input is given from Standard Input in the following format:
+T
+\mathrm{case}_1
+\vdots
+\mathrm{case}_T
+Each case is given in the following format:
+N
+Output
+Print
+T
+lines. The
+i
+-th line should contain the answer to the
+i
+-th test case.
+Sample Input 1
+4
+4
+6
+10
+1000000000
+Sample Output 1
+0
+11
+4598
+257255556
+When
+N=4
+, there is no possible choice
+(s_1,s_2,n_1,n_2,u_1,u_2,k_1,k_2,e_1,e_2)
+. Thus, the answer is
+0
+.
+When
+N=6
+, there are six possible choices
+(s_1,s_2,n_1,n_2,u_1,u_2,k_1,k_2,e_1,e_2)
+as follows:
+(0,1,0,1,0,1,0,1,0,1)
+(0,2,0,1,0,1,0,1,0,1)
+(0,1,0,2,0,1,0,1,0,1)
+(0,1,0,1,0,2,0,1,0,1)
+(0,1,0,1,0,1,0,2,0,1)
+(0,1,0,1,0,1,0,1,0,2)
+We have one choice where
+(s_2 − s_1)(n_2 − n_1)(u_2 − u_1)(k_2 - k_1)(e_2 - e_1)
+is
+1
+and five choices where
+(s_2 − s_1)(n_2 − n_1)(u_2 − u_1)(k_2 - k_1)(e_2 - e_1)
+is
+2
+, so the answer is
+11
+.
+Be sure to find the sum modulo
+(10^{9} +7)
+.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import numpy as np
+
+DEG = 16
+MOD = 10 ** 9 + 7
+
+even_coef = np.array(
+    [0, 530289159, 384702529, 781298570, 90480784, 891754269, 348592099, 833888760, 898908474,
+     505425073, 312827475, 794140068, 663894405, 565007911, 300594255, 98196225], dtype=np.int64)
+odd_coef = np.array(
+    [0, 231379733, 814507152, 631092340, 912089085, 58225824, 706460451, 264043077, 508834119,
+     558179703, 136167972, 662064550, 384875310, 496818569, 537065939, 98196225], dtype=np.int64)
+
+t = int(input())
+buf = []
+for _ in range(t):
+    n = int(input())
+    if n % 2 == 0:
+        m = n // 2
+        coef = even_coef
+    else:
+        m = (n - 1) // 2
+        coef = odd_coef
+
+    ms = np.ones(DEG, dtype=np.int64)
+    for i in range(1, DEG):
+        ms[i] = ms[i - 1] * m % MOD
+
+    ans = (ms * coef % MOD).sum() % MOD
+    buf.append(ans)
+
+print('\n'.join(map(str, buf)))
+```

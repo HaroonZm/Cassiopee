@@ -1,0 +1,10 @@
+N = int(input())
+A = list(map(int,input().split()))
+
+Q = int(input())
+
+for _ in range(Q):
+    b,m,e = map(int,input().split())
+    A = A[:b]+A[e-(e-m)%(e-b):e]+A[b:e-(e-m)%(e-b)]+A[e:]
+
+print(*A)

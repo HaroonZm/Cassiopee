@@ -1,0 +1,42 @@
+import sys
+
+H,W,N=map(int,input().split())
+sr,sc=map(int,input().split())
+sr-=1
+sc-=1
+S=list(input())
+T=list(input())
+#4方向全てにおいて阻止できるか
+dic1={"U":0,"D":1,"R":2,"L":3}
+dic2={"U":1,"D":0,"R":3,"L":2}
+dic3={"U":-1,"D":1,"R":1,"L":-1}
+data=[[sr],[sr],[sc],[sc]]
+for i in range(N):
+    data[dic1[S[i]]].append(dic3[S[i]])
+    data[dic2[T[i]]].append(dic3[T[i]])
+
+h=data[0]
+for i in range(1,len(h)):
+    h[i]=min(H-1,h[i]+h[i-1])
+    if h[i]==-1:
+        print("NO")
+        sys.exit()
+h=data[1]
+for i in range(1,len(h)):
+    h[i]=max(0,h[i]+h[i-1])
+    if h[i]==H:
+        print("NO")
+        sys.exit()
+h=data[3]
+for i in range(1,len(h)):
+    h[i]=min(W-1,h[i]+h[i-1])
+    if h[i]==-1:
+        print("NO")
+        sys.exit()
+h=data[2]
+for i in range(1,len(h)):
+    h[i]=max(0,h[i]+h[i-1])
+    if h[i]==W:
+        print("NO")
+        sys.exit()
+print("YES")

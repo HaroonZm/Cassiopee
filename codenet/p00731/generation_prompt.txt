@@ -1,0 +1,232 @@
+Voici un énoncé de problème :
+
+Problem D:
+Cliff Climbing
+At 17:00, special agent Jack starts to escape from the enemy camp.
+There is a cliff in between the camp and the nearest safety zone.
+Jack has to climb the almost vertical cliff
+by stepping his feet on the blocks that cover the cliff.
+The cliff has slippery blocks where Jack has to
+spend time to take each step.
+He also has to bypass some blocks that are too loose to support his weight.
+Your mission is to write a program that calculates the minimum time to complete climbing.
+Figure D-1 shows an example of cliff data that you will
+receive.
+The cliff is covered with square blocks.
+Jack starts cliff climbing from the ground under the cliff,
+by stepping his left or right foot on one of the blocks marked with
+'S' at the bottom row.
+The numbers on the blocks are the "slippery levels". It takes
+t
+time units for him to safely put his foot on a
+block marked with
+t
+, where 1 ≤
+t
+≤ 9.
+He cannot put his feet on blocks marked with 'X'.
+He completes the climbing when he puts
+either of his feet on one of the blocks marked with 'T' at the top row.
+Figure D-1: Example of Cliff Data
+Jack's movement must meet the following constraints.
+After putting his left (or right) foot on a block, he can only move
+his right (or left, respectively) foot.
+His left foot position (
+lx
+,
+ly
+) and his right foot position
+(
+rx
+,
+ry
+) should satisfy
+lx
+<
+rx
+and |
+lx
+-
+rx
+| + |
+ly
+-
+ry
+| ≤ 3
+.
+This implies that, given a position of his left foot in Figure D-2 (a), he has to
+place his right foot on one of the nine blocks marked with blue color.
+Similarly, given a position of his right foot in Figure D-2 (b),
+he has to place his
+left foot on one of the nine blocks marked with blue color.
+Figure D-2: Possible Placements of Feet
+Input
+The input is a sequence of datasets.
+The end of the input is indicated by a line containing two zeros separated by a space.
+Each dataset is formatted as follows:
+w h
+s(1,1)
+...
+s(1,w)
+s(2,1)
+...
+s(2,w)
+...
+s(h,1)
+...
+s(h,w)
+The integers
+w
+and
+h
+are the width and the height of
+the matrix data of the cliff. You may assume 2 ≤
+w
+≤ 30 and 5 ≤
+h
+≤ 60.
+Each of the following
+h
+lines consists of
+w
+characters
+delimited by a space.
+The character
+s(y, x)
+represents the state of the block at
+position
+(
+x
+,
+y
+) as follows:
+'S': Jack can start cliff climbing from this block.
+'T': Jack finishes climbing when he reaches this block.
+'X': Jack cannot put his feet on this block.
+'1' - '9' (
+= t
+): Jack has to spend
+t
+time units
+to put either of his feet on this block.
+You can assume that it takes no time to put a foot on a block marked with 'S' or 'T'.
+Output
+For each dataset, print a line only having a decimal integer indicating
+the minimum time required for the cliff climbing,
+when Jack can complete it.
+Otherwise, print a line only having "-1" for the dataset.
+Each line should not have any characters other than these numbers.
+Sample Input
+6 6
+4 4 X X T T
+4 7 8 2 X 7
+3 X X X 1 8
+1 2 X X X 6
+1 1 2 4 4 7
+S S 2 3 X X
+2 10
+T 1
+1 X
+1 X
+1 X
+1 1
+1 X
+1 X
+1 1
+1 X
+S S
+2 10
+T X
+1 X
+1 X
+1 X
+1 1
+1 X
+1 X
+1 1
+1 X
+S S
+10 10
+T T T T T T T T T T
+X 2 X X X X X 3 4 X
+9 8 9 X X X 2 9 X 9
+7 7 X 7 3 X X 8 9 X
+8 9 9 9 6 3 X 5 X 5
+8 9 9 9 6 X X 5 X 5
+8 6 5 4 6 8 X 5 X 5
+8 9 3 9 6 8 X 5 X 5
+8 3 9 9 6 X X X 5 X
+S S S S S S S S S S
+10 7
+2 3 2 3 2 3 2 3 T T
+1 2 3 2 3 2 3 2 3 2
+3 2 3 2 3 2 3 2 3 4
+3 2 3 2 3 2 3 2 3 5
+3 2 3 1 3 2 3 2 3 5
+2 2 3 2 4 2 3 2 3 5
+S S 2 3 2 1 2 3 2 3
+0 0
+Output for the Sample Input
+12
+5
+-1
+22
+12
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from Queue import Queue
+mvL=((-1, 0), (-1, 1), (-1, 2), (-1, -1), (-1, -2), (-2, 0), (-2, 1), (-2, -1), (-3, 0))
+mvR=((1, 0), (1, 1), (1, 2), (1, -1), (1, -2), (2, 0), (2, 1), (2, -1), (3, 0))
+mv=(mvL,mvR)
+while True:
+    w,h=map(int,raw_input().split())
+    if w==h==0:break
+    INF=1000
+    LEFT,RIGHT=0,1
+    S=[raw_input().split() for i in range(h)]
+    D=[[[INF,INF] for j in range(w)] for i in range(h)]
+    Q=Queue()
+    posT=[]
+    for i in range(h):
+        for j in range(w):
+            if S[i][j]=="S":
+                Q.put((j,i,LEFT))
+                Q.put((j,i,RIGHT))
+                D[i][j][LEFT]=D[i][j][RIGHT]=0
+            elif S[i][j]=="T":
+                posT.append((j,i))
+    while not Q.empty():
+        x,y,foot=Q.get()
+        if foot==RIGHT:
+            for dx,dy in mv[LEFT]:
+                mx=x+dx
+                my=y+dy
+                if 0<=mx<w and 0<=my<h and S[my][mx]!="X" and S[my][mx]!="S":
+                    if S[my][mx]=="T":
+                        cost=D[y][x][RIGHT]
+                    else:
+                        cost=int(S[my][mx])+D[y][x][RIGHT]
+                    if D[my][mx][LEFT]>cost:
+                        D[my][mx][LEFT]=cost
+                        Q.put((mx,my,LEFT))
+        elif foot==LEFT:
+            for dx,dy in mv[RIGHT]:
+                mx=x+dx
+                my=y+dy
+                if 0<=mx<w and 0<=my<h and S[my][mx]!="X" and S[my][mx]!="S":
+                    if S[my][mx]=="T":
+                        cost=D[y][x][LEFT]
+                    else:
+                        cost=int(S[my][mx])+D[y][x][LEFT]
+                    if D[my][mx][RIGHT]>cost:
+                        D[my][mx][RIGHT]=cost
+                        Q.put((mx,my,RIGHT))
+    minCost=INF
+    for x,y in posT:
+        minCost=min(minCost,D[y][x][LEFT])
+        minCost=min(minCost,D[y][x][RIGHT])
+    print minCost if minCost!=INF else -1
+```

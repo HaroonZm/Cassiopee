@@ -1,0 +1,172 @@
+Voici un énoncé de problème :
+
+Score :
+100
+points
+Problem Statement
+You are given a directed graph with
+N
+vertices and
+M
+edges, not necessarily simple. The
+i
+-th edge is oriented from the vertex
+a_i
+to the vertex
+b_i
+.
+Divide this graph into strongly connected components and print them in their topological order.
+Constraints
+1 \leq N \leq 500,000
+1 \leq M \leq 500,000
+0 \leq a_i, b_i < N
+Input
+Input is given from Standard Input in the following format:
+N
+M
+a_0
+b_0
+a_1
+b_1
+:
+a_{M - 1}
+b_{M - 1}
+Output
+Print
+1+K
+lines, where
+K
+is the number of strongly connected components.
+Print
+K
+on the first line.
+Print the information of each strongly connected component in next
+K
+lines in the following format, where
+l
+is the number of vertices in the strongly connected component and
+v_i
+is the index of the vertex in it.
+l
+v_0
+v_1
+...
+v_{l-1}
+Here, for each edge
+(a_i, b_i)
+,
+b_i
+should not appear in
+earlier
+line than
+a_i
+.
+If there are multiple correct output, print any of them.
+Sample Input 1
+6 7
+1 4
+5 2
+3 0
+5 5
+4 1
+0 3
+4 2
+Sample Output 1
+4
+1 5
+2 4 1
+1 2
+2 3 0
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import deque
+class csr:
+    def __init__(self,N,edges):
+        self.start = [0]*(N+1)
+        self.elist = [0]*len(edges)
+        for e in edges:
+            self.start[e[0]+1] += 1
+        for i in range(1,N+1):
+            self.start[i] += self.start[i-1] 
+        counter = self.start[:]
+        for e in edges:
+            self.elist[counter[e[0]]] = e[1]
+            counter[e[0]] += 1
+
+class scc_graph:
+    def __init__(self,N):
+        self.N = N
+        self.edges = []
+    
+    def add_edge(self,v,w):
+        self.edges.append((v,w))
+
+    def scc_ids(self):
+        g = csr(self.N,self.edges)
+        now_ord = group_num = 0
+        visited = deque()
+        low = [0]*self.N
+        order = [-1]*self.N
+        ids = [0]*self.N
+        parent = [-1]*self.N
+        for i in range(self.N):
+            if order[i] == -1:
+                stack = deque()
+                stack.append(i)
+                stack.append(i)
+                while stack:
+                    v = stack.pop()
+                    if order[v] == -1:
+                        low[v] = order[v] = now_ord
+                        now_ord += 1
+                        visited.append(v)
+                        for i in range(g.start[v],g.start[v+1]):
+                            to = g.elist[i]
+                            if order[to] == -1:
+                                stack.append(to)
+                                stack.append(to)
+                                parent[to] = v
+                            else:
+                                low[v] = min(low[v],order[to])
+                    else:
+                        if low[v] == order[v]:
+                            while True:
+                                u = visited.pop()
+                                order[u] = self.N
+                                ids[u] = group_num
+                                if u == v:
+                                    break
+                            group_num += 1
+                        if parent[v] != -1:
+                            low[parent[v]] = min(low[parent[v]],low[v])
+        for i,x in enumerate(ids):
+            ids[i] = group_num-1-x
+
+        return group_num,ids
+    
+    def scc(self):
+        group_num,ids = self.scc_ids()
+        groups = [[] for _ in range(group_num)]
+        for i,x in enumerate(ids):
+            groups[x].append(i)
+        return groups
+    
+import sys
+readline = sys.stdin.buffer.readline
+read = sys.stdin.buffer.read
+N,M = map(int,readline().split())
+ab = list(map(int,read().split()))
+sg = scc_graph(N)
+
+it = iter(ab)
+for a,b in zip(it,it):
+    sg.add_edge(a,b)
+
+scc = sg.scc()
+print(len(scc))
+for group in scc:
+    print(*([len(group)] + group))
+```

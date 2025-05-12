@@ -1,0 +1,285 @@
+Voici un énoncé de problème :
+
+Problem Statement
+You are given a connected undirected graph which has even numbers of nodes.
+A connected graph is a graph in which all nodes are connected directly or indirectly by edges.
+Your task is to find a spanning tree whose median value of edges' costs is minimum.
+A spanning tree of a graph means that a tree which contains all nodes of the graph.
+Input
+The input consists of multiple datasets.
+The format of each dataset is as follows.
+n
+m
+s_1
+t_1
+c_1
+...
+s_m
+t_m
+c_m
+The first line contains an even number
+n
+(
+2 \leq n \leq 1,000
+) and an integer
+m
+(n-1 \leq m \leq 10,000)
+.
+n
+is the nubmer of nodes and
+m
+is the number of edges in the graph.
+Then
+m
+lines follow, each of which contains
+s_i
+(
+1 \leq s_i \leq n
+),
+t_i
+(
+1 \leq s_i \leq n, t_i \neq s_i
+) and
+c_i
+(
+1 \leq c_i \leq 1,000
+).
+This means there is an edge between the nodes
+s_i
+and
+t_i
+and its cost is
+c_i
+.
+There is no more than one edge which connects
+s_i
+and
+t_i
+.
+The input terminates when
+n=0
+and
+m=0
+.
+Your program must not output anything for this case.
+Output
+Print the median value in a line for each dataset.
+Sample Input
+2 1
+1 2 5
+4 6
+1 2 1
+1 3 2
+1 4 3
+2 3 4
+2 4 5
+3 4 6
+8 17
+1 4 767
+3 1 609
+8 3 426
+6 5 972
+8 1 607
+6 4 51
+5 1 683
+3 6 451
+3 4 630
+8 7 912
+3 7 43
+4 7 421
+3 5 582
+8 4 538
+5 7 832
+1 6 345
+8 2 608
+0 0
+Output for the Sample Input
+5
+2
+421
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#!usr/bin/env python3
+from collections import defaultdict
+from collections import deque
+from heapq import heappush, heappop
+import sys
+import math
+import bisect
+import random
+def LI(): return list(map(int, sys.stdin.readline().split()))
+def I(): return int(sys.stdin.readline())
+def LS():return list(map(list, sys.stdin.readline().split()))
+def S(): return list(sys.stdin.readline())[:-1]
+def IR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = I()
+    return l
+def LIR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = LI()
+    return l
+def SR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = S()
+    return l
+def LSR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = LS()
+    return l
+sys.setrecursionlimit(1000000)
+mod = 1000000007
+
+#A
+def A():
+    while 1:
+        n,m = LI()
+        if n == 0 and m == 0:
+            break
+        v = [[] for i in range(n)]
+        for i in range(m):
+            a,b = LI()
+            a -= 1
+            b -= 1
+            v[a].append(b)
+            v[b].append(a)
+        bfs_map = [1 for i in range(n)]
+        bfs_map[0] = 0
+        f = [0 for i in range(n)]
+        q = deque()
+        q.append(0)
+        fl = 1
+        while q:
+            if not fl:break
+            x = q.popleft()
+            for y in v[x]:
+                if bfs_map[y]:
+                    bfs_map[y] = 0
+                    f[y] = (1-f[x])
+                    q.append(y)
+                else:
+                    if f[y] == f[x]:
+                        print(0)
+                        fl = 0
+                        break
+        if fl:
+            ans = []
+            k = sum(f)
+            if k%2 == 0:
+                ans.append(k//2)
+            k = len(f)-sum(f)
+            if k%2 == 0:
+                ans.append(k//2)
+            ans = list(set(ans))
+            ans.sort()
+            print(len(ans))
+            for i in ans:
+                print(i)
+    return
+
+#B
+def B():
+    def gcd(a,b):
+        if a == 0:
+            return b
+        return gcd(b%a, a)
+
+    def factorize(n):
+        if n < 4:
+            return {n:1}
+        i = 2
+        d = defaultdict(int)
+        m = n
+        while i**2 <= n:
+            if m%i == 0:
+                while m%i == 0:
+                    m//=i
+                    d[i] += 1
+            i += 1
+        d[m] += 1
+        return d
+    p,q = LI()
+    g = gcd(p,q)
+    ans = q//g
+    if ans == 1:
+        print(1)
+    else:
+        d = factorize(ans)
+        ans = 1
+        for i in d.keys():
+            ans *= i
+        print(ans)
+    return
+
+#C
+def C():
+    return
+
+#D
+def D():
+    def root(x):
+        if par[x] == x:
+            return par[x]
+        par[x] = root(par[x])
+        return par[x]
+    def same(x,y):
+        return root(x) == root(y)
+    def unite(x,y):
+        x = root(x)
+        y = root(y)
+        if rank[x] < rank[y]:
+            par[x] = y
+        else:
+            par[y] = x
+            if rank[x] == rank[y]:
+                rank[x] += 1
+    while 1:
+        n,m = LI()
+        if n == 0 and m == 0:
+            break
+        l = LIR(m)
+        l.sort(key = lambda x:x[2])
+        for i in range(m):
+            l[i][0] -= 1
+            l[i][1] -= 1
+        ans = []
+        par = [i for i in range(n)]
+        rank = [0 for i in range(n)]
+        for x,y,c in l:
+            if not same(x,y):
+                unite(x,y)
+                ans.append(c)
+        print(ans[(n-1)//2])
+    return
+
+#E
+def E():
+    return
+
+#F
+def F():
+    return
+
+#G
+def G():
+    return
+
+#H
+def H():
+    return
+
+#I
+def I_():
+    return
+
+#J
+def J():
+    return
+
+#Solve
+if __name__ == "__main__":
+    D()
+```

@@ -1,0 +1,70 @@
+Voici un énoncé de problème :
+
+Problem A:
+CatChecker
+外見からねこかどうかわからない動物がいる. あなたは, 鳴き声がねこの鳴き声であればねこであり, そうでなければうさぎであると判定することにした.
+ねこの鳴き声は次のように定義される.
+"" (empty string) はねこの鳴き声である.
+$X$, $Y$ がねこの鳴き声であれば 'm' + $X$ + 'e' + $Y$ + 'w' は猫の鳴き声である. ただし + は文字列の連結を表す.
+以上で定義されるものだけがねこの鳴き声である.
+BNF で表すとねこの鳴き声 $CAT$ は
+$CAT$ := "" (empty string) $|$ 'm' + $CAT$ + 'e' + $CAT$ + 'w'
+と定義される.
+鳴き声を表す文字列 $S$ が与えられる. 鳴き声から動物が何であるか判定せよ.
+Constraints
+$S$ will contain between 1 and 500 characters, inclusive. Each character in $S$ will be 'm', 'e' or 'w'.
+Input
+入力は以下の形式で与えられる:
+$S$
+Output
+$S$ が猫の鳴き声であれば "Cat", そうでなければ "Rabbit" と1 行に出力せよ.
+Sample Input 1
+mmemewwemeww
+Sample Output 1
+Cat
+Sample Input 2
+mewmew
+Sample Output 2
+Rabbit
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+sys.setrecursionlimit(10**5)
+
+def LI(): return [int(x) for x in input().split()]
+def LF(): return [float(x) for x in input().split()]
+def LI_(): return [-1*int(x) for x in input().split()]
+def II(): return int(input())
+def IF(): return float(input())
+def LM(func,n): return [[func(x) for x in input().split()]for i in range(n)]
+mod = 1000000007
+inf = float('INF')
+
+def isCat(S):
+    #print(S)
+    if len(S) == 0:
+        return True
+    if S[0] != "m" or S[-1] != "w":
+        return False
+    c = 0
+    i=0
+    for i in range(1,len(S)-1):
+        if S[i] == 'm':
+            c += 1
+        elif S[i] == 'w':
+            c -= 1
+        if c ==0:
+            break
+    if S[1] == 'e':
+        i = 0
+    return S[i+1] == 'e' and isCat(S[1:i+1]) and isCat(S[i+2:-1])
+
+if(isCat(input())):
+    print("Cat")
+else:
+
+    print("Rabbit")
+```

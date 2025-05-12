@@ -1,0 +1,90 @@
+Voici un énoncé de problème :
+
+The Number of Inversions
+For a given sequence $A = \{a_0, a_1, ... a_{n-1}\}$, the number of pairs $(i, j)$ where $a_i > a_j$ and $i < j$, is called the number of inversions. The number of inversions is equal to the number of swaps of Bubble Sort defined in the following program:
+bubbleSort(A)
+cnt = 0 // the number of inversions
+for i = 0 to A.length-1
+for j = A.length-1 downto i+1
+if A[j] < A[j-1]
+swap(A[j], A[j-1])
+cnt++
+return cnt
+For the given sequence $A$, print the number of inversions of $A$. Note that you should not use the above program, which brings Time Limit Exceeded.
+Input
+In the first line, an integer $n$, the number of elements in $A$, is given. In the second line, the elements $a_i$ ($i = 0, 1, .. n-1$) are given separated by space characters.
+output
+Print the number of inversions in a line.
+Constraints
+$ 1 \leq n \leq 200,000$
+$ 0 \leq a_i \leq 10^9$
+$a_i$ are all different
+Sample Input 1
+5
+3 5 2 1 4
+Sample Output 1
+6
+Sample Input 2
+3
+3 1 2
+Sample Output 2
+2
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def swap(list,i,j,count):
+    if(list[j]<list[i]):
+        list[i],list[j]=list[j],list[i]
+        count[0]+=1
+        return 1
+    return 0
+
+def merge(list,left1,left2,right2,count):#ソート済みの２つの区間(list[left1]〜list[left2-1]と、list[left2]〜list[right2-1]）を結合する
+    i=left1
+    j=left2
+    tmp_list=[]
+    while(1):
+        if(list[i] <=list[j]):
+            tmp_list.append(list[i])
+            i+=1
+        else:
+            tmp_list.append(list[j])
+            j+=1
+            count[0]+=left2-i
+        if(i==left2):
+            for k in range(j,right2):
+                tmp_list.append(list[k])
+            break
+        if(j==right2):
+            for k in range(i,left2):
+                tmp_list.append(list[k])
+            break
+    for k in range(left1,right2):
+        list[k]=tmp_list[k-left1]
+    
+
+                
+                
+    
+        
+
+def merge_sort(list,left,right,count):#list[left]からlist[right]までの要素でマージソート
+    if(right  == left ):
+        return None
+    if(left+1 == right):
+        swap(list,left,right,count)
+    else:
+        mid=(left + right)//2
+        merge_sort(list,left,mid,count)
+        merge_sort(list,mid+1,right,count)
+        merge(list,left,mid+1,right+1,count)
+        
+
+n=int(input())
+data=list(map(int,input().split()))
+count=[0]
+merge_sort(data,0,n-1,count)
+print(count[0])
+```

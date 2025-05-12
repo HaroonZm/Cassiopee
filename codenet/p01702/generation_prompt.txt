@@ -1,0 +1,139 @@
+Voici un énoncé de problème :
+
+Problem Statement
+In the headquarter building of ICPC (International Company of Plugs & Connectors), there are $M$ light bulbs and they are controlled by $N$ switches.
+Each light bulb can be turned on or off by exactly one switch.
+Each switch may control multiple light bulbs.
+When you operate a switch, all the light bulbs controlled by the switch change their states.
+You lost the table that recorded the correspondence between the switches and the light bulbs, and want to restore it.
+You decided to restore the correspondence by the following procedure.
+At first, every switch is off and every light bulb is off.
+You operate some switches represented by $S_1$.
+You check the states of the light bulbs represented by $B_1$.
+You operate some switches represented by $S_2$.
+You check the states of the light bulbs represented by $B_2$.
+...
+You operate some switches represented by $S_Q$.
+You check the states of the light bulbs represented by $B_Q$.
+After you operate some switches and check the states of the light bulbs, the states of the switches and the light bulbs are kept for next operations.
+Can you restore the correspondence between the switches and the light bulbs using the information about the switches you have operated and the states of the light bulbs you have checked?
+Input
+The input consists of multiple datasets.
+The number of dataset is no more than $50$ and the file size is no more than $10\mathrm{MB}$.
+Each dataset is formatted as follows.
+$N$ $M$ $Q$
+$S_1$ $B_1$
+:
+:
+$S_Q$ $B_Q$
+The first line of each dataset contains three integers $N$ ($1 \le N \le 36$), $M$ ($1 \le M \le 1{,}000$), $Q$ ($0 \le Q \le 1{,}000$), which denote the number of switches, the number of light bulbs and the number of operations respectively.
+The following $Q$ lines describe the information about the switches you have operated and the states of the light bulbs you have checked.
+The $i$-th of them contains two strings $S_i$ and $B_i$ of lengths $N$ and $M$ respectively.
+Each $S_i$ denotes the set of the switches you have operated: $S_{ij}$ is either $0$ or $1$, which denotes the $j$-th switch is not operated or operated respectively.
+Each $B_i$ denotes the states of the light bulbs: $B_{ij}$ is either $0$ or $1$, which denotes the $j$-th light bulb is off or on respectively.
+You can assume that there exists a correspondence between the switches and the light bulbs which is consistent with the given information.
+The end of input is indicated by a line containing three zeros.
+Output
+For each dataset, output the correspondence between the switches and the light bulbs consisting of $M$ numbers written in base-$36$.
+In the base-$36$ system for this problem, the values $0$-$9$ and $10$-$35$ are represented by the characters '
+0
+'-'
+9
+' and '
+A
+'-'
+Z
+' respectively.
+The $i$-th character of the correspondence means the number of the switch controlling the $i$-th light bulb.
+If you cannot determine which switch controls the $i$-th light bulb, output '
+?
+' as the $i$-th character instead of the number of a switch.
+Sample Input
+3 10 3
+000 0000000000
+110 0000001111
+101 1111111100
+2 2 0
+1 1 0
+2 1 1
+01 1
+11 11 10
+10000000000 10000000000
+11000000000 01000000000
+01100000000 00100000000
+00110000000 00010000000
+00011000000 00001000000
+00001100000 00000100000
+00000110000 00000010000
+00000011000 00000001000
+00000001100 00000000100
+00000000110 00000000010
+0 0 0
+Output for the Sample Input
+2222221100
+??
+0
+1
+0123456789A
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+while True:
+    N, M, Q = map(int, input().split())  # N個のスイッチ, M個のライト, Q個のクエリ
+    if N == 0 and M == 0 and Q ==0:
+        exit()
+    # 全ての配列を繋がっていることを仮定する
+    correspondence = [set(list(range(M))) for _ in range(N)]
+    # print(correspondence) 全てのスイッチと繋がっていることが確認できた
+    switch_status = [0]*N  # スイッチの初期状態
+    light_status = [0]*M  # ライトの初期状態
+    for _ in range(Q):  # Q個のクエリが飛んでくる
+        s, b = map(str, input().split())  # 操作したスイッチの情報と, 現在のライトの状態
+        # 1つずつxorを取りたい
+        # 操作したスイッチのインデックス (リスト)と、変化したライトのインデックス (set)が欲しい
+        switch_index = list(map(int, s))  # 今回操作したスイッチの情報, これで数字に変換できる
+        light_index = list(map(int, b))  # 現在のライトの情報, これで数字に変換できる
+
+        changed_switch = []
+        for i in range(len(switch_index)):
+            if switch_index[i] == 1:
+                changed_switch.append(i)
+                switch_status[i] = switch_status[i] ^ 1  # 今まで0なら次の状態は1へ, 今まで1なら次の状態は0へ
+        # changed_switchを使って色々やる
+        # その前にまず、状態が変わったの一覧を手に入れる
+        changed_light = []
+        for i in range(len(light_index)):
+            if light_status[i] ^ light_index[i]:  # 状態が変わったなら
+                changed_light.append(i)  # 状態が変わったライト
+        light_status = light_index  # ライトの状態を更新する
+        set_changed_light = set(changed_light)
+        # print(correspondence)
+        for i in range(N):
+            if i in changed_switch:
+                correspondence[i] &= set_changed_light
+            else:
+                correspondence[i] -= set_changed_light
+        # for c in changed_switch:  # 状態が変わったスイッチ, その他のスイッチからはライトを削除する必要ありそう
+        #     correspondence[c] &= set_changed_light
+    # print(correspondence)
+    ans = [[] for _ in range(M)]  # M個のライトの状態
+    for i, lights in enumerate(correspondence):
+        for l in lights:
+            ans[l].append(i)
+    true_ans = ""
+    co_dict = {0: "0", 1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7", 8: "8", 9: "9", 10: "A", 11: "B", \
+    12: "C", 13: "D", 14: "E", 15: "F", 16: "G", 17: "H", 18: "I", 19: "J", 20: "K", 21: "L", 22: "M", 23: "N", 24: "O", \
+    25: "P", 26: "Q", 27: "R", 28: "S", 29: "T", 30: "U", 31: "V", 32: "W", 33: "X", 34: "Y", 35: "Z"}
+    for i in range(M):
+        if len(ans[i]) > 1:
+            true_ans += "?"
+        else:
+            true_ans += co_dict[ans[i][0]]
+
+    print(true_ans)
+
+# [{8, 9}, {6, 7}, {0, 1, 2, 3, 4, 5}]
+# 2222221100
+```

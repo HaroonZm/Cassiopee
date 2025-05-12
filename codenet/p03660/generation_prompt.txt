@@ -1,0 +1,179 @@
+Voici un énoncé de problème :
+
+Score :
+400
+points
+Problem Statement
+Fennec and Snuke are playing a board game.
+On the board, there are
+N
+cells numbered
+1
+through
+N
+, and
+N-1
+roads, each connecting two cells. Cell
+a_i
+is adjacent to Cell
+b_i
+through the
+i
+-th road. Every cell can be reached from every other cell by repeatedly traveling to an adjacent cell. In terms of graph theory, the graph formed by the cells and the roads is a tree.
+Initially, Cell
+1
+is painted black, and Cell
+N
+is painted white. The other cells are not yet colored.
+Fennec (who goes first) and Snuke (who goes second) alternately paint an uncolored cell.
+More specifically, each player performs the following action in her/his turn:
+Fennec: selects an uncolored cell that is adjacent to a
+black
+cell, and paints it
+black
+.
+Snuke: selects an uncolored cell that is adjacent to a
+white
+cell, and paints it
+white
+.
+A player loses when she/he cannot paint a cell. Determine the winner of the game when Fennec and Snuke play optimally.
+Constraints
+2 \leq N \leq 10^5
+1 \leq a_i, b_i \leq N
+The given graph is a tree.
+Input
+Input is given from Standard Input in the following format:
+N
+a_1
+b_1
+:
+a_{N-1}
+b_{N-1}
+Output
+If Fennec wins, print
+Fennec
+; if Snuke wins, print
+Snuke
+.
+Sample Input 1
+7
+3 6
+1 2
+3 1
+7 4
+5 7
+1 4
+Sample Output 1
+Fennec
+For example, if Fennec first paints Cell
+2
+black, she will win regardless of Snuke's moves.
+Sample Input 2
+4
+1 4
+4 2
+2 3
+Sample Output 2
+Snuke
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import deque
+n = int(input())
+g = [[] for i in range(n)]
+for i in range(n-1):
+    a, b = map(int, input().split())
+    g[a-1].append(b-1)
+    g[b-1].append(a-1)
+
+parent = [-1 for i in range(n)]
+dist = [-1 for i in range(n)]
+flag = [0 for i in range(n)]
+
+def dfs(s):
+    flag[s] = 1
+    dist[s] = 0
+    d = 0
+    q = deque([(s, d)])
+
+    while len(q) > 0:
+        v = q.popleft()
+        for i in g[v[0]]:
+            if flag[i]:
+                continue
+            flag[i] = 1
+            parent[i] = v[0]
+            dist[i] = v[1] + 1
+            q.append((i, v[1] + 1))
+
+parent2 = [-1 for i in range(n)]
+dist2 = [-1 for i in range(n)]
+flag2 = [0 for i in range(n)]
+
+def dfs_f(s):
+    count2 = 0
+    flag2[s] = 1
+    dist2[s] = 0
+    d = 0
+    q = deque([(s, d)])
+
+    while len(q) > 0:
+        v = q.popleft()
+        for i in g[v[0]]:
+            if flag2[i]:
+                continue
+            count2 += 1
+            flag2[i] = 1
+            parent2[i] = v
+            dist2[i] = v[1] + 1
+            q.append((i, v[1] + 1))
+    return count2
+
+parent3 = [-1 for i in range(n)]
+dist3 = [-1 for i in range(n)]
+flag3 = [0 for i in range(n)]
+
+def dfs_s(s):
+    count3 = 0
+    flag3[s] = 1
+    dist3[s] = 0
+    d = 0
+    q = deque([(s, d)])
+
+    while len(q) > 0:
+        v = q.popleft()
+        for i in g[v[0]]:
+            if flag3[i]:
+                continue
+            count3 += 1
+            flag3[i] = 1
+            parent3[i] = v[0]
+            dist3[i] = v[1] + 1
+            q.append((i, v[1] + 1))
+    return count3
+
+dfs(0)
+D = dist[n-1]
+
+j = n-1
+flag2[n-1] = 1
+flag3[0] = 1
+for i in range(D):
+    if (D - i) >= (D+2)//2:
+        flag2[j] = 1
+        j = parent[j]
+    else:
+        flag3[j] = 1
+        j = parent[j]
+
+df = dfs_f(0)
+ds = dfs_s(n-1)
+
+if df > ds:
+    print("Fennec")
+else:
+    print("Snuke")
+```

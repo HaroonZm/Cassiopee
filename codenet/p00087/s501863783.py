@@ -1,0 +1,17 @@
+import sys
+st=[]
+for a in sys.stdin:
+    s=a.split()
+    del st[:]
+    for i in range(len(s)):
+        if s[i] in ['+','-','*','/']:
+            a=st.pop(-1)
+            b=st.pop(-1)
+            if s[i]=='+':c=b+a
+            elif s[i]=='-':c=b-a
+            elif s[i]=='*':c=b*a
+            else: c=1.*b/a
+            st.append(c)
+        else:
+            st.append(float(s[i]))
+    print st[0]

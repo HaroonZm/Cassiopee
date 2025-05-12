@@ -1,0 +1,31 @@
+import numpy as np
+from copy import deepcopy
+import math
+import itertools
+
+N = int(input())
+
+## 入力整数Nの桁数を出力する
+## 10**(out-1) <= in < 10**out
+def int2digit(num):
+  return(len(str(num)))
+
+## k桁の753数を全て構成する
+def mk753_digit(digit):
+  lst_753_tuple = list(itertools.product([7,5,3], repeat=digit))
+  lst_753_str = list(map(lambda x: ''.join(map(str, x)), lst_753_tuple))
+  lst_753_contain7 = [s for s in lst_753_str if '7' in s]
+  lst_753_contain75 = [s for s in lst_753_contain7 if '5' in s]
+  lst_753_contain753 = [s for s in lst_753_contain75 if '3' in s]
+  lst_753 = list(map(int, lst_753_contain753))
+  return lst_753
+
+ans = 0
+digit = int2digit(N)
+for k in range(digit):
+  ans += len(mk753_digit(k))
+lst_753_samedigit = mk753_digit(digit)
+lst_753_samedigit_smaller = [x for x in lst_753_samedigit if x <= N]
+ans += len(lst_753_samedigit_smaller)
+
+print(ans)

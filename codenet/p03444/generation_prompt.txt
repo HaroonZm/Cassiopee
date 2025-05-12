@@ -1,0 +1,226 @@
+Voici un énoncé de problème :
+
+Score :
+2000
+points
+Problem Statement
+You are given a rooted tree with
+N
+vertices.
+The vertices are numbered
+0, 1, ..., N-1
+.
+The root is Vertex
+0
+, and the parent of Vertex
+i
+(i = 1, 2, ..., N-1)
+is Vertex
+p_i
+.
+Initially, an integer
+a_i
+is written in Vertex
+i
+.
+Here,
+(a_0, a_1, ..., a_{N-1})
+is a permutation of
+(0, 1, ..., N-1)
+.
+You can execute the following operation at most
+25
+000
+times. Do it so that the value written in Vertex
+i
+becomes
+i
+.
+Choose a vertex and call it
+v
+. Consider the path connecting Vertex
+0
+and
+v
+.
+Rotate the values written on the path. That is, For each edge
+(i, p_i)
+along the path, replace the value written in Vertex
+p_i
+with the value written in Vertex
+i
+(just before this operation), and replace the value of
+v
+with the value written in Vertex
+0
+(just before this operation).
+You may choose Vertex
+0
+, in which case the operation does nothing.
+Constraints
+2 \leq N \leq 2000
+0 \leq p_i \leq i-1
+(a_0, a_1, ..., a_{N-1})
+is a permutation of
+(0, 1, ..., N-1)
+.
+Input
+Input is given from Standard Input in the following format:
+N
+p_1
+p_2
+...
+p_{N-1}
+a_0
+a_1
+...
+a_{N-1}
+Output
+In the first line, print the number of operations,
+Q
+.
+In the second through
+(Q+1)
+-th lines, print the chosen vertices in order.
+Sample Input 1
+5
+0 1 2 3
+2 4 0 1 3
+Sample Output 1
+2
+3
+4
+After the first operation, the values written in Vertex
+0, 1, .., 4
+are
+4, 0, 1, 2, 3
+.
+Sample Input 2
+5
+0 1 2 2
+4 3 1 2 0
+Sample Output 2
+3
+4
+3
+1
+After the first operation, the values written in Vertex
+0, 1, .., 4
+are
+3, 1, 0, 2, 4
+.
+After the second operation, the values written in Vertex
+0, 1, .., 4
+are
+1, 0, 2, 3, 4
+.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import deque
+from heapq import heapreplace
+
+def get_children(ps):
+    children = [set() for _ in range(n)]
+    for i, p in enumerate(ps):
+        children[p].add(i + 1)
+    return children
+
+def make_levels(cs):
+    levels = []
+    queue = deque([(0, 0)])
+    while queue:
+        i, l = queue.popleft()
+        if fixed[i]:
+            continue
+        if len(levels) <= l:
+            levels.append(set())
+        levels[l].add(i)
+        queue.extend((c, l + 1) for c in cs[i])
+    return levels
+
+def make_where():
+    where = [0] * n
+    for i, a in enumerate(aa):
+        where[a] = i
+    return where
+
+def get_leaves(levels):
+    leaves = {}
+    children_count = [-1] * n
+    for l, cs in reversed(list(enumerate(levels))):
+        for c in cs:
+            cc = children_count[c]
+            pi = ps[c - 1]
+            if cc == -1:
+                if aa[c] == c:
+                    fixed[c] = True
+                    continue
+                else:
+                    leaves[c] = c
+                if children_count[pi] == -1:
+                    children_count[pi] = c
+                else:
+                    children_count[pi] = -2
+            elif cc == -2:
+                children_count[pi] = -2
+            else:
+                leaves[c] = cc
+                if children_count[pi] == -1:
+                    children_count[pi] = cc
+                else:
+                    children_count[pi] = -2
+    return leaves
+
+def put(i, x, where):
+    # print('put', i, x)
+    buf.append(i)
+    where[x] = i
+    x, aa[i] = aa[i], x
+    while i:
+        pi = ps[i - 1]
+        where[x] = pi
+        x, aa[pi] = aa[pi], x
+        i = pi
+    # assert all(i == where[aa[i]] for i in range(n))
+
+def solve():
+    cs = get_children(ps)
+    # print(cs)
+    while not fixed[0]:
+        levels = make_levels(cs)
+        leaves = get_leaves(levels)
+        where = make_where()
+        # print('--')
+        # print(levels)
+        # print(leaves)
+        while leaves:
+            r = aa[0]
+            # print('aa', aa)
+            if r in leaves:
+                gci = leaves[r]
+                # print('gci', r, gci, aa)
+                while True:
+                    a = aa[gci]
+                    if not fixed[a] or a < r:
+                        put(gci, r, where)
+                        fixed[r] = True
+                        break
+                    gci = ps[gci - 1]
+                del leaves[r]
+            else:
+                mi = max(where[i] for i in leaves if not fixed[i])
+                put(mi, r, where)
+        # print(aa, fixed)
+
+n = int(input())
+ps = list(map(int, input().split()))
+aa = list(map(int, input().split()))
+fixed = [False] * n
+buf = []
+solve()
+print(len(buf))
+print('\n'.join(map(str, buf)))
+```

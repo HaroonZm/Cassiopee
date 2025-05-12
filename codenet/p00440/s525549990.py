@@ -1,0 +1,28 @@
+while True:
+    n, k = map(int, input().split())
+    if not n:
+        break
+    cards = [int(input()) for _ in range(k)]
+    cards.sort(reverse=True)
+    white = False
+    if not cards[-1]:
+        white = True
+        cards.pop()
+    if not cards:
+        print(1)
+        continue
+    prev, cnt, precnt = cards.pop(), 1, 0
+    ans = 1
+    while cards:
+        cur = cards.pop()
+        diff = cur - prev
+        if diff == 1:
+            cnt += 1
+        else:
+            ans = max(ans, precnt + cnt)
+            precnt = (cnt + 1) if white and diff == 2 else 0
+            cnt = 1
+        prev = cur
+    ans = max(ans, precnt + cnt)
+
+    print(ans)

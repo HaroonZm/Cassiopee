@@ -1,0 +1,7 @@
+n, k = map(int, input().split())
+t = [int(input()) for _ in range(n)]
+v = [0 for _ in range(n -1)]
+for i in range(n - 1):
+    v[i] = t[i + 1] - t[i] - 1
+v.sort(reverse = True)
+print(t[-1] - t[0] + 1 - sum(v[:(k - 1)]))

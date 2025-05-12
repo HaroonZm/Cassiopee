@@ -1,0 +1,103 @@
+Voici un énoncé de problème :
+
+Problem Statement
+One day (call it day 0), you find a permutation $P$ of $N$ integers written on the blackboard in a single row.
+Fortunately you have another permutation $Q$ of $N$ integers, so you decide to play with these permutations.
+Every morning of the day 1,2,3,... , you rewrite every number on the blackboard in such a way that erases the number $x$ and write the number $Q_x$ at the same position. Please find the minimum non-negative integer $d$ such that in the evening of the day $d$ the sequence on the blackboard is sorted in increasing order.
+Input
+The input consists of a single test case in the format below.
+$N$
+$P_1$ $\ldots$ $P_N$
+$Q_1$ $\ldots$ $Q_N$
+The first line contains an integer $N$ ($1 \leq N \leq 200$). The second line contains $N$ integers $P_1,\ldots,P_N$ ($1 \leq P_i \leq N$) which represent the permutation $P$. The third line contains $N$ integers $Q_1,\ldots,Q_N$ ($1 \leq Q_i \leq N$) which represent the permutation $Q$.
+Output
+Print the minimum non-negative integer $d$ such that in the evening of the day $d$ the sequence on the blackboard is sorted in increasing order. If such $d$ does not exist, print -1 instead.
+It is guaranteed that the answer does not exceed $10^{18}$.
+Examples
+Input
+Output
+6
+2 3 1 4 5 6
+3 1 2 5 4 6
+4
+6
+1 2 3 4 5 6
+3 1 2 5 4 6
+0
+6
+2 3 1 4 5 6
+3 4 5 6 1 2
+-1
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def gcd(a,b):
+    if b>a:
+        return gcd(b,a)
+    if b == 0:
+        return a
+    return gcd(b,a%b)
+
+def extgcd(a,b):
+    r = [1,0,a]
+    w = [0,1,b]
+    while w[2] != 1:
+        q = r[2]//w[2]
+        r2 = w
+        w2 = [r[0]-q*w[0],r[1]-q*w[1],r[2]-q*w[2]]
+        r = r2
+        w = w2
+    return w[0],w[1]
+
+n = int(input())
+p = list(map(int,input().split()))
+q = list(map(int,input().split()))
+
+dp = [[0]*401 for _ in range(201)]
+for i in range(1,n+1):
+    dp[i][0] = i
+    dp[i][1] = q[i-1]
+
+for j in range(2,401):
+    for i in range(1,n+1):
+        dp[i][j] = dp[dp[i][j-1]][1]
+
+ab = [[0,0] for _ in range(n)]
+for i in range(n):
+    pi = p[i]
+    bi = -1
+    for b in range(401):
+        if dp[pi][b] == i+1:
+            bi = b
+            break
+    if bi == -1:
+        print(-1)
+        exit()
+    
+    ai = -1
+    for a in range(1,401):
+        if dp[pi][a] == pi:
+            ai = a
+            break
+    ab[i] = [ai,bi]
+
+tmp_a = ab[0][0]
+tmp_b = ab[0][1]
+for i in range(1,n):
+    A = tmp_a
+    B = ab[i][0]
+    C = ab[i][1]-tmp_b
+
+    G= gcd(A,B)
+    if C%G != 0:
+        print(-1)
+        exit()
+    K1,K2 = extgcd(A//G,B//G)
+    tmp_a = G*(A//G)*(B//G)
+    K1 *= C//G
+    tmp_b = A * K1 + tmp_b
+    tmp_b = (tmp_b % tmp_a + tmp_a) % tmp_a
+print(tmp_b)
+```

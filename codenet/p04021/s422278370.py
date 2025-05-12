@@ -1,0 +1,12 @@
+import sys
+input = sys.stdin.readline
+read = sys.stdin.read
+
+n = int(input())
+A = map(int, read().split())
+L = sorted([(j, i) for i, j in enumerate(A)])
+count = 0
+for i in range(n):
+  count += (L[i][1]-i)%2
+ans = (count+1) // 2
+print(ans)

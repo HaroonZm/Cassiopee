@@ -1,0 +1,7 @@
+a = map(int,raw_input().split())
+b = map(int,raw_input().split())
+s = a[0]+a[1]+a[2]+a[3]
+t = b[0]+b[1]+b[2]+b[3]
+
+if s > t or s ==t :print s
+elif s < t:print t

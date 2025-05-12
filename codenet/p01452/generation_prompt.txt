@@ -1,0 +1,146 @@
+Voici un énoncé de problème :
+
+Problem F: １０歳の動的計画
+ある日の夕方。いつものようにあなたが居間でテレビを見ていると、小学５年生の妹から相談を持ち
+かけられた。話を聞いてみると、今日学校で出された算数の問題が難しくて理解できなかったので、
+あなたに解き方を教えてほしいのだという。
+妹を悩ませている問題は、「道が碁盤目状に通っている街において、家(0, 0) から学校(
+N
+,
+M
+) まで最短距離で進む方法は何通りあるか？」というものだった。もちろん、あなたにとっては赤子の手をひねるよりも簡単な問題である。すぐに上のような図を書いて「家(0, 0) から順番に足し算していけば解けるよ」と教えてあげた。
+ところが、それを聞いてもまだ、妹はなにやら下を向いて考えこんでいる。あなたは、自分の説明の
+仕方が悪かったのだろうかと思ったが、どうやらそうではないらしい。
+たっぷり３分ほど悩んでいただろうか。妹は、おもむろに顔を上げると、あなたに向かってこう言っ
+た。
+「でも、わたしだったら、きっと学校に行く途中で
+K
+回くらい寄り道しちゃうだろうな……。ねぇお
+兄ちゃん、そうすると答えは何通りになるの？」
+さあ大変だ。兄の威厳を保つため、なんとしてもこの問題に答えねば。
+この問題を定式化すると、次のようになる。
+点(0, 0) から点(
+N
+,
+M
+) まで、碁盤目状の道を通って進む方法は何通りあるか答えよ。
+基本的には右か上に１マス進むが、途中で、ちょうど
+K
+回だけ寄り道をする。
+「寄り道をする」とは、左か下に１マス進むことである。
+K
+回の寄り道をすませていない場合、いったん点(
+N
+,
+M
+) に着いた後でも歩き続ける。途中で点(0, 0) に戻ってくる場合もある。
+家はこの街の隅に建っているので、X 座標またはY 座標が負になるような点に入ることはできない。
+しかし、X 座標が
+N
+より大きな点、または、Y 座標が
+M
+より大きな点には入ることができる。
+Input
+N M K
+入力の１行目には、整数N（1 ≤
+N
+≤ 100,000）と整数M（1 ≤
+M
+≤ 100,000）と整数
+K
+（0 ≤
+K
+≤ 10,000）が、この順に空白区切りで書かれている。整数
+N
+は学校のX 座標を、整数
+M
+は学校のY座標を、整数
+K
+は寄り道の回数をあらわす。
+Output
+点(0, 0) から点(
+N
+,
+M
+) まで、
+K
+回の寄り道をして進む方法。その総数を1,000,000,007 で割った余りを出力せよ。なお1,000,000,007 は素数である。
+Sample Input 1
+6 4 0
+Sample Output 1
+210
+Sample Input 2
+3 3 1
+Sample Output 2
+448
+Sample Input 3
+124 218 367
+Sample Output 3
+817857665
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import math,string,itertools,fractions,heapq,collections,re,array,bisect,sys,random,time,copy,functools
+
+sys.setrecursionlimit(10**7)
+inf = 10**20
+eps = 1.0 / 10**13
+mod = 10**9+7
+dd = [(-1,0),(0,1),(1,0),(0,-1)]
+ddn = [(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1)]
+
+def LI(): return [int(x) for x in sys.stdin.readline().split()]
+def LI_(): return [int(x)-1 for x in sys.stdin.readline().split()]
+def LF(): return [float(x) for x in sys.stdin.readline().split()]
+def LS(): return sys.stdin.readline().split()
+def I(): return int(sys.stdin.readline())
+def F(): return float(sys.stdin.readline())
+def S(): return input()
+def pf(s): return print(s, flush=True)
+
+def inv(x):
+    return pow(x, mod - 2, mod)
+
+cms = 10**6
+cm = [0] * cms
+
+def comb_init():
+    cm[0] = 1
+    for i in range(1, cms):
+        cm[i] = cm[i-1] * i % mod
+
+def comb(a, b):
+    return (cm[a] * inv(cm[a-b]) % mod) * inv(cm[b]) % mod
+
+def main():
+    rr = []
+
+    def f(n,m,k):
+        comb_init()
+        r = 0
+        for i in range(k+1):
+            j = k - i
+            mt = comb(n+m+k*2, n+i*2)
+            lk = rk = 1
+            if i > 0:
+                lk = (comb(n+i*2, i) - comb(n+i*2, i-1)) % mod
+            if j > 0:
+                rk = (comb(m+j*2, j) - comb(m+j*2, j-1)) % mod
+            r += mt * lk * rk % mod
+            r %= mod
+
+        return r
+
+    while 1:
+        n,m,k = LI()
+        if n == 0:
+            break
+        rr.append(f(n,m,k))
+        break
+
+    return '\n'.join(map(str, rr))
+
+print(main())
+```

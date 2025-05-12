@@ -1,0 +1,211 @@
+Voici un énoncé de problème :
+
+Score :
+700
+points
+Problem Statement
+We will define the
+median
+of a sequence
+b
+of length
+M
+, as follows:
+Let
+b'
+be the sequence obtained by sorting
+b
+in non-decreasing order. Then, the value of the
+(M / 2 + 1)
+-th element of
+b'
+is the median of
+b
+. Here,
+/
+is integer division, rounding down.
+For example, the median of
+(10, 30, 20)
+is
+20
+; the median of
+(10, 30, 20, 40)
+is
+30
+; the median of
+(10, 10, 10, 20, 30)
+is
+10
+.
+Snuke comes up with the following problem.
+You are given a sequence
+a
+of length
+N
+.
+For each pair
+(l, r)
+(
+1 \leq l \leq r \leq N
+), let
+m_{l, r}
+be the median of the contiguous subsequence
+(a_l, a_{l + 1}, ..., a_r)
+of
+a
+.
+We will list
+m_{l, r}
+for all pairs
+(l, r)
+to create a new sequence
+m
+.
+Find the median of
+m
+.
+Constraints
+1 \leq N \leq 10^5
+a_i
+is an integer.
+1 \leq a_i \leq 10^9
+Input
+Input is given from Standard Input in the following format:
+N
+a_1
+a_2
+...
+a_N
+Output
+Print the median of
+m
+.
+Sample Input 1
+3
+10 30 20
+Sample Output 1
+30
+The median of each contiguous subsequence of
+a
+is as follows:
+The median of
+(10)
+is
+10
+.
+The median of
+(30)
+is
+30
+.
+The median of
+(20)
+is
+20
+.
+The median of
+(10, 30)
+is
+30
+.
+The median of
+(30, 20)
+is
+30
+.
+The median of
+(10, 30, 20)
+is
+20
+.
+Thus,
+m = (10, 30, 20, 30, 30, 20)
+and the median of
+m
+is
+30
+.
+Sample Input 2
+1
+10
+Sample Output 2
+10
+Sample Input 3
+10
+5 9 5 9 8 9 3 5 4 3
+Sample Output 3
+8
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+sys.setrecursionlimit(10**9)
+INF=10**18
+MOD=10**9+7
+input=lambda: sys.stdin.readline().rstrip()
+YesNo=lambda b: bool([print('Yes')] if b else print('No'))
+YESNO=lambda b: bool([print('YES')] if b else print('NO'))
+int1=lambda x:int(x)-1
+
+def main():
+    N=int(input())
+    a=list(map(int,input().split()))
+    
+    class BIT:
+        def __init__(self,n):
+            self.num=n
+            self.dat=[0]*(self.num+1)
+            self.depth=n.bit_length()
+        
+        def add(self,i,x):
+            i+=1
+            while i<=self.num:
+                self.dat[i]+=x
+                i+=i&-i
+        
+        def sum(self,i):
+            i+=1
+            s=0
+            while i>0:
+                s+=self.dat[i]
+                i-=i&-i
+            return s
+        
+        def lower_bound(self,x):
+            sum_=0
+            pos=0
+            for i in range(self.depth,-1,-1):
+                k=pos+(1<<i)
+                if k<=self.num and sum_+self.dat[k]<x:
+                    sum_+=self.dat[k]
+                    pos+=1<<i
+            return pos, sum_
+    
+    def nibutan(ok,ng):
+        while abs(ok-ng) > 1:
+            mid = (ok + ng) // 2
+            if solve(mid):
+                ok = mid
+            else:
+                ng = mid
+        return ok
+    
+    def solve(mid):
+        aa=[1 if x>=mid else -1 for x in a]
+        b=BIT(N*2+1)
+        c=0
+        s=N
+        b.add(s,1)
+        for x in aa:
+            s+=x
+            c+=b.sum(s)
+            b.add(s,1)
+        return c>=-(-N*(N+1)//2//2)
+    
+    print(nibutan(1,10**9+1))
+
+if __name__ == '__main__':
+    main()
+```

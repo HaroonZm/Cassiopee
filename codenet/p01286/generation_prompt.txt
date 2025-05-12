@@ -1,0 +1,255 @@
+Voici un énoncé de problème :
+
+Problem D:
+Luigi's Tavern
+Luigi's Tavern is a thriving tavern in the Kingdom of Nahaila. The owner of the tavern Luigi supports to
+organize a party, because the main customers of the tavern are adventurers. Each adventurer has a job:
+hero, warrior, cleric or mage.
+Any party should meet the following conditions:
+A party should have a hero.
+The warrior and the hero in a party should get along with each other.
+The cleric and the warrior in a party should get along with each other.
+The mage and the cleric in a party should get along with each other.
+It is recommended that a party has a warrior, a cleric, and a mage, but it is allowed that at most
+N
+W
+,
+N
+C
+and
+N
+m
+parties does not have a warrior, a cleric, and a mage respectively.
+A party without a cleric should have a warrior and a mage.
+Now, the tavern has
+H
+heroes,
+W
+warriors,
+C
+clerics and
+M
+mages. Your job is to write a program to find the maximum number of parties they can form.
+Input
+The input consists of multiple datasets. Each dataset has the following format:
+The first line of the input contains 7 non-negative integers
+H
+,
+W
+,
+C
+,
+M
+,
+N
+W
+,
+N
+C
+, and
+N
+M
+, each of which is less than or equals to 50. The
+i
+-th of the following
+W
+lines contains the list of heroes who will be getting along with the warrior
+i
+. The list begins with a non-negative integer
+n
+i
+, less than or equals to
+H
+. Then the rest of the line should contain ni positive integers, each of which indicates the ID of a hero getting along with the warrior
+i
+.
+After these lists, the following
+C
+lines contain the lists of warriors getting along with the clerics in the same manner. The
+j
+-th line contains a list of warriors who will be getting along with the cleric
+j
+. Then the last
+M
+lines of the input contain the lists of clerics getting along with the mages, of course in the same
+manner. The
+k
+-th line contains a list of clerics who will be getting along with the mage
+k
+.
+The last dataset is followed by a line containing seven negative integers. This line is not a part of any dataset and should not be processed.
+Output
+For each dataset, you should output the maximum number of parties possible.
+Sample Input
+2 1 1 1 1 1 1
+1 1
+1 1
+1 1
+1 1 1 1 0 0 0
+1 1
+1 1
+1 1
+1 0 1 0 1 0 1
+0
+1 1 0 1 0 1 0
+0
+0
+1 1 0 1 0 1 0
+1 1
+0
+-1 -1 -1 -1 -1 -1 -1
+Output for the Sample Input
+2
+1
+1
+0
+1
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import collections
+import sys
+if sys.version[0] == '2':
+    range, input = xrange, raw_input
+
+class MaxFlow:
+    """Dinic Algorithm: find max-flow
+       complexity: O(EV^2)
+       used in GRL6A(AOJ)
+    """
+    class Edge:
+        def __init__(self, to, cap, rev):
+            self.to, self.cap, self.rev = to, cap, rev
+
+    def __init__(self, V):
+        """ V: the number of vertexes
+            E: adjacency list
+            source: start point
+            sink: goal point
+        """
+        self.V = V
+        self.E = [[] for _ in range(V)]
+
+    def add_edge(self, fr, to, cap):
+        self.E[fr].append(self.Edge(to, cap, len(self.E[to])))
+        self.E[to].append(self.Edge(fr, 0, len(self.E[fr])-1))
+
+    def run(self, source, sink, INF=10**9):
+        """find max-flow"""
+        maxflow = 0
+        while True:
+            self.bfs(source)
+            if self.level[sink] < 0:
+                return maxflow
+            self.itr = [0] * self.V
+            while True:
+                flow = self.dfs(source, sink, INF)
+                if flow > 0:
+                    maxflow += flow
+                else:
+                    break
+
+    def dfs(self, vertex, sink, flow):
+        """find augmenting path"""
+        if vertex == sink:
+            return flow
+        for i in range(self.itr[vertex], len(self.E[vertex])):
+            self.itr[vertex] = i
+            e = self.E[vertex][i]
+            if e.cap > 0 and self.level[vertex] < self.level[e.to]:
+                d = self.dfs(e.to, sink, min(flow, e.cap))
+                if d > 0:
+                    e.cap -= d
+                    self.E[e.to][e.rev].cap += d
+                    return d
+        return 0
+
+    def bfs(self, start):
+        """find shortest path from start"""
+        que = collections.deque()
+        self.level = [-1] * self.V
+        que.append(start)
+        self.level[start] = 0
+
+        while que:
+            fr = que.popleft()
+            for e in self.E[fr]:
+                if e.cap > 0 and self.level[e.to] < 0:
+                    self.level[e.to] = self.level[fr] + 1
+                    que.append(e.to)
+
+while True:
+    H, W, C, M, NW, NC, NM = map(int, input().split())
+    if H == -1:
+        break
+    V = H + 2 * (W + C) + M + 5 + 2
+    mf = MaxFlow(V)
+    source, sink = V - 2, V - 1
+
+    inH = lambda i: i
+    inW = lambda i: H + i
+    outW = lambda i: H + W + i
+    inC = lambda i: H + 2 * W + i
+    outC = lambda i: H + 2 * W + C + i
+    inM = lambda i: H + 2 * (W + C) + i
+    inNW = H + 2 * (W + C) + M
+    outNW = inNW + 1
+    inNC = outNW + 1
+    outNC = inNC + 1
+    inNM = outNC + 1
+
+    # source -> H
+    for i in range(H):
+        mf.add_edge(source, inH(i), 1)
+
+    # H -> inW
+    for i in range(W):
+        friends = [int(x) - 1 for x in input().split()][1:]
+        for friend in friends:
+            mf.add_edge(inH(friend), inW(i), 1)
+
+    # H -> inNW
+    for i in range(H):
+        mf.add_edge(inH(i), inNW, 1)
+
+    # inW -> outW, inNW -> outNW
+    for i in range(W):
+        mf.add_edge(inW(i), outW(i), 1)
+    mf.add_edge(inNW, outNW, NW)
+
+    # outW -> inC, outNW -> inC
+    for i in range(C):
+        friends = [int(x) - 1 for x in input().split()][1:]
+        for friend in friends:
+            mf.add_edge(outW(friend), inC(i), 1)
+        mf.add_edge(outNW, inC(i), 1)
+
+    # outW -> inNC
+    for i in range(W):
+        mf.add_edge(outW(i), inNC, 1)
+
+    # inC -> outC, inNC -> outNC
+    for i in range(C):
+        mf.add_edge(inC(i), outC(i), 1)
+    mf.add_edge(inNC, outNC, NC)
+
+    # outC -> M, outNC -> M
+    for i in range(M):
+        friends = [int(x) - 1 for x in input().split()][1:]
+        for friend in friends:
+            mf.add_edge(outC(friend), inM(i), 1)
+        mf.add_edge(outNC, inM(i), 1)
+
+    # outC -> NM
+    for i in range(C):
+        mf.add_edge(outC(i), inNM, 1)
+
+    # M -> sink, NM -> sink
+    for i in range(M):
+        mf.add_edge(inM(i), sink, 1)
+    mf.add_edge(inNM, sink, NM)
+
+    print(mf.run(source, sink))
+```

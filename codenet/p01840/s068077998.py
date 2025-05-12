@@ -1,0 +1,13 @@
+N, M, T = list(map(int, input().split()))
+a = list(map(int, input().split()))
+b = [a[0]]
+for i in range(1, N):
+    b.append(a[i] - a[i-1])
+b.append(T-a[N-1])
+
+ans = 0
+ans += b[0] - M
+for i in range(1, N):
+    ans += max(0, b[i]-2*M)
+ans += max(0, b[N]-M)
+print(ans)

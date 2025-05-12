@@ -1,0 +1,205 @@
+Voici un énoncé de problème :
+
+Score :
+600
+points
+Problem Statement
+We have a tree with
+N
+vertices numbered
+1
+to
+N
+. The
+i
+-th edge in this tree connects Vertex
+a_i
+and
+b_i
+.
+Additionally, each vertex is painted in a color, and the color of Vertex
+i
+is
+c_i
+. Here, the color of each vertex is represented by an integer between
+1
+and
+N
+(inclusive). The same integer corresponds to the same color; different integers correspond to different colors.
+For each
+k=1, 2, ..., N
+, solve the following problem:
+Find the number of simple paths that visit a vertex painted in the color
+k
+one or more times.
+Note:
+The simple paths from Vertex
+u
+to
+v
+and from
+v
+to
+u
+are not distinguished.
+Constraints
+1 \leq N \leq 2 \times 10^5
+1 \leq c_i \leq N
+1 \leq a_i,b_i \leq N
+The given graph is a tree.
+All values in input are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+c_1
+c_2
+...
+c_N
+a_1
+b_1
+:
+a_{N-1}
+b_{N-1}
+Output
+Print the answers for
+k = 1, 2, ..., N
+in order, each in its own line.
+Sample Input 1
+3
+1 2 1
+1 2
+2 3
+Sample Output 1
+5
+4
+0
+Let
+P_{i,j}
+denote the simple path connecting Vertex
+i
+and
+j
+.
+There are
+5
+simple paths that visit a vertex painted in the color
+1
+one or more times:
+P_{1,1}\,,\,
+P_{1,2}\,,\,
+P_{1,3}\,,\,
+P_{2,3}\,,\,
+P_{3,3}
+There are
+4
+simple paths that visit a vertex painted in the color
+2
+one or more times:
+P_{1,2}\,,\,
+P_{1,3}\,,\,
+P_{2,2}\,,\,
+P_{2,3}
+There are no simple paths that visit a vertex painted in the color
+3
+one or more times.
+Sample Input 2
+1
+1
+Sample Output 2
+1
+Sample Input 3
+2
+1 2
+1 2
+Sample Output 3
+2
+2
+Sample Input 4
+5
+1 2 3 4 5
+1 2
+2 3
+3 4
+3 5
+Sample Output 4
+5
+8
+10
+5
+5
+Sample Input 5
+8
+2 7 2 5 4 1 7 5
+3 1
+1 2
+2 7
+4 5
+5 6
+6 8
+7 8
+Sample Output 5
+18
+15
+0
+14
+23
+0
+23
+0
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+input = lambda: sys.stdin.readline().rstrip()
+N = int(input())
+C = [int(a) - 1 for a in input().split()]
+X = [[] for i in range(N)]
+for i in range(N-1):
+    x, y = map(int, input().split())
+    X[x-1].append(y-1)
+    X[y-1].append(x-1)
+
+def EulerTour(n, X, i0):
+    f = lambda k: k * (k + 1) // 2
+    USED = [0] * n
+    ORG = [0] * n
+    TMP = [0] * n
+    P = [-1] * n
+    Q = [~i0, i0]
+    ct = -1
+    ET1 = [0] * n
+    ET2 = [0] * n
+    ANS = [f(n)] * n
+    while Q:
+        i = Q.pop()
+        if i < 0:
+            i = ~i
+            ET2[i] = ct
+            USED[C[i]] += 1 + TMP[i]
+            if i:
+                p = P[i]
+                k = ET2[i] - ET1[i] + 1 - USED[C[p]] + ORG[i]
+                ANS[C[p]] -= f(k)
+                TMP[p] += k
+            continue
+        if i >= 0:
+            if i: ORG[i] = USED[C[P[i]]]
+            ct += 1
+            if ET1[i] == 0: ET1[i] = ct
+        for a in X[i][::-1]:
+            if a != P[i]:
+                P[a] = i
+                for k in range(len(X[a])):
+                    if X[a][k] == i:
+                        del X[a][k]
+                        break
+                Q.append(~a)
+                Q.append(a)
+    for i in range(n):
+        ANS[i] -= f(n - USED[i])
+    return ANS
+
+print(*EulerTour(N, X, 0), sep = "\n")
+```

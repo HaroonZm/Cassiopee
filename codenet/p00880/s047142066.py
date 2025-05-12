@@ -1,0 +1,22 @@
+import math
+
+def length(x1, y1, x2, y2):
+    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+
+while True:
+    p = list(map(int, input().split()))
+    if not list(filter(lambda x: x, p)):
+        break
+
+    a, b, c = length(p[0], p[1], p[2], p[3]), length(p[0], p[1], p[4], p[5]), length(p[2], p[3], p[4], p[5])
+    S = 0.5 * a * b * (1 - ((a ** 2 + b ** 2 - c ** 2) / (a * b * 2)) ** 2) ** 0.5
+    R = (2 * S) / (a + b + c)
+
+    s = (a + b + c) / 2
+    d = (((- a + b + c) / 2) ** 2 + R ** 2) ** 0.5
+    e = (((a - b + c) / 2) ** 2 + R ** 2) ** 0.5
+    f = (((a + b - c) / 2) ** 2 + R ** 2) ** 0.5
+
+    print(R / (2 * (s - c)) * (s + f - R - e - d), end=" ")
+    print(R / (2 * (s - b)) * (s + e - R - d - f), end=" ")
+    print(R / (2 * (s - a)) * (s + d - R - e - f))

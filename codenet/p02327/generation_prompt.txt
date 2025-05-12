@@ -1,0 +1,90 @@
+Voici un énoncé de problème :
+
+Largest Rectangle
+Given a matrix (
+H
+×
+W
+) which contains only 1 and 0, find the area of the largest rectangle which only contains 0s.
+Input
+H
+W
+c
+1,1
+c
+1,2
+...
+c
+1,W
+c
+2,1
+c
+2,2
+...
+c
+2,W
+:
+c
+H,1
+c
+H,2
+...
+c
+H,W
+In the first line, two integers
+H
+and
+W
+separated by a space character are given. In the following
+H
+lines,
+c
+i
+,
+j
+, elements of the
+H
+×
+W
+matrix, are given.
+Output
+Print the area (the number of 0s) of the largest rectangle.
+Constraints
+1 ≤
+H
+,
+W
+≤ 1,400
+Sample Input
+4 5
+0 0 1 0 0
+1 0 0 0 0
+0 0 0 1 0
+0 0 0 1 0
+Sample Output
+6
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+h, w = map(int, input().split())
+max_rect, prev = 0, [0] * (w + 1)
+for i in range(h):
+    current = [p + 1 if f else 0 for f, p in zip(map(lambda x: int(x) ^ 1, input().split()), prev)] + [0]
+    stack = [(0, 0)]
+    for j in range(w + 1):
+        c_j = current[j]
+        if stack[-1][0] < c_j:
+            stack.append((c_j, j))
+            continue
+        if stack[-1][0] > c_j:
+            since = 0
+            while stack[-1][0] > c_j:
+                height, since = stack.pop()
+                max_rect = max(max_rect, height * (j - since))
+            if c_j:
+                stack.append((c_j, since))
+    prev = current
+print(max_rect)
+```

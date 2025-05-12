@@ -1,0 +1,20 @@
+# C
+
+N = int(input())
+A = [input().split(), input().split()]
+
+for i in range(2):
+    for j in range(N):
+        A[i][j] = int(A[i][j])
+
+B = [[0 for j in range(N)] for i in range(2)]
+B[0][0] = A[0][0]
+B[1][0] = A[0][0] + A[1][0]
+
+for j in range(1, N):
+     B[0][j] = B[0][j-1] + A[0][j]
+
+for j in range(1, N):
+     B[1][j] = max(B[1][j-1], B[0][j]) + A[1][j]
+
+print(B[i][N-1])

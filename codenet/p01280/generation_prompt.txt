@@ -1,0 +1,176 @@
+Voici un énoncé de problème :
+
+Problem H:
+Galaxy Wide Web Service
+The volume of access to a web service varies from time to time in a day. Also, the hours with the highest
+volume of access varies from service to service. For example, a service popular in the United States
+may receive more access in the daytime in the United States, while another service popular in Japan may
+receive more access in the daytime in Japan. When you develop a web service, you have to design the
+system so it can handle all requests made during the busiest hours.
+You are a lead engineer in charge of a web service in the 30th century. It’s the era of Galaxy Wide Web
+(GWW), thanks to the invention of faster-than-light communication. The service can be accessed from
+all over the galaxy. Thus many intelligent creatures, not limited to human beings, can use the service.
+Since the volume of access to your service is increasing these days, you have decided to reinforce the
+server system. You want to design a new system that handles requests well even during the hours with the
+highest volume of access. However, this is not a trivial task. Residents in each planet have their specific
+length of
+a day
+, say, a cycle of life. The length of
+a day
+is not always 24 hours. Therefore, a cycle of the
+volume of access are different by planets of users.
+You have obtained hourly data of the volume of access for all planets where you provide the service.
+Assuming the volume of access follows a daily cycle for each planet, you want to know the highest
+volume of access in one hour. It should be a quite easy task for you, a famous talented engineer in the
+galaxy.
+Input
+The input consists of multiple datasets. Each dataset has the following format:
+N
+d
+1
+t
+1
+q
+1,0
+...
+q
+1,
+d
+1
+-1
+...
+d
+N
+t
+N
+q
+N
+,0
+...
+q
+N
+,
+d
+N
+-1
+N
+is the number of planets.
+d
+i
+(1 ≤
+i
+≤
+N
+) is the length of a day in the planet
+i
+.
+t
+i
+(0 ≤
+t
+i
+≤
+d
+i
+- 1) is the current time of the planet
+i
+.
+q
+i, j
+is the volume of access on the planet
+i
+during from the
+j
+-th hour to the (
+j
++1)-th hour.
+You may assume that
+N
+≤ 100,
+d
+i
+≤ 24,
+q
+i, j
+≤ 1000000 (1 ≤
+i
+≤
+N
+, 0 ≤
+j
+≤
+d
+i
+- 1).
+The last dataset is followed by a line containing one zero. This line is not a part of any dataset and should not be processed.
+Output
+For each dataset, output the maximum volume of access in one hour in a line.
+Sample Input
+2
+4 0 1 2 3 4
+2 0 2 1
+0
+Output for the Sample Input
+5
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+readline = sys.stdin.readline
+write = sys.stdout.write
+
+def gcd(m, n):
+    while n:
+        m, n = n, m % n
+    return m
+def lcm(m, n):
+    return m // gcd(m, n) * n
+def solve():
+    N = int(readline())
+    if N == 0:
+        return False
+
+    pp = [13, 17, 19, 23]
+    E = [[0]*i for i in range(25)]
+    Q = []
+    for i in range(N):
+        d, t, *qs = map(int, readline().split())
+        qs = qs[t:] + qs[:t]
+        Ed = E[d]
+        for i in range(d):
+            Ed[i] += qs[i]
+    L = 13860
+    V = [0]*L
+    for i in range(1, 25):
+        if i in pp:
+            continue
+        if i <= 12:
+            Ei = E[i]; Ej = E[2*i]
+            for j in range(2*i):
+                Ej[j] += Ei[j % i]
+        else:
+            Ei = E[i]
+            if i == 16:
+                for j in range(8):
+                    Ei[j] = max(Ei[j+8], Ei[j])
+                Ej = E[24]
+                for j in range(24):
+                    Ej[j] += Ei[j % 8]
+            elif i == 24:
+                for j in range(12):
+                    Ei[j] = max(Ei[j+12], Ei[j])
+                for j in range(L):
+                    V[j] += Ei[j % 12]
+            else:
+                for j in range(L):
+                    V[j] += Ei[j % i]
+    ans = max(V)
+    for i in pp:
+        ans += max(E[i])
+    write("%d\n" % ans)
+    return True
+while solve():
+    ...
+```

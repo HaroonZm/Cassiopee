@@ -1,0 +1,7 @@
+th = input()
+th = int(th)
+
+h = int((th-th%30)/30)
+m = int((th%30)*2)
+
+print(h,m)

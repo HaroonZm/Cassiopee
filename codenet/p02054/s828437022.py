@@ -1,0 +1,1 @@
+print('Hom' if sum(map(lambda x:int(x)%2, input().split())) > 1 else 'Tem')

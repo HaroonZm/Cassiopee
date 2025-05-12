@@ -1,0 +1,32 @@
+n=int(input())
+G=[[] for i in range(n)]
+#G=[]
+Q=[1]
+d=[-1]*n
+d[0]=0
+visited=[False]*n
+visited[0]=True
+
+for i in range(n):
+    arr=[int(x) for x in input().split()[2:]]
+    for l in arr:
+        G[i].append(l)
+        #G[l-1].append(i+1)
+    
+
+kyori=0
+while len(Q)!=0:
+    
+    #print(Q)
+    #print(visited)
+    v=Q.pop(0)
+    
+    for j in G[v-1]:
+        if visited[j-1]:#次に行くところがすでに踏破済みだったら
+            continue#更新しない
+        else:
+            d[j-1]=d[v-1]+1
+            Q.append(j)
+            visited[j-1]=True
+for a in range(n):
+    print(a+1,d[a])

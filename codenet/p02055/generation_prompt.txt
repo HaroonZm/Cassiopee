@@ -1,0 +1,111 @@
+Voici un énoncé de problème :
+
+D: Two Colors Sort
+問題
+umg 君は散歩中に
+1,2, ... ,N
+を並び変えてできる長さ
+N
+の数列
+P_1, P_2, ..., P_N
+を見つけました。
+umg 君は不思議な力を使うことで、同じ色に塗られた異なる数を二つ選んで場所を交換することができます。
+umg 君は、数列に含まれる数のうち
+R
+個を赤に、残りの
+N-R
+個を青に塗ることで数列を昇順に並び替えられるようにしたいと考えました。
+umg 君が目標を達成できるかどうか判定してください。
+ただし、数字はとても重いので不思議な力を使わずに動かすことはできません。また、umg 君は天才なので不思議な力を任意の回数使うことができます。
+入力形式
+N
+R
+P_1
+P_2
+...
+P_N
+制約
+1 \leq N \leq 3 \times 10^5
+1 \leq R \leq N
+1\leq P_i \leq N
+P_i \neq P_j
+(
+1 \leq i < j \leq N
+)
+入力は全て整数である。
+出力形式
+umg 君が目的を達成できるなら
+Yes
+、そうでなければ
+No
+を一行に出力せよ。
+入力例 1
+3 2
+1 3 2
+出力例 1
+Yes
+1
+を青に、
+2,3
+を赤に塗ることで目標が達成できます。
+入力例 2
+5 2
+1 2 3 4 5
+出力例 2
+Yes
+初めから昇順に並んでいます。
+入力例 3
+10 7
+3 4 8 5 7 6 2 10 1 9
+出力例 3
+No
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+N, R = map(int, input().split())
+if 2*R > N:
+    R = N - R
+P = [0] + list(map(int, input().split()))
+
+L = []
+Lapp = L.append
+used = [False]*(N+1)
+pre = 0
+for i in range(1, N+1):
+    cnt = 0
+    while not used[i]:
+        used[i] = True
+        cnt += 1
+        i = P[i]
+    if cnt:
+        Lapp(cnt)
+table = [0]*(N+1)
+for l in L:
+    table[l] += 1
+L = []
+Lapp = L.append
+for i in range(1, min(R,N//2)+1):
+    x = table[i]
+    if not x:
+        continue
+    if x == 1:
+        Lapp(i)
+    else:
+        Lapp(i)
+        p = 2
+        while 2*p <= x:
+            table[p*i] += 1
+            p *= 2
+        if x == p:
+            Lapp(i)
+        table[i*(x - p + 1)] += 1
+H = 1
+for l in L:
+    H = H|(H<<l)
+if H & 1<<R:
+    print('Yes')
+else:
+    print('No')
+```

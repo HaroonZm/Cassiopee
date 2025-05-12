@@ -1,0 +1,180 @@
+Voici un énoncé de problème :
+
+LCA: Lowest Common Ancestor
+For a rooted tree, find the lowest common ancestor of two nodes
+u
+and
+v
+.
+The given tree consists of
+n
+nodes and every node has a unique ID from 0 to
+n
+-1 where 0 is the root.
+Input
+n
+k
+0
+c
+1
+c
+2
+...
+c
+k
+0
+k
+1
+c
+1
+c
+2
+...
+c
+k
+1
+:
+k
+n-1
+c
+1
+c
+2
+...
+c
+k
+n-1
+q
+u
+1
+v
+1
+u
+2
+v
+2
+:
+u
+q
+v
+q
+The first line of the input includes an integer
+n
+, the number of nodes of the tree.
+In the next
+n
+lines, the information of node
+i
+is given.
+k
+i
+is the number of children of node
+i
+, and
+c
+1
+, ...
+c
+k
+i
+are node IDs of 1st, ...
+k
+th child of node
+i
+.
+In the next line, the number of queryies
+q
+is given. In the next
+q
+lines, pairs of
+u
+and
+v
+are given as the queries.
+Output
+For each query, print the LCA of
+u
+and
+v
+in a line.
+Constraints
+1 ≤ n ≤ 100000
+1 ≤ q ≤ 100000
+Sample Input 1
+8
+3 1 2 3
+2 4 5
+0
+0
+0
+2 6 7
+0
+0
+4
+4 6
+4 7
+4 3
+5 2
+Sample Output 1
+1
+1
+0
+0
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from bisect import bisect_right as br
+import sys
+sys.setrecursionlimit(100000)
+n = int(input())
+parent = [[None] * 20 for _ in range(n)]
+for i in range(n):
+  clst = list(map(int, input().split()))[1:]
+  for c in clst:
+    parent[c][0] = i
+
+for i in range(1, 20):
+  for j in range(n):
+    if parent[j][i - 1] != None:
+      parent[j][i] = parent[parent[j][i - 1]][i - 1]
+
+height = [None for _ in range(n)]
+height[0] = 0
+
+def make_height(x):
+  if height[x] != None:return
+  if height[parent[x][0]] != None:
+    make_height(parent[x][0])
+  height[x] = height[parent[x][0]] + 1
+
+for i in range(n):
+  make_height(i)
+
+bins = [2 ** i for i in range(20)]
+
+def retro(p, num):
+  if num == 0:return p
+  ind = br(bins, num) - 1
+  return retro(parent[p][ind], num - bins[ind])
+
+def _lca(u, v):
+  if u == v:
+    return u
+  for i in range(1, 20):
+    if parent[u][i] == parent[v][i]:
+      return _lca(parent[u][i - 1], parent[v][i - 1])
+
+def lca(u, v):
+  if height[u] < height[v]:
+    v = retro(v, height[v] - height[u])
+  if height[u] > height[v]:
+    u = retro(u, height[u] - height[v])
+  return _lca(u, v)
+
+q = int(input())
+for _ in range(q):
+  u, v = map(int, input().split())
+  print(lca(u, v))
+```

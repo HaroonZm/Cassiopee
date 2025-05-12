@@ -1,0 +1,42 @@
+import sys
+from bisect import bisect as br
+from collections import Counter
+readline = sys.stdin.readline
+
+def check(A, B):
+    SA = sorted(A)
+    SB = sorted(B)
+    if any(a > b for a, b in zip(SA, SB)):
+        return 'No'
+    if all(a <= b for a, b in zip(A, B)):
+        return 'Yes'
+    if any(br(SA, SB[i]) != i+1 for i in range(N)):
+        return 'Yes'
+    if len(set(A)) != N or len(set(B)) != N:
+        return 'Yes'
+    P = [None]*N
+    Aidx = Counter()
+    Bidx = Counter()
+    for i in range(N):
+        a = A[i]
+        b = B[i]
+        Aidx[a] = i
+        Bidx[b] = i
+        
+    for i in range(N):
+        sa = SA[i]
+        sb = SB[i]
+        P[Aidx[sa]] = Bidx[sb]
+    visited = set()
+    vn = 0
+    while vn not in visited:
+        visited.add(vn)
+        vn = P[vn]
+    if len(visited) == N:
+        return 'No'
+    return 'Yes'
+
+N = int(readline())
+A = list(map(int, readline().split()))
+B = list(map(int, readline().split()))
+print(check(A, B))

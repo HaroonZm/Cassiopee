@@ -1,0 +1,75 @@
+Voici un énoncé de problème :
+
+Score :
+500
+points
+Problem Statement
+Find the number of integers between
+1
+and
+N
+(inclusive) that contains exactly
+K
+non-zero digits when written in base ten.
+Constraints
+1 \leq N < 10^{100}
+1 \leq K \leq 3
+Input
+Input is given from Standard Input in the following format:
+N
+K
+Output
+Print the count.
+Sample Input 1
+100
+1
+Sample Output 1
+19
+The following
+19
+integers satisfy the condition:
+1,2,3,4,5,6,7,8,9,10,20,30,40,50,60,70,80,90,100
+Sample Input 2
+25
+2
+Sample Output 2
+14
+The following
+14
+integers satisfy the condition:
+11,12,13,14,15,16,17,18,19,21,22,23,24,25
+Sample Input 3
+314159
+2
+Sample Output 3
+937
+Sample Input 4
+9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999
+3
+Sample Output 4
+117879300
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def run():
+  N = list(map(int, list(input())))
+  K = int(input())
+  Nlen = len(N)
+  dp = [[[0]*(K+2) for _ in range(2)] for n in range(Nlen+1)]
+  dp[0][0][0] = 1
+  for nlen in range(Nlen):
+    dN = N[nlen]
+    for d in range(10):
+      for j in range(2):
+        for k in range(K+2):
+          flagj = j or d < dN
+          if (flagj == 0) and (d > dN): continue
+          flagk = min(K+1, k+(d != 0))
+          dp[nlen+1][flagj][flagk] += dp[nlen][j][k]
+  print(dp[-1][0][K]+dp[-1][1][K])
+  
+if __name__ == '__main__':
+    run()
+```

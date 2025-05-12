@@ -1,0 +1,28 @@
+import sys
+
+def solve():
+    file_input = sys.stdin
+    N, K = map(int, file_input.readline().split())
+    
+    G = [[] for i in range(10)]
+    for line in file_input:
+        c, g = map(int, line.split())
+        G[g - 1].append(c)
+    
+    for genre in G:
+        genre.sort(reverse=True)
+        for i, p in zip(range(1, len(genre)), genre):
+            genre[i] += p + 2 * i # Recording cumulative price
+    
+    C = [0] * (K + 1)
+    for genre in G:
+        pre_C = C.copy()
+        for n, p in zip(range(len(genre), 0, -1), genre[::-1]):
+            for i, vals in enumerate(zip(pre_C[n:], C)):
+                v1, v2 = vals
+                v1 += p
+                if v1 > v2:
+                    C[i] = v1
+    print(C[0])
+
+solve()

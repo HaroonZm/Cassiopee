@@ -1,0 +1,152 @@
+Voici un énoncé de problème :
+
+Score :
+700
+points
+Problem Statement
+Snuke is playing a puzzle game.
+In this game, you are given a rectangular board of dimensions
+R × C
+, filled with numbers. Each integer
+i
+from
+1
+through
+N
+is written twice, at the coordinates
+(x_{i,1},y_{i,1})
+and
+(x_{i,2},y_{i,2})
+.
+The objective is to draw a curve connecting the pair of points where the same integer is written, for every integer from
+1
+through
+N
+.
+Here, the curves may not go outside the board or cross each other.
+Determine whether this is possible.
+Constraints
+1 ≤ R,C ≤ 10^8
+1 ≤ N ≤ 10^5
+0 ≤ x_{i,1},x_{i,2} ≤ R(1 ≤ i ≤ N)
+0 ≤ y_{i,1},y_{i,2} ≤ C(1 ≤ i ≤ N)
+All given points are distinct.
+All input values are integers.
+Input
+Input is given from Standard Input in the following format:
+R
+C
+N
+x_{1,1}
+y_{1,1}
+x_{1,2}
+y_{1,2}
+:
+x_{N,1}
+y_{N,1}
+x_{N,2}
+y_{N,2}
+Output
+Print
+YES
+if the objective is achievable; print
+NO
+otherwise.
+Sample Input 1
+4 2 3
+0 1 3 1
+1 1 4 1
+2 0 2 2
+Sample Output 1
+YES
+The above figure shows a possible solution.
+Sample Input 2
+2 2 4
+0 0 2 2
+2 0 0 1
+0 2 1 2
+1 1 2 1
+Sample Output 2
+NO
+Sample Input 3
+5 5 7
+0 0 2 4
+2 3 4 5
+3 5 5 2
+5 5 5 4
+0 3 5 1
+2 2 4 4
+0 5 4 1
+Sample Output 3
+YES
+Sample Input 4
+1 1 2
+0 0 1 1
+1 0 0 1
+Sample Output 4
+NO
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import os
+import sys
+from collections import deque, Counter
+
+if os.getenv("LOCAL"):
+    sys.stdin = open("_in.txt", "r")
+
+sys.setrecursionlimit(10 ** 9)
+INF = float("inf")
+IINF = 10 ** 18
+MOD = 10 ** 9 + 7
+# MOD = 998244353
+
+R, C, N = list(map(int, sys.stdin.buffer.readline().split()))
+XY = [list(map(int, sys.stdin.buffer.readline().split())) for _ in range(N)]
+
+# 入力と答えの制約より、もし長方形の制限がなければ任意の点まで行ける
+# 長方形の辺上にある点だけ考えればいい
+
+p1 = []
+p2 = []
+p3 = []
+p4 = []
+for i, (x1, y1, x2, y2) in enumerate(XY):
+    for x, y in ((x1, y1), (x2, y2)):
+        if y == 0:
+            p1.append((x, i))
+        elif x == R:
+            p2.append((y, i))
+        elif y == C:
+            p3.append((x, i))
+        elif x == 0:
+            p4.append((y, i))
+# 順番に並ぶようにする
+p1.sort()
+p2.sort()
+p3.sort(reverse=True)
+p4.sort(reverse=True)
+
+points = p1 + p2 + p3 + p4
+counts = Counter([i for _, i in points])
+que = deque()
+for _, i in points:
+    if counts[i] <= 1:
+        continue
+    if que and que[-1] == i:
+        que.pop()
+    else:
+        que.append(i)
+
+while len(que) >= 2 and que[0] == que[-1]:
+    que.popleft()
+    que.pop()
+
+ok = len(que) == 0
+if ok:
+    print('YES')
+else:
+    print('NO')
+```

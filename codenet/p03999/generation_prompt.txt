@@ -1,0 +1,88 @@
+Voici un énoncé de problème :
+
+Score :
+300
+points
+Problem Statement
+You are given a string
+S
+consisting of digits between
+1
+and
+9
+, inclusive.
+You can insert the letter
++
+into some of the positions (possibly none) between two letters in this string.
+Here,
++
+must not occur consecutively after insertion.
+All strings that can be obtained in this way can be evaluated as formulas.
+Evaluate all possible formulas, and print the sum of the results.
+Constraints
+1 \leq |S| \leq 10
+All letters in
+S
+are digits between
+1
+and
+9
+, inclusive.
+Input
+The input is given from Standard Input in the following format:
+S
+Output
+Print the sum of the evaluated value over all possible formulas.
+Sample Input 1
+125
+Sample Output 1
+176
+There are
+4
+formulas that can be obtained:
+125
+,
+1+25
+,
+12+5
+and
+1+2+5
+. When each formula is evaluated,
+125
+1+25=26
+12+5=17
+1+2+5=8
+Thus, the sum is
+125+26+17+8=176
+.
+Sample Input 2
+9999999999
+Sample Output 2
+12656242944
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+s = list(input())
+
+# 2^(文字数 - 1) 通りの数式が作れるので、それぞれの計算結果を足し合わせる
+result = 0
+for i in range(2 ** (len(s) - 1)):
+    # 数字と数字の間を左から順に0, 1, ...番目とし、
+    # iをビット列と見なして、(j+1)ビット目(j=0,1,...)が1の場合は j番目の位置に '+' を挿入する
+    # e.g.) S = '125' とすると、 1{0}2{1}5, i=0b00~0b11 なので、それぞれ以下の数式に対応する
+    # 0b00 → '125'
+    # 0b01 → '1' + '25'
+    # 0b10 → '12' + '5'
+    # 0b11 → '1' + '2' + '5'
+    num_str = s[0]
+    for j in range(0, len(s) - 1):
+        if ((i & (2 ** j)) >> j) == 1:
+            # 文字間を '+' で繋ぐ
+            num_str += '+'
+        num_str += s[j + 1]
+    result += eval(num_str)
+
+print(result)
+```

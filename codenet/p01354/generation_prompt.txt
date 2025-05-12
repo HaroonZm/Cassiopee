@@ -1,0 +1,109 @@
+Voici un énoncé de problème :
+
+Problem F: The Castle
+待ち伏せていた敵を見事撃破したうさぎは, 主人公を敵の城内に進めることに成功した. 主人公が城の地下牢に捕らわれていたねこたちを解放したところ, 彼らのうちの何匹かが主人公の力になってくれることになった.
+ねこたちの話では, 城の奥にいる魔王に辿りつくには1 番から
+n
+番の
+n
+個の部屋をこの順に通り抜けることになるが, 各部屋には1 体ずつ敵が待ち受けていて逐一倒していかなければならないという. 仲間になった
+m
+匹のねこそれぞれについて, 各部屋の敵それぞれに対する勝率が分かっており, 主人公はこのねこたちを1 匹ずつ城の奥へ向けて派遣する. 各部屋はそこにいる敵を倒してからでなければ通過できないので, あるねこがある部屋の敵にやられたら, 次のねこはその部屋の敵から戦っていくことになる.
+派遣されたねこは敵にやられるまで進むが, 派遣したねこがどの部屋の敵にやられたかは毎回知ることができ, それによって次にどのねこを派遣するかを決めることができる. どのようにすれば, ねこたちが待ち受けるすべての敵を倒せる確率が最大になるだろうか.
+Input
+入力の一行目には
+m
+と
+n
+がスペースで区切られて与えられる. 1 ≤
+m
+,
+n
+≤ 16
+つづく
+m
+行には, 猫が敵に勝つ確率を表す
+n
+個の実数が与えられる.
+i
++ 1 行目の
+j
+個目の実数は,
+j
+番の部屋の敵に勝つ確率を表している. 確率は小数点以下3 桁まで.
+Output
+ねこたちが待ち受けるすべての敵を倒せる確率が最大になるようにうまく順番を決めていくとき, その確率を答えよ. 出力は誤差を含んでいてもよいが, 真の値との誤差は10
+−9
+以内にせよ.
+Sample Input 1
+2 3
+0.900 0.500 0.100
+0.500 0.500 0.500
+Sample Output 1
+0.372500000000
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import math,string,itertools,fractions,heapq,collections,re,array,bisect,sys,random,time,copy,functools
+
+sys.setrecursionlimit(10**7)
+inf = 10**20
+eps = 1.0 / 10**13
+mod = 10**9+7
+dd = [(-1,0),(0,1),(1,0),(0,-1)]
+ddn = [(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1)]
+
+def LI(): return [int(x) for x in sys.stdin.readline().split()]
+def LI_(): return [int(x)-1 for x in sys.stdin.readline().split()]
+def LF(): return [float(x) for x in sys.stdin.readline().split()]
+def LS(): return sys.stdin.readline().split()
+def I(): return int(sys.stdin.readline())
+def F(): return float(sys.stdin.readline())
+def S(): return input()
+def pf(s): return print(s, flush=True)
+
+def main():
+    rr = []
+
+    def f(n,m):
+        a = [LF() for _ in range(n)]
+        b = []
+        mx = 1 << n
+        for i in range(mx):
+            t = []
+            for j in range(n):
+                if i & (1<<j):
+                    t.append(j)
+            b.append(t)
+
+        nmx = n * mx
+        ca = [1] * nmx
+        cn = [c<<n for c in range(n)]
+        ci = [1<<c for c in range(n)]
+        for k in range(1,m+1):
+            ka = [a[c][-k] for c in range(n)]
+            na = [0] * nmx
+            re = [0] * mx
+            for x in range(1,mx):
+                for c in b[x]:
+                    y = cn[c] + x
+                    na[y] = ka[c] * ca[y] + (1 - ka[c]) * re[x - ci[c]]
+                    if re[x] < na[y]:
+                        re[x] = na[y]
+            ca = na
+
+        return '{:0.10f}'.format(max(ca))
+
+    while 1:
+        n,m = LI()
+        if n == 0:
+            break
+        rr.append(f(n,m))
+        break
+
+    return '\n'.join(map(str, rr))
+
+print(main())
+```

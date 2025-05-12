@@ -1,0 +1,13 @@
+import heapq
+n, m, c = map(int,input().split())
+que = [[] for i in range(c + 1)]
+can_buy = [0] + list(map(int,input().split()))
+for i in range(n):
+    c, w = map(int, input().split())
+    heapq.heappush(que[c], w)
+    if len(que[c]) > can_buy[c]:
+        heapq.heappop(que[c])
+line = [j for i in que for j in i]
+line.sort()
+ans = sum(line[-m:])
+print(ans)
