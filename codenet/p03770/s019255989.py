@@ -1,0 +1,79 @@
+#-----UnionFind-----(0-indexed)
+import sys;sys.setrecursionlimit(10**9)
+class UnionFind:
+  def __init__(self,n):
+    self.n=[-1]*n
+    self.r=[0]*n
+    self.siz=n
+  def find_root(self,x):
+    if self.n[x]<0:
+      return x
+    else:
+      self.n[x]=self.find_root(self.n[x])
+      return self.n[x]
+  def unite(self,x,y):
+    x=self.find_root(x)
+    y=self.find_root(y)
+    if x==y:return
+    elif self.r[x]>self.r[y]:
+      self.n[x]+=self.n[y]
+      self.n[y]=x
+    else:
+      self.n[y]+=self.n[x]
+      self.n[x]=y
+      if self.r[x]==self.r[y]:
+        self.r[y]+=1
+    self.siz-=1
+  def root_same(self,x,y):
+    return self.find_root(x)==self.find_root(y)
+  def count(self,x):
+    return -self.n[self.find_root(x)]
+  def size(self):
+    return self.siz
+
+from collections import defaultdict
+n,x,y=map(int,input().split())
+mod=10**9+7
+f=[1]
+for i in range(1,n+7):f.append(f[-1]*i%mod)
+cw=[list(map(int,input().split()))for _ in range(n)]
+if n==1:exit(print(1))
+if len(set(c for c,w in cw))==1:exit(print(1))
+for i in range(n):cw[i][0]-=1
+miw=[10**10]*n
+miwi=[0]*n
+for i in range(n):
+  c,w=cw[i]
+  if miw[c]>w:
+    miw[c]=w
+    miwi[c]=i
+mminc=miw.index(min(miw))
+temp=10**10
+for i in range(n):
+  if i!=mminc:temp=min(temp,miw[i])
+sminc=miw.index(temp)
+u=UnionFind(n)
+for i in range(n):
+  c,w=cw[i]
+  if c==mminc:tc=sminc
+  else:tc=mminc
+  if miw[c]+w<=x:u.unite(miwi[c],i)
+  if miw[tc]+w<=y:u.unite(miwi[tc],i)
+d=[0]*n
+for i in range(n):
+  if i==u.find_root(i):d[i]=defaultdict(int)
+for i in range(n):
+  c,w=cw[i]
+  d[u.find_root(i)][c]+=1
+ans=1
+for i in range(n):
+  if i==u.find_root(i):
+    anss=1
+    co=0
+    for j in d[i]:
+      anss*=pow(f[d[i][j]],mod-2,mod)
+      anss%=mod
+      co+=d[i][j]
+    anss*=f[co]
+    ans=(ans*anss)%mod
+print(ans)

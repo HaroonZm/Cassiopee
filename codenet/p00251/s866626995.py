@@ -1,0 +1,1 @@
+print sum([input() for i in xrange(10)])

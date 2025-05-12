@@ -1,0 +1,43 @@
+import sys
+liquids={}
+O=[]
+
+N = int(input())
+for i in range(N):
+    C,D=(input().split())
+    if C in liquids.keys():
+        liquids[C].append(int(D))
+    else:
+        liquids[C]=[]
+        liquids[C].append(int(D))
+for i in liquids.keys():
+    liquids[i]=list(set(liquids[i]))
+    liquids[i].sort()
+
+M = int(input())
+if M > N:
+    print("No")
+    sys.exit()
+for i in range(M):
+    O.append(input())
+    
+nowdens=int(10**5+1)
+
+for i in range(M):
+    try:
+        tmp=liquids[O[-(i+1)]]
+        if len(tmp)==0:
+            print("No")
+            sys.exit()
+        maxdens=tmp.pop()
+        while(maxdens>=nowdens):
+            if len(tmp)==0:
+                print("No")
+                sys.exit()
+            maxdens=tmp.pop()
+        nowdens=maxdens
+    except KeyError:
+        print("No")
+        sys.exit()
+    
+print("Yes")

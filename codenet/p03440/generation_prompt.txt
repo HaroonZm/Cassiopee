@@ -1,0 +1,218 @@
+Voici un énoncé de problème :
+
+Score :
+600
+points
+Problem Statement
+You are given a forest with
+N
+vertices and
+M
+edges. The vertices are numbered
+0
+through
+N-1
+.
+The edges are given in the format
+(x_i,y_i)
+, which means that Vertex
+x_i
+and
+y_i
+are connected by an edge.
+Each vertex
+i
+has a value
+a_i
+.
+You want to add edges in the given forest so that the forest becomes connected.
+To add an edge, you choose two different vertices
+i
+and
+j
+, then span an edge between
+i
+and
+j
+.
+This operation costs
+a_i + a_j
+dollars, and afterward neither Vertex
+i
+nor
+j
+can be selected again.
+Find the minimum total cost required to make the forest connected, or print
+Impossible
+if it is impossible.
+Constraints
+1 ≤ N ≤ 100,000
+0 ≤ M ≤ N-1
+1 ≤ a_i ≤ 10^9
+0 ≤ x_i,y_i ≤ N-1
+The given graph is a forest.
+All input values are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+M
+a_0
+a_1
+..
+a_{N-1}
+x_1
+y_1
+x_2
+y_2
+:
+x_M
+y_M
+Output
+Print the minimum total cost required to make the forest connected, or print
+Impossible
+if it is impossible.
+Sample Input 1
+7 5
+1 2 3 4 5 6 7
+3 0
+4 0
+1 2
+1 3
+5 6
+Sample Output 1
+7
+If we connect vertices
+0
+and
+5
+, the graph becomes connected, for the cost of
+1 + 6 = 7
+dollars.
+Sample Input 2
+5 0
+3 1 4 1 5
+Sample Output 2
+Impossible
+We can't make the graph connected.
+Sample Input 3
+1 0
+5
+Sample Output 3
+0
+The graph is already connected, so we do not need to add any edges.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+
+def input(): return sys.stdin.readline().strip()
+def list2d(a, b, c): return [[c] * b for i in range(a)]
+def list3d(a, b, c, d): return [[[d] * c for j in range(b)] for i in range(a)]
+def list4d(a, b, c, d, e): return [[[[e] * d for j in range(c)] for j in range(b)] for i in range(a)]
+def ceil(x, y=1): return int(-(-x // y))
+def INT(): return int(input())
+def MAP(): return map(int, input().split())
+def LIST(N=None): return list(MAP()) if N is None else [INT() for i in range(N)]
+def Yes(): print('Yes')
+def No(): print('No')
+def YES(): print('YES')
+def NO(): print('NO')
+sys.setrecursionlimit(10 ** 9)
+INF = 10 ** 19
+MOD = 10 ** 9 + 7
+EPS = 10 ** -10
+
+class UnionFind:
+    """ Union-Find木 """
+
+    def __init__(self, n):
+        self.n = n
+        self.par = [i for i in range(n)]
+        self.rank = [0] * n
+        self.size = [1] * n
+        self.tree = [True] * n
+        self.grpcnt = n
+
+    def find(self, x):
+        """ 根の検索(グループ番号の取得) """
+        t = []
+        while self.par[x] != x:
+            t.append(x)
+            x = self.par[x]
+        for i in t:
+            self.par[i] = x
+        return self.par[x]
+
+    def union(self, x, y):
+        """ 併合 """
+        x = self.find(x)
+        y = self.find(y)
+
+        if x == y:
+            self.tree[x] = False
+            return
+        if not self.tree[x] or not self.tree[y]:
+            self.tree[x] = self.tree[y] = False
+
+        self.grpcnt -= 1
+        if self.rank[x] < self.rank[y]:
+            self.par[x] = y
+            self.size[y] += self.size[x]
+        else:
+            self.par[y] = x
+            self.size[x] += self.size[y]
+            if self.rank[x] == self.rank[y]:
+                self.rank[x] += 1
+
+    def is_same(self, x, y):
+        """ 同じ集合に属するか判定 """
+        return self.find(x) == self.find(y)
+
+    def get_size(self, x=None):
+        if x is not None:
+            """ あるノードの属する集合のノード数 """
+            return self.size[self.find(x)]
+        else:
+            """ 集合の数 """
+            return self.grpcnt
+    
+    def is_tree(self, x):
+        """ 木かどうかの判定 """
+        return self.tree[self.find(x)]
+
+N, M = MAP()
+A = LIST()
+uf = UnionFind(N)
+for i in range(M):
+    a, b = MAP()
+    uf.union(a, b)
+
+L = uf.get_size()
+K = (L-1) * 2 
+if K > N:
+    print('Impossible')
+    exit()
+elif K == 0:
+    print(0)
+    exit()
+
+adjli = [[] for i in range(N)]
+for i in range(N):
+    root = uf.find(i)
+    adjli[root].append(A[i])
+
+ans = 0
+B = []
+for i in range(N):
+    if adjli[i]:
+        adjli[i].sort(reverse=1)
+        ans += adjli[i].pop()
+        B += adjli[i]
+        K -= 1
+
+B.sort()
+ans += sum(B[:K])
+print(ans)
+```

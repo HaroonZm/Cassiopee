@@ -1,0 +1,79 @@
+import math,string,itertools,fractions,heapq,collections,re,array,bisect,sys,random,time,copy,functools
+
+sys.setrecursionlimit(10**7)
+inf = 10**20
+eps = 1.0 / 10**13
+mod = 10**9+7
+dd = [(-1,0),(0,1),(1,0),(0,-1)]
+ddn = [(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1)]
+
+def LI(): return [int(x) for x in sys.stdin.readline().split()]
+def LI_(): return [int(x)-1 for x in sys.stdin.readline().split()]
+def LF(): return [float(x) for x in sys.stdin.readline().split()]
+def LS(): return sys.stdin.readline().split()
+def I(): return int(sys.stdin.readline())
+def F(): return float(sys.stdin.readline())
+def S(): return input()
+def pf(s): return print(s, flush=True)
+
+def main():
+    rr = []
+
+    def f(n):
+        a = [LI() for _ in range(n)]
+        b = []
+        for _ in range(4):
+            b += [c for c in S()]
+        s = set()
+        ms = 2**16 - 1
+        ii = [2**i for i in range(16)]
+        for h, w in a:
+            for i in range(-h+1, 4):
+                for j in range(-w+1, 4):
+                    mask = ms
+                    for k in range(max(0, i), min(4, i+h)):
+                        for l in range(max(0, j), min(4, j+w)):
+                            mask -= ii[k*4+l]
+                    s.add(mask)
+        ta = []
+        for mask in s:
+            for c in 'RGB':
+                t = 0
+                for i in range(16):
+                    if ii[i] & mask:
+                        continue
+                    if b[i] == c:
+                        t += ii[i]
+                if t > 0:
+                    ta.append((mask, t))
+
+        v = collections.defaultdict(bool)
+        q = set([0])
+        r = 0
+        while q:
+            r += 1
+            nq = set()
+            for c in q:
+                v[c] = True
+            for c in q:
+                for mask, t in ta:
+                    n = (c & mask) + t
+                    if v[n]:
+                        continue
+                    if n == ms:
+                        return r
+                    nq.add(n)
+            q = nq
+
+        return -1
+
+    while 1:
+        n = I()
+        if n == 0:
+            break
+        rr.append(f(n))
+        break
+
+    return '\n'.join(map(str, rr))
+
+print(main())

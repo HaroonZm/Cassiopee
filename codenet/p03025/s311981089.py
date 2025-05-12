@@ -1,0 +1,38 @@
+# C - Best-of-(2n-1)
+class Combi():
+    def __init__(self, N, mod):
+        self.power = [1 for _ in range(N+1)]
+        self.rev = [1 for _ in range(N+1)]
+        self.mod = mod
+        for i in range(2, N+1):
+            self.power[i] = (self.power[i-1]*i) % self.mod
+        self.rev[N] = pow(self.power[N], self.mod-2, self.mod)
+        for j in range(N, 0, -1):
+            self.rev[j-1] = (self.rev[j]*j) % self.mod
+
+    def com(self, K, R):
+        if K < R:
+            return 0
+        else:
+            return ((self.power[K])*(self.rev[K-R])*(self.rev[R])) % self.mod
+
+    def pom(self, K, R):
+        if K < R:
+            return 0
+        else:
+            return (self.power[K])*(self.rev[K-R]) % self.mod
+
+mod = 10**9 + 7
+combi = Combi(2*10**5, mod)
+N, A, B, C = map(int, input().split())
+
+X = 0
+Y = (100-C)*pow(A+B, 2*N-1, mod)
+
+for i in range(N, 2*N):
+    X += pow(A+B, 2*N-1-i, mod)*i*combi.com(i-1, N-1)*(pow(A, N, mod)
+                                                       * pow(B, i-N, mod)+pow(B, N, mod)*pow(A, i-N, mod))
+    X %= mod
+X *= 100
+ans = X*pow(Y, mod-2, mod) % mod
+print(ans)

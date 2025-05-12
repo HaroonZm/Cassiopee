@@ -1,0 +1,84 @@
+#@profile
+def dfs(p,s,c,cmin,cmax):
+    if len(p) == 0:
+        return solve(s,c,cmin,cmax)
+    lower, u = p[0]
+    c += lower
+    if u <= 9:
+        cmin[lower] = 0
+        cmax[lower] = u
+        return dfs(p[1:],s,c,cmin,cmax)
+     
+    cmin[lower] = 0
+    cmax[lower] = 9
+    ret = dfs(p[1:],s,c,cmin,cmax)
+ 
+    upper = lower.upper()
+    s = s.translate(str.maketrans({lower:upper + lower}))
+ 
+    c += upper
+    if u % 10 == 9:
+        cmin[upper] = 1
+        cmax[upper] = u // 10
+        return ret + dfs(p[1:],s,c,cmin,cmax)
+    if 20 <= u:
+        cmin[upper] = 1
+        cmax[upper] = u // 10 - 1
+        ret += dfs(p[1:],s,c,cmin,cmax)
+    cmin[lower] = 0
+    cmax[lower] = u % 10
+    cmin[upper] = u // 10
+    cmax[upper] = u // 10
+    return ret + dfs(p[1:],s,c,cmin,cmax)
+#@profile
+def solve(s,c,cmin,cmax):
+    uf = [-1] * 128
+    s1 = map(ord,s[:len(s)//2])
+    s2 = map(ord,s[::-1][:len(s)//2])
+    for p,q in zip(s1,s2):
+        p = root(uf,p)
+        q = root(uf,q)
+        if p != q:
+            if uf[p] >= uf[q]:
+                uf[p] += uf[q]
+                uf[q] = p
+            else:
+                uf[q] += uf[p]
+                uf[p] = q
+
+    nmin,nmax = {},{}
+    for ci in c:
+        p = root(uf,ord(ci))
+        p = str(p)
+        try:
+            nmax[p] = min(nmax[p],cmax[ci])
+            nmin[p] = max(nmin[p],cmin[ci])
+        except KeyError:
+            nmax[p] = cmax[ci]
+            nmin[p] = cmin[ci]
+     
+    ret = 1
+    for p in nmax.keys():
+        if nmax[p] < nmin[p]:
+            return 0
+        ret *= nmax[p] - nmin[p] + 1
+    return ret
+    
+#@profile 
+def root(uf,p):
+    if uf[p] < 0:
+        return p
+    uf[p] = root(uf,uf[p])
+    return uf[p]
+
+import sys
+f = sys.stdin
+ 
+_, _ = map(int, f.readline().split())
+s = f.readline().strip()
+p = [line.split() for line in f]
+for pi in p:
+    pi[1] = int(pi[1])
+cmin,cmax = {str(i):i for i in range(10)},{str(i):i for i in range(10)}
+characters = '0123456789'
+print(dfs(p,s,characters,cmin,cmax) % (10 ** 9 + 7))

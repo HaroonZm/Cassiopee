@@ -1,0 +1,18 @@
+#最長増加部分列問題 (LIS) 
+import bisect
+
+N = int(input())
+seq = [0] * N
+for i in range(N):
+  seq[i] = int(input())
+
+LIS = [seq[0]]
+#print(LIS)
+for i in range(len(seq)):
+    if seq[i] > LIS[-1]:
+        LIS.append(seq[i])
+    else:
+        LIS[bisect.bisect_left(LIS, seq[i])] = seq[i]
+    #print(LIS)
+#print(LIS)
+print(len(LIS))

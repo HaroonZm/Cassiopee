@@ -1,0 +1,7 @@
+a = int(input())
+b = int(input())
+X = min(a,b)
+a = int(input())
+b = int(input())
+Y = min(a,b)
+print(X + Y)

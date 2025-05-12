@@ -1,0 +1,194 @@
+Voici un énoncé de problème :
+
+Score :
+400
+points
+Problem Statement
+Mountaineers Mr. Takahashi and Mr. Aoki recently trekked across a certain famous mountain range.
+The mountain range consists of
+N
+mountains, extending from west to east in a straight line as Mt.
+1
+, Mt.
+2
+, ..., Mt.
+N
+.
+Mr. Takahashi traversed the range from the west and Mr. Aoki from the east.
+The height of Mt.
+i
+is
+h_i
+, but they have forgotten the value of each
+h_i
+.
+Instead, for each
+i
+(
+1 ≤ i ≤ N
+), they recorded the maximum height of the mountains climbed up to the time they reached the peak of Mt.
+i
+(including Mt.
+i
+).
+Mr. Takahashi's record is
+T_i
+and Mr. Aoki's record is
+A_i
+.
+We know that the height of each mountain
+h_i
+is a positive integer.
+Compute the number of the possible sequences of the mountains' heights, modulo
+10^9 + 7
+.
+Note that the records may be incorrect and thus there may be no possible sequence of the mountains' heights.
+In such a case, output
+0
+.
+Constraints
+1 ≤ N ≤ 10^5
+1 ≤ T_i ≤ 10^9
+1 ≤ A_i ≤ 10^9
+T_i ≤ T_{i+1}
+(
+1 ≤ i ≤ N - 1
+)
+A_i ≥ A_{i+1}
+(
+1 ≤ i ≤ N - 1
+)
+Input
+The input is given from Standard Input in the following format:
+N
+T_1
+T_2
+...
+T_N
+A_1
+A_2
+...
+A_N
+Output
+Print the number of possible sequences of the mountains' heights, modulo
+10^9 + 7
+.
+Sample Input 1
+5
+1 3 3 3 3
+3 3 2 2 2
+Sample Output 1
+4
+The possible sequences of the mountains' heights are:
+1, 3, 2, 2, 2
+1, 3, 2, 1, 2
+1, 3, 1, 2, 2
+1, 3, 1, 1, 2
+for a total of four sequences.
+Sample Input 2
+5
+1 1 1 2 2
+3 2 1 1 1
+Sample Output 2
+0
+The records are contradictory, since Mr. Takahashi recorded
+2
+as the highest peak after climbing all the mountains but Mr. Aoki recorded
+3
+.
+Sample Input 3
+10
+1 3776 3776 8848 8848 8848 8848 8848 8848 8848
+8848 8848 8848 8848 8848 8848 8848 8848 3776 5
+Sample Output 3
+884111967
+Don't forget to compute the number modulo
+10^9 + 7
+.
+Sample Input 4
+1
+17
+17
+Sample Output 4
+1
+Some mountain ranges consist of only one mountain.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import bisect
+import sys
+import math
+import itertools
+sys.setrecursionlimit(10000)
+
+INF = float('inf')
+
+# input macro
+def i():
+    return int(raw_input())
+def ii():
+    return map(int,raw_input().split(" "))
+def s():
+    return raw_input()
+def ss():
+    return raw_input().split(" ")
+def slist():
+    return list(raw_input())
+def join(s):
+    return ''.join(s)
+
+#memoize macro
+def memoize(f):
+    cache = {}
+    def helper(*args):
+        if args not in cache:
+            cache[(args)] = f(*args)
+        return cache[args]
+    return helper
+
+nh=zip([1,0,-1,0],[0,1,0,-1])
+mod=1000000007
+
+###########
+n=i()
+t=ii()
+a=ii()
+just=[0]*n
+ub=[INF]*n
+lb=[0]*n
+
+def justa(x,y):
+    if just[x] in [0,y]:
+        just[x]=y
+    else:
+        print '0'
+        sys.exit()
+
+justa(0,t[0])
+justa(n-1,a[n-1])
+
+for j in range(1,n):
+    if t[j]!=t[j-1]:
+        justa(j,t[j])
+    else:
+        ub[j]=t[j]
+for j in reversed(range(0,n-1)):
+    if a[j]!=a[j+1]:
+        justa(j,a[j])
+    else:
+        ub[j]=min(ub[j],a[j])
+
+ans=1
+for j in range(1,n):
+    if just[j]==0:
+        ans=ans*ub[j]%mod
+    elif just[j]<=ub[j]:
+        ans=ans
+    else:
+        print '0'
+        sys.exit()
+
+print ans
+```

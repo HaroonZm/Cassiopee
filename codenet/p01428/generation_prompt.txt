@@ -1,0 +1,242 @@
+Voici un énoncé de problème :
+
+問題文
+お菓子の魔女 CHARLOTTE は
+巴マミ
+とクッキーゲームを楽しんでいる．クッキーゲームは
+8\times 8
+の格子状に区切られたテーブルクロスの上にチーズクッキーとチョコレートクッキーを置いて行われる．各格子には高々
+1
+個のチョコレートクッキーまたはチーズクッキーしか置くことはできない．
+お菓子の魔女はチーズクッキーを，
+巴マミ
+はチョコレートクッキーを交互に置いてゲームを行う．自分のクッキーを置いたあと，そのクッキーから上下左右斜めの各
+8
+方向について，置くクッキーとすでに置いていた自分のクッキーの間に相手のクッキーのみが直線に並んでいた場合に，その挟まれた相手のクッキーのすべてが自分のクッキーで置き換えられる．クッキーゲームのプレイヤーは自分のターンが回ってきた時，
+1
+つ自分のクッキーを置くことができる．ただし，相手のクッキーを少なくとも
+1
+つ以上自分のクッキーに置き換えられなければならない．そのような置き場がない場合，自分のターンをパスをしなければならない．
+お菓子の魔女も
+巴マミ
+も考えるのが少々苦手である．そこで，回ってきたターン毎にそのターンの中で置き換えられるクッキーの数を最大化することを考えることにした．
+巴マミ
+のターンのときに置き換えられるクッキーの数を最大にするようなクッキーを置く場所の候補が複数ある場合は，より上の場所を，それでも複数ある場合はより左の場所を選択することにした．また同様に，お菓子の魔女のターンのときに候補が複数ある場合はより下の場所を，それでも複数ある場合はより右の場所を選択することにした．
+テーブルクロスに置かれたクッキーの状態が与えられるので，巴マミからはじめ，彼女たちがそこからクッキーゲームを行い，共に新たなクッキーが置けなくなるまでゲームを続けた時のテーブルクロスの上に置かれたクッキーの状態を求めよ．
+入力形式
+入力は以下の形式で与えられる．
+s_{11} s_{12} ... s_{18}\\
+s_{21} s_{22} ... s_{28}\\
+...\\
+s_{81} s_{82} ... s_{88}\\
+s_{ij}
+はテーブルクロスに置かれたクッキーの初期状態を表す文字で，上から
+i
+行目，左から
+j
+列目の格子の状態を表す．チョコレートクッキーが置かれているとき
+s_{ij}
+は
+'o'
+であり，チーズクッキーが置かれているときは
+'x'
+, 何も置かれていないときは
+'.'
+となる．
+出力形式
+クッキーゲームが行われた後のテーブルクロスの上に置かれたクッキーの状態を，入力形式と同じ形式で出力せよ．
+制約
+s_{ij}
+は
+'o'
+,
+'x'
+,
+'.'
+のいずれかである．
+入出力例
+入力例 1
+ooox....
+.x......
+ooo.....
+........
+........
+........
+........
+........
+出力例1
+ooooo...
+.o......
+ooo.....
+...o....
+....o...
+........
+........
+........
+入力例 2
+........
+........
+........
+...ox...
+...xo...
+........
+........
+........
+出力例 2
+xxxxxxxx
+xxxooxxx
+xxxxooxx
+xxxxxxxx
+ooxxooox
+ooxoooox
+oxooooox
+ooooooox
+入力例 3
+........
+........
+..ooo...
+..oxo...
+..ooo...
+........
+........
+........
+出力例 3
+........
+........
+..ooo...
+..ooo...
+..ooo...
+.....o..
+......o.
+........
+Problem Setter: Flat35
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from __future__ import print_function
+import copy
+import sys
+
+class Board(object):
+    size = 8
+    dy = [0, -1, -1, -1, 0, 1, 1, 1]
+    dx = [1, 1, 0, -1, -1, -1, 0, 1]
+
+    def __init__(self):
+        self.board = [[0] * Board.size for _ in xrange(Board.size)]
+
+    def __deepcopy__(self, memo):
+        ret = Board()
+        ret.board = copy.deepcopy(self.board, memo)
+        return ret
+
+    def _check_range(self, y, x):
+        assert 0 <= y < Board.size and 0 <= x < Board.size
+
+    def _check_color(self, color):
+        assert color == 'o' or color == 'x'
+
+    def _putone(self, color, y, x):
+        self._check_color(color)
+        self._check_range(y, x)
+
+        if color == 'o':
+            self.board[y][x] = 1
+        if color == 'x':
+            self.board[y][x] = -1
+
+    def _getone(self, y, x):
+        self._check_range(y, x)
+        
+        if self.board[y][x] == 1:
+            return 'o'
+        if self.board[y][x] == -1:
+            return 'x'
+        return '.'
+
+    def view(self):
+        return '\n'.join(''.join(self._getone(y, x) for x in xrange(Board.size)) for y in xrange(Board.size))
+
+    def put(self, color, y, x):
+        self._check_color(color)
+        self._check_range(y, x)
+        self._putone(color, y, x)
+
+        def find(y, x, d):
+            # print("y = ", y, ", x = ", x, ", d = ", d)
+            if y < 0 or y >= Board.size or x < 0 or x >= Board.size:
+                return False
+            if self._getone(y, x) == '.':
+                return False
+            if self._getone(y, x) == color:
+                return True
+            if find(y + Board.dy[d], x + Board.dx[d], d):
+                self._putone(color, y, x)
+                return True
+            return False
+
+        for d in xrange(Board.size):
+            # print('d = ', d)
+            find(y + Board.dy[d], x + Board.dx[d], d)
+            # print(self.view())
+
+def main():
+    board = Board()
+    for i in xrange(8):
+        l = raw_input()
+        for j in xrange(8):
+            if l[j] != '.':
+                board._putone(l[j], i, j)
+    color = 'o'
+    passprev = False
+    while True:
+        cy = -1
+        cx = -1
+        get = 1
+        o = sum(1 for c in board.view() if c == 'o')
+        x = sum(1 for c in board.view() if c == 'x')
+        if color == 'o':
+            for i in xrange(8):
+                for j in xrange(8):
+                    if board._getone(i, j) == '.':
+                        board2 = copy.deepcopy(board)
+                        board2.put(color, i, j)
+                        o2 = sum(1 for c in board2.view() if c == 'o')
+                        if o2 - o > get:
+                            get = o2 - o
+                            cy = i
+                            cx = j
+        else:
+            for _i in xrange(8):
+                for _j in xrange(8):
+                    i = 7 - _i
+                    j = 7 - _j
+                    if board._getone(i, j) == '.':
+                        board2 = copy.deepcopy(board)
+                        board2.put(color, i, j)
+                        x2 = sum(1 for c in board2.view() if c == 'x')
+                        if x2 - x > get:
+                            get = x2 - x
+                            cy = i
+                            cx = j
+
+        if cy == -1 and cx == -1:
+            if passprev:
+                break
+            passprev = True
+        else:
+            passprev = False
+            board.put(color, cy, cx)
+
+        if color == 'o':
+            color = 'x'
+        else:
+            color = 'o'
+
+    print(board.view())
+
+if __name__ == '__main__':
+    main()
+```

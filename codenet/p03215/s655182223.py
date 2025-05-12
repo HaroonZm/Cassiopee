@@ -1,0 +1,33 @@
+N,K = map(int,input().split(" "))
+a = list(map(int,input().split(" ")))
+
+for i in range(N-1):
+    a[i+1] += a[i]
+
+seq = []
+for i in range(N):
+    for sl in range(i+1):
+        if sl == 0:
+            seq.append(a[N-1-i+sl])
+        else:
+            seq.append(a[N-1-i+sl] - a[sl-1])
+
+ans = 0
+l = len(seq)
+for i in range(50,-1,-1):
+    cnt = 0
+    s = set()
+    for j in range(l):
+        if seq[j] >= 0 and (seq[j] & (1<<i)) != 0:
+            cnt += 1
+            s.add(j)
+
+    if cnt >= K:
+        ans += (1 << i)
+        for j in range(l):
+            if j in s:
+                seq[j] = seq[j] - (1 << i)
+            else:
+                seq[j] = -1
+
+print(ans)

@@ -1,0 +1,146 @@
+Voici un énoncé de problème :
+
+Strongly Connected Components
+A direced graph is strongly connected if every two nodes are reachable from each other. In a strongly connected component of a directed graph, every two nodes of the component are mutually reachable.
+Input
+A directed graph
+G(V, E)
+and a sequence of queries where each query contains a pair of nodes
+u
+and
+v
+.
+|V|
+|E|
+s
+0
+t
+0
+s
+1
+t
+1
+:
+s
+|E|-1
+t
+|E|-1
+Q
+u
+0
+v
+0
+u
+1
+v
+1
+:
+u
+Q-1
+v
+Q-1
+|V|
+is the number of nodes and
+|E|
+is the number of edges in the graph. The graph nodes are named with the numbers 0, 1,...,
+|V|
+-1 respectively.
+s
+i
+and
+t
+i
+represent source and target nodes of
+i
+-th edge (directed).
+u
+i
+and
+v
+i
+represent a pair of nodes given as the
+i
+-th query.
+Output
+For each query, pinrt "1" if the given nodes belong to the same strongly connected component, "0" otherwise.
+Constraints
+1 ≤
+|V|
+≤ 10,000
+0 ≤
+|E|
+≤ 30,000
+1 ≤
+Q
+≤ 100,000
+Sample Input 1
+5 6
+0 1
+1 0
+1 2
+2 4
+4 3
+3 2
+4
+0 1
+0 3
+2 3
+3 4
+Sample Output 1
+1
+0
+1
+1
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+
+def main():
+    sys.setrecursionlimit(int(1e5))
+    nvertices, nedges = map(int, input().split())
+    Adj = [[] for i in range(nvertices)]
+    AdjRev = [[] for i in range(nvertices)]
+    for i in range(nedges):
+        u, v = map(int, input().split())
+        Adj[u].append(v)
+        AdjRev[v].append(u)
+
+    lst = []
+    visited = [False] * nvertices
+    for u in range(nvertices):
+        if not visited[u]:
+            dfs_first(u, Adj, visited, lst)
+
+    lst.reverse()
+    ids = [-1] * nvertices
+    visited = [False] * nvertices
+    id = 0
+    for u in lst:
+        if not visited[u]:
+            dfs_second(u, AdjRev, visited, id, ids)
+            id += 1
+
+    Q = int(input())
+    for i in range(Q):
+        u, v = map(int, input().split())
+        print(1 if ids[u] == ids[v] else 0)
+
+def dfs_first(u, Adj, visited, lst):
+    visited[u] = True
+    for v in Adj[u]:
+        if not visited[v]:
+            dfs_first(v, Adj, visited, lst)
+    lst.append(u)
+
+def dfs_second(u, Adj, visited, id, ids):
+    ids[u] = id
+    visited[u] = True
+    for v in Adj[u]:
+        if not visited[v]:
+            dfs_second(v, Adj, visited, id, ids)
+
+main()
+```

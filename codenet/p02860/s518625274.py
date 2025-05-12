@@ -1,0 +1,12 @@
+A=int(input())
+B=input()
+N=int(A//2)
+
+for i in range(N):
+    if B[A-1] == B[A-1-N]:
+        A-=1
+
+if A==N:
+    print("Yes")
+else:
+     print("No")

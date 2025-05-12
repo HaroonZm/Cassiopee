@@ -1,0 +1,181 @@
+Voici un énoncé de problème :
+
+C: な◯りカット (Namo.. Cut)
+問題
+－謎の巨大クラゲ、 コードネーム「な◯り」を討伐せよ－
+「な◯り」は非常に生命力が強いため、素早く切断し続けなければ、あっという間に復活してしまう。
+我々は、「な◯り」をどのように切断するのが効率良いのか、日々試行錯誤している。
+その過程で、あなた方プログラマの手が必要になった。
+「な◯り」は
+N
+頂点と
+N
+辺からなる連結な無向グラフで表現できる。
+以降、各頂点が
+1
+から
+N
+の異なる数で名前付けられているとしよう。
+我々は、「な◯り」に関して
+Q
+回の質問を行う。
+それらすべてに答えるプログラムを作成して欲しい。
+質問は
+1
+から
+Q
+の番号を持ち、各質問は次のように構成される。
+質問
+i
+では 2 つの頂点
+a_i
+と
+b_i
+が指定される。
+a_i
+と
+b_i
+を非連結にするために、削除する必要のある辺の最小本数を答えよ。
+ここで、頂点
+u
+と
+v
+が非連結であるとは、
+u
+と
+v
+を行き来できる経路が存在しないことを指す。
+入力形式
+N
+u_1
+v_1
+u_2
+v_2
+...
+u_N
+v_N
+Q
+a_1
+b_1
+a_2
+b_2
+...
+a_Q
+b_Q
+入力はすべて整数である。
+1 行目には頂点数
+N
+が与えられる。
+続く
+N
+行のうち
+i
+行目には、
+i
+番目の辺が繋ぐ 2 頂点の番号
+u_i, v_i
+が空白区切りで与えられる。
+次に、質問の回数
+Q
+が与えられる。
+続く
+Q
+行のうち
+i
+行目には、
+i
+番目の質問で指定される 2 頂点の番号
+a_i, b_i
+が空白区切りで与えられる。
+制約
+3 \leq N \leq 100,000
+1 \leq Q \leq 100,000
+グラフに自己ループ及び多重辺は存在しない
+1 \leq a_i, b_i \leq N
+かつ
+a_i \neq b_i
+(
+1 \leq i \leq Q
+)
+出力形式
+出力は
+Q
+行からなる。
+i
+行目には、
+a_i
+と
+b_i
+を非連結にするために、削除する必要のある辺の最小本数を表す整数を出力せよ。
+入力例1
+3
+1 2
+1 3
+2 3
+1
+1 3
+出力例1
+2
+入力例2
+7
+1 2
+1 6
+3 5
+2 5
+5 4
+1 4
+3 7
+3
+2 4
+3 1
+6 7
+出力例2
+2
+1
+1
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#=============================================================================
+# サイクル検出 AOJ2891の解答例
+#=============================================================================
+import queue
+
+N=int(input())
+Graph=[[] for _ in range(N)]
+deg=[0 for _ in range(N)]
+que=queue.Queue()
+circle=[True for _ in range(N)]
+
+for _ in range(N):
+    a,b=map(int,input().split())
+    a-=1
+    b-=1
+    Graph[a].append(b)
+    Graph[b].append(a)
+    deg[a]+=1
+    deg[b]+=1
+
+for v in range(N):
+    if deg[v]==1:
+        que.put(v)
+        circle[v]=False
+
+while not que.empty():
+    v=que.get()
+    for nv in Graph[v]:
+        deg[nv]-=1
+        if deg[nv]==1:
+            que.put(nv)
+            circle[nv]=False
+
+Q=int(input())
+for _ in range(Q):
+    a,b=map(int,input().split())
+    if circle[a-1] and circle[b-1]:
+        print(2)
+    else:
+        print(1)
+```

@@ -1,0 +1,17 @@
+while True:
+    N = int(input())
+    
+    w=[0]*N
+    h=[0]*N
+    wx=[-1,0,1,0]
+    hy=[0,-1,0,1]
+    
+    if N == 0:
+        break
+    
+    for i in range(1,N):
+        n,d = map(int,input().split())
+        w[i] = w[n]+wx[d]
+        h[i] = h[n]+hy[d]
+        
+    print(max(w)-min(w)+1,max(h)-min(h)+1)

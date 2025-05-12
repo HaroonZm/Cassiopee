@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+
+import sys
+import math
+from bisect import bisect_right as br
+from bisect import bisect_left as bl
+sys.setrecursionlimit(1000000)
+from heapq import heappush, heappop,heappushpop
+from collections import defaultdict
+from itertools import accumulate
+from collections import Counter
+from collections import deque
+from operator import itemgetter
+from itertools import permutations
+mod = 10**9 + 7
+inf = float('inf')
+def I(): return int(sys.stdin.readline())
+def LI(): return list(map(int,sys.stdin.readline().split()))
+
+n = I()
+
+if n < 10:
+    print(0)
+    quit()
+
+if n % 2:
+    print(0)
+    quit()
+
+else:
+    ans = n//10
+    tmp = 10
+    while n//tmp > 0:
+        tmp *= 5
+        ans += (n//tmp)
+    print(ans)

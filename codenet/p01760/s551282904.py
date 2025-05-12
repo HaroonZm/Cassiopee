@@ -1,0 +1,5 @@
+t, d = map(int, input().split())
+ta, tb = map(int, input().split())
+da, db = map(int, input().split())
+min_score = min([abs(t - (ta * va + tb * vb) / (va + vb)) for va in range(0, d + 1, da) for vb in range(0, d + 1, db) if 1 <= va + vb <= d])
+print(min_score)

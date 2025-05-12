@@ -1,0 +1,26 @@
+while 1:
+    n = input()
+    if n == 0:
+        break
+    F = [0]*n
+    W = [0]*n
+    S = [0]*n
+
+    def dfs(c, state, used, su):
+        if c == n:
+            return [sum((1+i)*W[state[n-1-i]] for i in xrange(n)), state[::-1]]
+        mi = [10**9, None]
+        for i in xrange(n):
+            if not used[i] and S[i] >= su:
+                state[c] = i
+                used[i] = 1
+                mi = min(mi, dfs(c+1, state, used, su + W[i]))
+                used[i] = 0
+        return mi
+
+    for i in xrange(n):
+        F[i], w, s = raw_input().split()
+        W[i] = int(w)
+        S[i] = int(s)
+    for i in dfs(0, [0]*n, [0]*n, 0)[1]:
+        print F[i]

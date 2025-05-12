@@ -1,0 +1,25 @@
+# Aizu Problem 0060: Card Game
+#
+import sys, math, os
+
+# read input:
+PYDEV = os.environ.get('PYDEV')
+if PYDEV=="True":
+    sys.stdin = open("sample-input.txt", "rt")
+
+def card_game(c1, c2, c3):
+    cards = list(range(1, 11))
+    for card in [c1, c2, c3]:
+        cards.remove(card)
+    S = c1 + c2
+    cnt = 0
+    for card in cards:
+        if S + card <= 20:
+            cnt += 1
+    return cnt > 3
+        
+
+    
+for line in sys.stdin:
+    c1, c2, c3 = [int(_) for _ in line.split()]
+    print("YES" if card_game(c1, c2, c3) else "NO")

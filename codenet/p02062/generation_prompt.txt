@@ -1,0 +1,154 @@
+Voici un énoncé de problème :
+
+C: 短絡評価
+問題
+直大くんと北大くんはゲームをしています。
+北大くんは、まず以下の BNF で表される論理式を生成します。
+<formula> ::= <or-expr>
+<or-expr> ::= <and-expr>
+| <or-expr> "|" <and-expr>
+<and-expr> ::= <term>
+| <and-expr> "&" <term>
+<term> ::= "(" <or-expr> ")" | "?"
+&
+は論理積を、
+|
+は論理和を表し、
+&
+の方が
+|
+より先に評価されます。
+直大くんは、この論理式を（文字列として見て）左から読んでいき、
+?
+を見つけたとき以下の行動をします。
+その
+?
+を
+0
+にしても
+1
+にしても論理式の評価結果が変わらないことが確定しているなら、何もせず読み進める。
+そうでないなら、北大くんに 1 円払い、その
+?
+を
+0
+または
+1
+に書き換える。
+論理式は以下のように評価されます。いわゆる普通の論理式です。
+(0 & ?) == 0
+(1 & 0) == 0
+(1 & 1) == 1
+(0 | 0) == 0
+(0 | 1) == 1
+(1 | ?) == 1
+直大くんが論理式の評価結果を確定させるために支払う必要がある最小金額はいくらでしょう？ 評価結果を
+0
+にする場合と
+1
+にする場合でそれぞれ求めてください。
+入力形式
+上の BNF に従う論理式が一行で与えられます。
+制約
+論理式の長さは
+2\times 10^5
+を超えない。
+出力形式
+評価結果を
+0
+、
+1
+にするために必要な最小金額を空白区切りで出力してください。
+入力例1
+?&?|?&?|?&?
+出力例1
+3 2
+0
+にしたい場合は
+0 0 0
+で書き換えて
+0&?|0&?|0&?
+とし、
+1
+にしたい場合は
+1 1
+で書き換えて
+1&1|?&?|?&?
+とするのが最適です。
+入力例2
+?&?&?|?&?&?
+出力例2
+2 3
+それぞれ
+0&?&?|0&?&?
+、
+1&1&1|?&?&?
+となります。
+入力例3
+(?|?|?)&?&?&?&?|?&?|?&?
+出力例3
+4 4
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+# from inspect import currentframe
+# from sys import exit, stderr
+
+# def debug(*args):
+#     names = {id(v):k for k,v in currentframe().f_back.f_locals.items()}
+#     print(', '.join(names.get(id(arg),'???') + str(id(arg)) +' = '+repr(arg) for arg in args), file=stderr)
+
+src = list(str(input()))
+tokens = [tok for tok in src if tok != " "]
+# debug(tokens)
+
+# "" as EOF
+tokens.append("")
+cur = 0
+def parse_formula():
+    return parse_or()
+
+def parse_or():
+    global cur
+    lhs = parse_and()
+    if tokens[cur] == "|":
+        cur += 1
+        rhs = parse_or()
+        zero = lhs[0] + rhs[0]
+        one = min(lhs[1], lhs[0] + rhs[1])
+        return (zero, one)
+    return lhs
+
+def parse_and():
+    global cur
+    lhs = parse_term()
+    if tokens[cur] == "&":
+        cur += 1
+        rhs = parse_and()
+        zero = min(lhs[0], lhs[1] + rhs[0])
+        one = lhs[1] + rhs[1]
+        return (zero, one)
+    return lhs
+
+def parse_term():
+    global cur
+    if tokens[cur] == "?":
+        cur += 1
+        # debug(cur, 1)
+        return [1, 1]
+    elif tokens[cur] == "(":
+        cur += 1
+        # debug(cur, "or")
+        res = parse_or()
+        if tokens[cur] != ")":
+            raise Exception("not closed")
+        cur += 1
+        # debug(cur)
+        return res
+ans = parse_formula()
+print(ans[0], ans[1])
+# debug(cur)
+# print(len(tokens))
+```

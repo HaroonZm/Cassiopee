@@ -1,0 +1,219 @@
+Voici un énoncé de problème :
+
+Score :
+800
+points
+Problem Statement
+There is a tree with
+N
+vertices. The vertices are numbered
+1
+through
+N
+. The
+i
+-th edge (
+1 \leq i \leq N - 1
+) connects Vertex
+x_i
+and
+y_i
+. For vertices
+v
+and
+w
+(
+1 \leq v, w \leq N
+), we will define the distance between
+v
+and
+w
+d(v, w)
+as "the number of edges contained in the path
+v
+-
+w
+".
+A squirrel lives in each vertex of the tree. They are planning to move, as follows. First, they will freely choose a permutation of
+(1, 2, ..., N)
+,
+p = (p_1, p_2, ..., p_N)
+. Then, for each
+1 \leq i \leq N
+, the squirrel that lived in Vertex
+i
+will move to Vertex
+p_i
+.
+Since they like long travels, they have decided to maximize the total distance they traveled during the process. That is, they will choose
+p
+so that
+d(1, p_1) + d(2, p_2) + ... + d(N, p_N)
+will be maximized. How many such ways are there to choose
+p
+, modulo
+10^9 + 7
+?
+Constraints
+2 \leq N \leq 5,000
+1 \leq x_i, y_i \leq N
+The input graph is a tree.
+Input
+Input is given from Standard Input in the following format:
+N
+x_1
+y_1
+x_2
+y_2
+:
+x_{N - 1}
+y_{N - 1}
+Output
+Print the number of the ways to choose
+p
+so that the condition is satisfied, modulo
+10^9 + 7
+.
+Sample Input 1
+3
+1 2
+2 3
+Sample Output 1
+3
+The maximum possible distance traveled by squirrels is
+4
+.
+There are three choices of
+p
+that achieve it, as follows:
+(2, 3, 1)
+(3, 1, 2)
+(3, 2, 1)
+Sample Input 2
+4
+1 2
+1 3
+1 4
+Sample Output 2
+11
+The maximum possible distance traveled by squirrels is
+6
+.
+For example,
+p = (2, 1, 4, 3)
+achieves it.
+Sample Input 3
+6
+1 2
+1 3
+1 4
+2 5
+2 6
+Sample Output 3
+36
+Sample Input 4
+7
+1 2
+6 3
+4 5
+1 7
+1 5
+2 3
+Sample Output 4
+396
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import defaultdict
+import sys
+
+sys.setrecursionlimit(10 ** 6)
+int1 = lambda x: int(x) - 1
+p2D = lambda x: print(*x, sep="\n")
+
+def main():
+    def k_fix_way(com_n, com_r):
+        if (com_n, com_r) in kmemo:
+            return kmemo[(com_n, com_r)]
+        res = kmemo[(com_n, com_r)] = fac[com_n] * inv[com_n - com_r] * fac[com_n] * inv[com_r] * inv[
+            com_n - com_r] % md
+        return res
+
+    kmemo = {}
+
+    def centroid(u=0, pu=-1):
+        res = []
+        is_centroid = True
+        u_nodes = 1
+        for cu in to[u]:
+            if cu == pu: continue
+            res += centroid(cu, u)
+            cu_nodes = n_nodes[cu]
+            if cu_nodes > n / 2: is_centroid = False
+            u_nodes += cu_nodes
+        n_nodes[u] = u_nodes
+        if n - u_nodes > n / 2: is_centroid = False
+        if is_centroid: res.append(u)
+        return res
+
+    md = 10 ** 9 + 7
+    to = defaultdict(list)
+    n = int(input())
+    for _ in range(n - 1):
+        u, v = map(int, input().split())
+        u, v = u - 1, v - 1
+        to[u].append(v)
+        to[v].append(u)
+    # 部分木の頂点数を記録しながら重心を求める
+    n_nodes = [0] * n
+    cc = centroid()
+    # print(cc)
+    # 階乗の準備
+    n_max = n
+    fac = [1]
+    inv = [1] * (n_max + 1)
+    k_fac_inv = 1
+    for i in range(1, n_max + 1):
+        k_fac_inv = k_fac_inv * i % md
+        fac.append(k_fac_inv)
+    k_fac_inv = pow(k_fac_inv, md - 2, md)
+    for i in range(n_max, 1, -1):
+        inv[i] = k_fac_inv
+        k_fac_inv = k_fac_inv * i % md
+    # 重心が2つの（グラフを二等分できる）場合
+    if len(cc) == 2:
+        print(pow(fac[n // 2], 2, md))
+        exit()
+    # 重心が1つの場合
+    # サブツリーの頂点数のリストsubtree_node_n作成
+    subtree_node_n = []
+    c = cc[0]
+    for u in to[c]:
+        u_nodes = n_nodes[u]
+        if u_nodes > n / 2: continue
+        subtree_node_n.append(u_nodes)
+    if c != 0: subtree_node_n.append(n - n_nodes[c])
+    # print(subtree_node_n)
+
+    # dp[i][j]をi番目のサブツリーまでみて、j個の頂点を固定したときの決め方として求める
+    dp = [0] * n
+    dp[0] = 1
+    for i, node_n in enumerate(subtree_node_n):
+        for j in range(n - 1, -1, -1):
+            pre = dp[j]
+            if pre == 0: continue
+            for k in range(node_n, 0, -1):
+                dp[j + k] = (dp[j + k] + pre * k_fix_way(node_n, k)) % md
+    # print(dp)
+    # 包除原理
+    ans = 0
+    coff = 1
+    for j in range(n):
+        ans = (ans + coff * dp[j] * fac[n - j]) % md
+        coff *= -1
+    print(ans)
+
+main()
+```

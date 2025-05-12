@@ -1,0 +1,116 @@
+Voici un énoncé de problème :
+
+Articulation Points
+Find articulation points of a given undirected graph
+G(V, E)
+.
+A vertex in an undirected graph is an articulation point (or cut vertex) iff removing it disconnects the graph.
+Input
+|V|
+|E|
+s
+0
+t
+0
+s
+1
+t
+1
+:
+s
+|E|-1
+t
+|E|-1
+, where
+|V|
+is the number of vertices and
+|E|
+is the number of edges in the graph. The graph vertices are named with the numbers 0, 1,...,
+|V|
+-1 respectively.
+s
+i
+and
+t
+i
+represent source and target verticess of
+i
+-th edge (undirected).
+Output
+A list of
+articulation points
+of the graph
+G
+ordered by name.
+Constraints
+1 ≤
+|V|
+≤ 100,000
+0 ≤
+|E|
+≤ 100,000
+The graph is connected
+There are no parallel edges
+There are no self-loops
+Sample Input 1
+4 4
+0 1
+0 2
+1 2
+2 3
+Sample Output 1
+2
+Sample Input 2
+5 4
+0 1
+1 2
+2 3
+3 4
+Sample Output 2
+1
+2
+3
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+sys.setrecursionlimit(10**7)
+
+def run():
+  V, E = map(int, input().split())
+  if V == 1: exit()
+  g = {}
+  for e in range(E):
+    A, B = map(int, input().split())
+    g.setdefault(B, []).append(A)
+    g.setdefault(A, []).append(B)
+  order = [0]*V
+  count = 0
+  art = []
+  def dfs(now, prev):
+    nonlocal count
+    fcount = artflag = 0
+    count += 1
+    low_p = order[now-1] = count
+    for nxt in g[now]:
+      if nxt == prev:
+        continue
+      if order[nxt-1] == 0:
+        nxt_low_p = dfs(nxt, now)
+        artflag |= nxt_low_p >= order[now-1]
+        low_p = min(low_p, nxt_low_p)
+        fcount += 1
+      else:
+        low_p = min(low_p, order[nxt-1])
+    if (prev == -1 and fcount > 1) or (prev != -1 and artflag):
+      art.append(now)
+    return low_p
+  dfs(1, -1)
+  for a in sorted(art):
+    print(a)
+  
+if __name__ == '__main__':
+  run()
+```

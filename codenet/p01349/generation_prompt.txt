@@ -1,0 +1,104 @@
+Voici un énoncé de problème :
+
+Problem A: Ennichi
+縁日に来たうさぎが, ある出店のゲームの景品がキャロットケーキであるのを見つけた. このゲームのルールは以下の通りである.
+縦h マス× 横w マスの格子状のフィールドがあり, 各マスにつき高々1 個のブロックが置かれる. 各ブロックにはアルファベット大文字(‘A’ - ‘Z’) のいずれかで表される色がついている. 同色のブロックが縦または横に一直線上にn 個以上連続して並ぶと, それらのブロックは消滅する.
+参加者は横に隣り合う2 つのマスを選んで, それらの状態を互いに入れ替える操作ができる. ブロックの入れ替え, 消滅, 落下によってブロックの有るマスの1 つ下のマスにブロックが無くなると, このブロックは落下する. このときふたたび同色のブロックがn 個以上並ぶと消滅する. ただし, ブロックの消滅は, 落下するブロックが存在する間は起こらず, すべてのブロックの落下が終了したタイミングで同時に起こる.
+1 回の操作でフィールド上のすべてのブロックを消滅させると, このゲームは成功となり景品のケーキを得ることができる. うさぎは1 回分の参加費で確実にケーキを手に入れたく, それができない場合は参加したくない. ゲーム開始時のフィールドの状態から, うさぎがこのゲームに参加すべきであるか答えよ.
+Input
+入力の一行目にはh, w, n がスペースで区切られて与えられる.
+2 ≤
+h
+,
+w
+,
+n
+≤ 30
+続く
+h
+行にはフィールドの状態が上から順に与えられる. アルファベット大文字はブロックを, ‘.’ は空きマスを表す. 与えられるフィールドの状態には, 縦あるいは横に
+n
+個以上連続する同色のブロックはなく, 落下する状態にあるブロックもない. 1 個以上のブロックが存在する.
+Output
+うさぎがこのゲームに参加すべきであるなら”YES”を, そうでないなら”NO”を一行に出力せよ.
+Sample Input 1
+4 6 3
+......
+...Y..
+...Y..
+RRYRYY
+Sample Output 2
+YES
+Sample Input 1
+4 6 3
+......
+...Y..
+...Y..
+RRYRY.
+Sample Output 2
+NO
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import copy
+
+def can_empty(A,hh,ww):
+    A[hh][ww],A[hh][ww+1] = A[hh][ww+1],A[hh][ww]
+    while 1:
+        # Fall processing
+        for w in xrange(W):
+            seq = ("".join(A[h][w] for h in xrange(H))).replace(".","")
+            seq += "."*(H-len(seq))
+            for h in xrange(H):
+                A[h][w] = seq[h]
+
+        # Banish processing
+        B = [[0]*W for _ in xrange(H)]
+        for h in xrange(H):
+            cnt = 1
+            for w in xrange(1,W):
+                if A[h][w] == A[h][w-1]: cnt += 1
+                else:
+                    if cnt >= n and A[h][w-1] != ".":
+                        for wi in xrange(w-cnt,w): B[h][wi] = 1
+                    cnt = 1
+            if cnt >= n and A[h][W-1] != ".":
+                for wi in xrange(W-cnt,W): B[h][wi] = 1
+        for w in xrange(W):
+            cnt = 1
+            for h in xrange(1,H):
+                if A[h][w] == A[h-1][w]: cnt += 1
+                else:
+                    if cnt >= n and A[h-1][w] != ".":
+                        for hi in xrange(h-cnt,h): B[hi][w] = 1
+                    cnt = 1
+            if cnt >= n and A[H-1][w] != ".":
+                for hi in xrange(H-cnt,H): B[hi][w] = 1
+
+        banish = False
+        for h in xrange(H):
+            for w in xrange(W):
+                if B[h][w]:
+                    A[h][w] = "."
+                    banish = True
+        if not banish: return False
+        if A == goal: return True
+        
+
+# Entry point
+H,W,n = map(int,raw_input().split())
+_A = [list(raw_input()) for _ in xrange(H)][::-1]
+goal = [["."]*W for _ in xrange(H)]
+ans = False
+for h in xrange(H):
+    A = copy.deepcopy(_A)
+    for w in xrange(W-1):
+        if A[h][w] == A[h][w+1]: continue
+        if can_empty(copy.deepcopy(A),h,w):
+            ans = True
+            break
+    if ans: break
+print "YES" if ans else "NO"
+```

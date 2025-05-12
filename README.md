@@ -1,2 +1,0 @@
-# Cassiopee
-Projet Cassiope

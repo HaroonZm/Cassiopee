@@ -1,0 +1,15 @@
+import sys
+import math
+
+a, b, angle = map(int, sys.stdin.read().strip().split())
+
+c = math.sqrt(a * a + b * b - 2 * a * b * math.cos(math.radians(angle)))
+circum = a + b + c
+
+s = (a + b + c) / 2
+area = math.sqrt(s * (s - a) * (s - b) * (s - c))
+
+h = area * 2 / a
+
+for val in (area, circum, h):
+    print('{0:.8f}'.format(val))

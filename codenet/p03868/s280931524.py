@@ -1,0 +1,13 @@
+n, res = int(input()), 1
+a = []
+for i in range(n):
+  a.append((int(input()), 1))
+for i in range(n):
+  a.append((int(input()), -1))
+a.sort()
+t = 0
+for i in a:
+  if abs(i[1] + t) != abs(i[1]) + abs(t):
+    res = (res * abs(t)) % 1000000007
+  t += i[1]
+print(res)

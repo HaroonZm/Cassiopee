@@ -1,0 +1,34 @@
+import re
+
+while True:
+    Time,Team,Quiz,n = map(int,input().split())
+    if Time+Team == 0:break
+    score = {}
+    accept = {}
+    ans = ""
+    for i in range(Team-1,-1,-1):
+        score[i] = 0
+        accept[i] = 0
+    miss = [[0 for _ in range(Quiz)] for _ in range(Team)]
+    for _ in range(n):
+        h,t,q,j = map(int,input().split())
+        if j == 0:
+           accept[t-1] += 1
+           score[t-1] += (h + miss[t-1][q-1])
+        else:
+            miss[t-1][q-1] += 20
+    for i in range(max(accept.values()),-1,-1):
+        stack = {}
+        for t,sc in accept.items():
+            if sc == i:
+                stack[t] = score[t]
+        stack = sorted(stack.items(), key=lambda x:x[1])
+        for i,a in enumerate(stack):
+            if ans != "":
+                if i == 0 or a[1] != stack[i-1][1]:
+                    ans += "," + str(a[0]+1)
+                else:
+                    ans += "=" + str(a[0]+1)
+            else:
+                ans += str(a[0]+1)
+    print(ans)

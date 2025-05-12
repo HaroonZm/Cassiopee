@@ -1,0 +1,168 @@
+Voici un énoncé de problème :
+
+Score :
+1400
+points
+Problem Statement
+Snuke got an integer sequence from his mother, as a birthday present. The sequence has
+N
+elements, and the
+i
+-th of them is
+i
+.
+Snuke performs the following
+Q
+operations on this sequence. The
+i
+-th operation, described by a parameter
+q_i
+, is as follows:
+Take the first
+q_i
+elements from the sequence obtained by concatenating infinitely many copy of the current sequence, then replace the current sequence with those
+q_i
+elements.
+After these
+Q
+operations, find how many times each of the integers
+1
+through
+N
+appears in the final sequence.
+Constraints
+1 ≦ N ≦ 10^5
+0 ≦ Q ≦ 10^5
+1 ≦ q_i ≦ 10^{18}
+All input values are integers.
+Input
+The input is given from Standard Input in the following format:
+N
+Q
+q_1
+:
+q_Q
+Output
+Print
+N
+lines. The
+i
+-th line
+(1 ≦ i ≦ N)
+should contain the number of times integer
+i
+appears in the final sequence after the
+Q
+operations.
+Sample Input 1
+5 3
+6
+4
+11
+Sample Output 1
+3
+3
+3
+2
+0
+After the first operation, the sequence becomes:
+1,2,3,4,5,1
+.
+After the second operation, the sequence becomes:
+1,2,3,4
+.
+After the third operation, the sequence becomes:
+1,2,3,4,1,2,3,4,1,2,3
+.
+In this sequence, integers
+1,2,3,4,5
+appear
+3,3,3,2,0
+times, respectively.
+Sample Input 2
+10 10
+9
+13
+18
+8
+10
+10
+9
+19
+22
+27
+Sample Output 2
+7
+4
+4
+3
+3
+2
+2
+2
+0
+0
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+import numpy as np
+from heapq import heappop, heappush
+
+read = sys.stdin.buffer.read
+readline = sys.stdin.buffer.readline
+readlines = sys.stdin.buffer.readlines
+
+def choose_increasing(q):
+    A = []
+    for x in q:
+        while A and A[-1] >= x:
+            A.pop()
+        A.append(x)
+    return np.array(A, np.int64)
+
+def main(A, N):
+    heap = [(-A[-1], 1)]
+    for n in A[::-1]:
+        while True:
+            if -heap[0][0] <= n:
+                break
+            x, coef = heappop(heap)
+            while heap and heap[0][0] == x:
+                _, c = heappop(heap)
+                coef += c
+            q, r = divmod(-x, n)
+            heappush(heap, (-n, coef * q))
+            heappush(heap, (-r, coef))
+    ret = np.zeros(N + 10, np.int64)
+    for x, c in heap:
+        x = -x
+        ret[1] += c
+        ret[x + 1] -= c
+    ret = np.cumsum(ret)
+    return ret[1:N + 1]
+
+if sys.argv[-1] == 'ONLINE_JUDGE':
+    import numba
+    from numba.pycc import CC
+    i8 = numba.int64
+    cc = CC('my_module')
+
+    def cc_export(f, signature):
+        cc.export(f.__name__, signature)(f)
+        return numba.njit(f)
+
+    main = cc_export(main, (i8[:], i8))
+    cc.compile()
+
+from my_module import main
+
+N, Q = map(int, readline().split())
+q = [N] + list(map(int, read().split()))
+
+A = choose_increasing(q)
+ans = main(A, N)
+print('\n'.join(map(str, ans.tolist())))
+```

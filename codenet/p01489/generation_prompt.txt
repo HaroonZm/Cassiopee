@@ -1,0 +1,64 @@
+Voici un énoncé de problème :
+
+Problem D:
+IkaNumber
+数直線上の整数座標に, ねこの Taro の家, にんじん, うさぎの Hanako の家がこの順に並んでいる. 点 $x$ にいるイカは, 一回のジャンプで $x + 1$ または $x + 2$ に移動することができる.
+あなたは, イカが Taro の家から Hanako の家までにんじんの置かれている座標に止まらずに行く経路が何通りあるか求めようとしたが, Taro の家, にんじん, Hanako の家の座標を知らないので
+求めることができなかった. そこで, 代わりに経路の数として考えられる数をすべて列挙することにした.
+ある Taro の家, にんじん, Hanako の家の配置に対してイカの経路数となる整数をイカ数と呼ぶことにする. $K$ 番目に小さいイカ数 (1-indexed) を mod 1,000,000,007 で求めよ.
+Constraints
+$K$ will be between 1 and 1,000,000,000,000,000,000, inclusive.
+Input
+入力はイカの形式で与えられる:
+$K$
+Output
+$K$ 番目に小さいイカ数を 1,000,000,007 で割った余りを 1 行に出力せよ.
+Sample Input 1
+5
+Sample Output 1
+5
+Sample Input 2
+8
+Sample Output 2
+9
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+readline = sys.stdin.readline
+write = sys.stdout.write
+
+def fibonacci(N, M):
+    RA = RD = 1; RB = RC = 0
+    XA = XB = XC = 1; XD = 0
+    while N:
+        if N & 1:
+            RA, RB, RC, RD = (RA*XA + RB*XC) % M, (RA*XB + RB*XD) % M, (RC*XA + RD*XC) % M, (RC*XB + RD*XD) % M
+        XA, XB, XC, XD = (XA**2 + XB*XC) % M, XB*(XA + XD) % M, XC*(XA + XD) % M, (XB*XC + XD**2) % M
+        N >>= 1
+    return RC
+
+def solve():
+    MOD = 10**9 + 7
+    K = int(readline())
+    k0 = (int((1 + 4*K)**.5) - 1) // 2
+    if k0**2 + k0 == K:
+        k0 -= 1
+    kk = k0**2+k0
+    if K - kk > k0+1:
+        m0 = 2*k0+1
+        b = K - kk - (k0+1) - 1
+    else:
+        m0 = 2*k0
+        b = K - kk - 1
+
+    if k0//2+1 > b:
+        v = fibonacci(2+2*b, MOD) * fibonacci(m0+2-2*b, MOD) % MOD
+    else:
+        b1 = k0+1 - b-1
+        v = fibonacci(3+2*b1, MOD) * fibonacci(m0+1-2*b1, MOD) % MOD
+    write("%d\n" % v)
+solve()
+```

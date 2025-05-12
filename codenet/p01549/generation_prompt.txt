@@ -1,0 +1,168 @@
+Voici un énoncé de problème :
+
+問題名 Zero division checker
+森下さんは困っていました... 姉原さんにプログラムを書いてもらったのですが、そのプログラムがクラッシュするのです。
+姉原さんに書いてもらったのは、逆ポーランド記法の式を読んで、その計算結果を出力するプログラムで、クラッシュログによると、 0 で割り算をしてしまったのが原因のようです。これは、森下さんが間違った式を入力してしまったからかもしれませんし、もしかしたら、もしかしたら、姉原さんの書いたプログラムにバグがあるのかもしれません。
+姉原さんの書いたプログラムを読んでみようと思いましたが、姉原さんのプログラムはアセンブリというよくわからないことばで書かれているようで、見ているだけで頭がガンガンしてきます。
+そこで、森下さんはあなたに、式が間違っていないかどうか調べるプログラムを書いてもらうことにしました。式が間違っている、とは、その式に従って計算すると、 0 での割り算をしてしまう可能性のあることをいいます。
+なお、姉原さんの書いたコードはとてもふるいコンピューターで動くもので、加減乗除は整数で行い、結果は 8 bit の符号なし整数として保存されます。
+例えば、
+255+1
+は 0 になってしまうし、
+3/2
+は 1 になります。
+あ、姉原さんにはないしょですよ。
+(参考)逆ポーランド記法で表された式を計算する、擬似コード
+s = 空のスタック
+n = 式の要素数
+for i in 1..n:
+if 式のi番目の要素が整数:
+sにその整数をプッシュする
+if 式のi番目の要素が変数:
+sにその変数の値をプッシュする
+if 式のi番目の要素が演算子:
+sから値をポップし、bとする
+sから値をポップし、aとする
+if 演算子が'+':
+r = (a + b) % 256 とする
+if 演算子が'-':
+r = (a - b + 256) % 256 とする
+if 演算子が'*':
+r = (a * b) % 256 とする
+if 演算子が'/':
+r = (a / b) % 256 とする
+sにrをプッシュする
+sから値をポップし、式の計算結果とする
+Input
+m
+name
+1
+lb
+1
+ub
+1
+...
+name
+m
+lb
+m
+ub
+m
+n
+e
+1
+e
+2
+...
+e
+n
+0 ≤ m ≤ 100
+0 ≤ lb
+i
+≤ ub
+i
+≤ 255
+1 ≤ name
+i
+(1 ≤ i ≤ m) の長さ ≤ 20
+1 ≤ n ≤ 100
+m
+は変数の数、
+name
+i
+,
+lb
+i
+,
+ub
+i
+はそれぞれ変数iの名前、下限、上限を表します。
+n
+は式に含まれる要素の数を表し、
+e
+i
+は式の
+i
+番目の要素を表します。
+各変数は式の中に高々1回しか現れません。
+Output
+式が間違っているときには
+error
+、間違っていないときには
+correct
+と一行で出力してください。
+Sample Input 1
+1
+a 1 10
+3
+10 a /
+Output for the Sample Input 1
+correct
+Sample Input 2
+2
+a 1 10
+b 1 10
+5
+1 a b - /
+Output for the Sample Input 2
+error
+Sample Input 3
+1
+a 0 255
+7
+1 a 2 * 1 + /
+Output for the Sample Input 3
+correct
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#!/usr/bin/env python
+
+from collections import deque
+import itertools as it
+import sys
+
+sys.setrecursionlimit(1000000)
+
+N = input()
+
+m = {}
+
+for loop in range(N):
+    s, p1, p2 = raw_input().split()
+    m[s] = (int(p1), int(p2))
+
+N = input()
+lst = raw_input().replace('/', '//').split()
+sta = []
+
+for s in lst:
+    hoge = [0 for i in range(256)]
+    if s in m:
+        p = m[s]
+        for i in range(p[0], p[1] + 1):
+            hoge[i] = 1
+        sta.append(hoge)
+    elif s in ['+', '-', '*', '//']:
+        n2 = sta.pop()
+        n1 = sta.pop()
+        #print s,n1, n2
+        for i in xrange(256):
+            for j in xrange(256):
+                if n1[i] and n2[j]:
+                    try:
+                        index = eval(str(i) + s + str(j))
+                        hoge[index % 256] = 1
+                    except:
+                        print "error"
+                        exit()
+        #print hoge
+        sta.append(hoge)
+    else:
+        hoge[int(s)] = 1
+        sta.append(hoge)
+
+print "correct"
+```

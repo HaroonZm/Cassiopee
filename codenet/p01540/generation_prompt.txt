@@ -1,0 +1,247 @@
+Voici un énoncé de problème :
+
+宝探し
+太郎君はある広場にお宝を探しにやってきました。この広場にはたくさんのお宝が埋められていますが、太郎君は最新の機械を持っているので、どこにお宝が埋まっているかをすべて知っています。広場はとても広いので太郎君は領域を決めてお宝を探すことにしましたが、お宝はたくさんあるためどのお宝がその領域の中にあるかすぐにわかりません。そこで太郎君はその領域の中にあるお宝の数を数えることにしました。
+Input
+n
+m
+x
+1
+y
+1
+x
+2
+y
+2
+...
+x
+n
+y
+n
+x
+11
+y
+11
+x
+12
+y
+12
+x
+21
+y
+21
+x
+22
+y
+22
+...
+x
+m1
+y
+m1
+x
+m2
+y
+m2
+n
+は広場に埋まっているお宝の数を表す
+m
+は調べる領域の数を表す
+2行目から
+n+1
+行目はそれぞれのお宝が埋まっている座標を表す
+n+2
+行目から
+n+m+1
+行目はそれぞれの調べる領域を表す
+x軸の正の方向が東、y軸の正の方向が北を表す
+それぞれの領域は長方形であり、
+x
+i1
+と
+y
+i1
+は長方形の南西の頂点の座標、
+x
+i2
+と
+y
+i2
+は長方形の北東の頂点の座標を表す
+Constraints
+1 ≤ n ≤ 5000
+1 ≤ m ≤ 5×10
+5
+|x
+i
+|, |y
+i
+| ≤ 10
+9
+(1 ≤ i ≤ n)
+|x
+i1
+|, |y
+i1
+|, |x
+i2
+|, |y
+i2
+| ≤ 10
+9
+(1 ≤ i ≤ m)
+x
+i1
+≤ x
+i2
+, y
+i1
+≤ y
+i2
+(1 ≤ i ≤ m)
+すべての入力は整数で与えられる
+Output
+C
+1
+C
+2
+...
+C
+m
+それぞれの領域に含まれるお宝の数を各行に出力せよ
+Sample Input 1
+3 1
+1 1
+2 4
+5 3
+0 0 5 5
+Output for the Sample Input 1
+3
+領域の境界線上にあるお宝も領域に含まれるものとみなす
+Sample Input 2
+4 2
+-1 1
+0 3
+4 0
+2 1
+-3 1 5 1
+4 0 4 0
+Output for the Sample Input 2
+2
+1
+領域は直線や点のようになる場合もある
+Sample Input 3
+2 3
+0 0
+0 0
+-1 -1 1 1
+0 0 2 2
+1 1 4 4
+Output for the Sample Input 3
+2
+2
+0
+同じ場所に複数のお宝が存在する場合もある
+Sample Input 4
+5 5
+10 5
+-3 -8
+2 11
+6 0
+-1 3
+-3 1 3 13
+-1 -1 9 5
+-3 -8 10 11
+0 0 5 5
+-10 -9 15 10
+Output for the Sample Input 4
+2
+2
+5
+0
+4
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import math,string,itertools,fractions,heapq,collections,re,array,bisect,sys,random,time,copy,functools
+
+sys.setrecursionlimit(10**7)
+inf = 10**20
+eps = 1.0 / 10**10
+mod = 10**9+7
+dd = [(-1,0),(0,1),(1,0),(0,-1)]
+ddn = [(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1)]
+
+def LI(): return [int(x) for x in sys.stdin.readline().split()]
+def LI_(): return [int(x)-1 for x in sys.stdin.readline().split()]
+def LF(): return [float(x) for x in sys.stdin.readline().split()]
+def LS(): return sys.stdin.readline().split()
+def I(): return int(sys.stdin.readline())
+def F(): return float(sys.stdin.readline())
+def S(): return input()
+def pf(s): return print(s, flush=True)
+
+class Ruiwa():
+    def __init__(self, a):
+        self.H = h = len(a)
+        self.W = w = len(a[0])
+        self.R = r = a
+        for i in range(h):
+            for j in range(1,w):
+                r[i][j] += r[i][j-1]
+
+        for i in range(1,h):
+            for j in range(w):
+                r[i][j] += r[i-1][j]
+
+    def search(self, x1, y1, x2, y2):
+        if x1 > x2 or y1 > y2:
+            return 0
+
+        r = self.R
+        rr = r[y2][x2]
+        if x1 > 0 and y1 > 0:
+            return rr - r[y1-1][x2] - r[y2][x1-1] + r[y1-1][x1-1]
+        if x1 > 0:
+            rr -= r[y2][x1-1]
+        if y1 > 0:
+            rr -= r[y1-1][x2]
+
+        return rr
+
+def main():
+    n,m = LI()
+    na = [LI() for _ in range(n)]
+    xd = set()
+    yd = set()
+    for x,y in na:
+        xd.add(x)
+        yd.add(y)
+
+    xl = sorted(list(xd))
+    yl = sorted(list(yd))
+    xx = {}
+    yy = {}
+    for i in range(len(xl)):
+        xx[xl[i]] = i
+    for i in range(len(yl)):
+        yy[yl[i]] = i
+    a = [[0]*(len(yl)+1) for _ in range(len(xl)+1)]
+    for x,y in na:
+        a[xx[x]][yy[y]] += 1
+    rui = Ruiwa(a)
+    r = []
+    for _ in range(m):
+        x1,y1,x2,y2 = LI()
+        xx1 = bisect.bisect_left(xl, x1)
+        yy1 = bisect.bisect_left(yl, y1)
+        xx2 = bisect.bisect(xl, x2) - 1
+        yy2 = bisect.bisect(yl, y2) - 1
+        r.append(rui.search(yy1,xx1,yy2,xx2))
+
+    return '\n'.join(map(str,r))
+
+print(main())
+```

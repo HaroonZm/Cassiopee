@@ -1,0 +1,135 @@
+Voici un énoncé de problème :
+
+便利な町
+来春卒業するAさんは、就職を機に引越しをすることにしました。就職する会社は、オフィスがいくつかの町にあって、日によって出勤するオフィスが違います。そこでAさんは,どこのオフィスに
+行くにも時間の短い町に住もうと考えました。
+そこであなたは、Aさんを助けるため、住むのに一番便利な町を探すことになりました。
+町には 0 から始まる番号が振られており、町と町の間には道があります。それぞれの道に対して通勤時間が決まっています。Aさんがある町に住んでいる場合に、自分の町のオフィスまでの通勤時間は 0 とします。このときに全ての町までの通勤時間の総和を考えます。例えば、町と道の配置が上の図のようになっていて、Aさんが町1に住んだ場合には、それぞれの町までの通勤時間は
+町 0 まで 80
+町 1 まで 0
+町 2 まで 20
+町 3 まで 70
+町 4 まで 90
+となり、総和は 260 となります。
+道の数と、全ての道の情報を入力とし、それぞれの町に住んだ場合の通勤時間の総和を計算し、それが最小となる町の番号と、そのときの通勤時間の総和を出力するプログラムを作成してください。ただし、通勤時間の総和が最小となる町が複数ある場合は、一番小さい町の番号及びその時の通勤時間の総和を出力してください。町の総数は 10 以下、道の総数は 45 以下とし、全ての道は双方向に移動でき、通勤時間は方向によって変わらないものとします。また、どの町からでもその他全ての町への 経路があるものとします。
+Input
+複数のデータセットの並びが入力として与えられます。入力の終わりはゼロひとつの行で示されます。 各データセットは以下の形式で与えられます。
+n
+a
+1
+b
+1
+c
+1
+a
+2
+b
+2
+c
+2
+:
+a
+n
+b
+n
+c
+n
+１行目に道の数
+n
+(1 ≤
+n
+≤ 45) が与えられます。続く
+n
+行に
+i
+番目の道の情報が与えられます。
+a
+i
+,
+b
+i
+(0 ≤
+a
+i
+,
+b
+i
+≤ 9) は
+i
+番目の道がつないでいる町の番号、
+c
+i
+(0 ≤
+c
+i
+≤ 100) はその道の通勤時間を表します。
+Output
+データセット毎に、通勤時間の総和が最小になる町の番号及びその時の通勤時間の総和を空白区切りで１行に出力します。
+Sample Input
+6
+0 1 80
+1 2 20
+0 2 60
+2 3 50
+3 4 60
+1 4 90
+2
+0 1 1
+1 2 1
+0
+Output for the Sample Input
+2 240
+1 2
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+import math
+import fractions
+import itertools
+from collections import deque
+import copy
+import bisect
+import heapq
+
+MOD = float('inf')
+INF = 10 ** 18 + 7
+input = lambda: sys.stdin.readline().strip()
+
+def warshall_floyd(d):
+    """
+    d[i][l]がi→lへのコストを示す隣接行列
+    結果としてd[i][l]はi→lへの最短コストになる。
+    """
+    for i in range(len(d)):
+        for l in range(len(d)):
+            for k in range(len(d)):
+                d[l][k] = min(d[l][k], d[l][i] + d[i][k])
+    return d
+
+while True:
+    n = int(input())
+    if n == 0:
+        break
+    else:
+        abc = [list(map(int, input().split())) for _ in range(n)]
+        info = [[INF for _ in range(10)] for _ in range(10)]
+        for i in range(10):
+            info[i][i] = 0
+        for i in abc:
+            info[i[0]][i[1]] = i[2]
+            info[i[1]][i[0]] = i[2]
+        result = warshall_floyd(info)
+        ans = []
+        for i in result:
+            for l in range(len(i)):
+                if i[l] == INF:
+                    i[l] = 0
+        for i in range(10):
+            if sum(result[i]) != 0:
+                ans.append([sum(result[i]), i])
+        ans.sort()
+        print(ans[0][1], ans[0][0])
+```

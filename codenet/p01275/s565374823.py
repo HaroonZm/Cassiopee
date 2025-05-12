@@ -1,0 +1,44 @@
+def solve():
+    def bfs(k):
+        start, goal = file_input.readline().split()
+        
+        if start == goal:
+            return 0
+        
+        start = map(int, start)
+        goal = map(int, goal)
+        diff = [(g - s) % 10 for g, s in zip(goal, start)]
+        
+        q = [diff]
+        checked = {tuple(diff): True}
+        ans = 0
+        
+        while q:
+            ans += 1
+            t_q = []
+            for d in q:
+                for i, r in enumerate(d):
+                    if r != 0:
+                        break
+                for j in range(i, k):
+                    d[j] -= r
+                    d[j] %= 10
+                    key = tuple(d)
+                    if key in checked:
+                        continue
+                    if sum(d) == 0:
+                        return ans
+                    checked[key] = True
+                    t_q.append(d[:])
+                q = t_q
+
+    from sys import stdin
+    file_input = stdin
+    
+    while True:
+        k = int(file_input.readline())
+        if k == 0:
+            break
+        print(bfs(k))
+
+solve()

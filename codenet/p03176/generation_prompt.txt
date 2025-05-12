@@ -1,0 +1,143 @@
+Voici un énoncé de problème :
+
+Score :
+100
+points
+Problem Statement
+There are
+N
+flowers arranged in a row.
+For each
+i
+(
+1 \leq i \leq N
+), the height and the beauty of the
+i
+-th flower from the left is
+h_i
+and
+a_i
+, respectively.
+Here,
+h_1, h_2, \ldots, h_N
+are all distinct.
+Taro is pulling out some flowers so that the following condition is met:
+The heights of the remaining flowers are monotonically increasing from left to right.
+Find the maximum possible sum of the beauties of the remaining flowers.
+Constraints
+All values in input are integers.
+1 \leq N \leq 2 × 10^5
+1 \leq h_i \leq N
+h_1, h_2, \ldots, h_N
+are all distinct.
+1 \leq a_i \leq 10^9
+Input
+Input is given from Standard Input in the following format:
+N
+h_1
+h_2
+\ldots
+h_N
+a_1
+a_2
+\ldots
+a_N
+Output
+Print the maximum possible sum of the beauties of the remaining flowers.
+Sample Input 1
+4
+3 1 4 2
+10 20 30 40
+Sample Output 1
+60
+We should keep the second and fourth flowers from the left.
+Then, the heights would be
+1, 2
+from left to right, which is monotonically increasing, and the sum of the beauties would be
+20 + 40 = 60
+.
+Sample Input 2
+1
+1
+10
+Sample Output 2
+10
+The condition is met already at the beginning.
+Sample Input 3
+5
+1 2 3 4 5
+1000000000 1000000000 1000000000 1000000000 1000000000
+Sample Output 3
+5000000000
+The answer may not fit into a 32-bit integer type.
+Sample Input 4
+9
+4 2 5 8 3 6 1 7 9
+6 8 8 4 6 3 5 7 5
+Sample Output 4
+31
+We should keep the second, third, sixth, eighth and ninth flowers from the left.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+sys.setrecursionlimit(10**9)
+
+def build(t,arr,v,tl,tr):
+    if tl == tr:
+        t[v] = arr[tl]
+    else:
+        tm = (tl+tr)//2
+        build(t,arr,2*v,tl,tm)
+        build(t,arr,2*v+1,tm+1,tr)
+        t[v] = max(t[2*v],t[2*v+1])
+
+def maxQuery(t,v,tl,tr,l,r):
+    if l > r:
+        return 0
+    if l == tl and r == tr:
+        return t[v]
+    tm = (tl+tr)//2
+    return max(maxQuery(t,2*v,tl,tm,l,min(r,tm)),maxQuery(t,2*v+1,tm+1,tr,max(l,tm+1),r))
+
+def update(t,v,tl,tr,pos,new_val):
+    if tl == tr:
+        t[v] = new_val
+    else:
+        tm = (tl+tr)//2
+        if pos <= tm:
+            update(t,2*v,tl,tm,pos,new_val)
+        else:
+            update(t,2*v+1,tm+1,tr,pos,new_val)
+        t[v] = max(t[2*v],t[2*v+1])
+
+def create(n,arr):
+    t = [0]*4*n
+    build(t,arr,1,0,n-1)
+
+    return t
+    
+
+def main():
+    n = int(raw_input())
+    hts = list(map(int,raw_input().split()))
+    beauties = list(map(int,raw_input().split()))
+    flowers = {}
+    for i in range(n):
+        flowers[hts[i]] = beauties[i]
+
+    dp = [0]*n
+    t = create(n,dp)
+    for i in range(n-1,-1,-1):
+        curr = hts[i]
+        max_val = maxQuery(t,1,0,n-1,curr-1,n-1)
+        dp[curr-1] += flowers[curr]+max_val
+        update(t,1,0,n-1,curr-1,dp[curr-1])
+        #print(t)
+
+    print(max(t))
+
+main()
+```

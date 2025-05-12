@@ -1,0 +1,127 @@
+Voici un énoncé de problème :
+
+幹線道路 (Trunk Road)
+問題文
+JOI 市は，東西方向にまっすぐに伸びる
+H
+本の道路と，南北方向にまっすぐに伸びる
+W
+本の道路によって，碁盤の目の形に区分けされている．道路と道路の間隔は
+1
+である．JOI 市では，これら
+H+W
+本の道路から，東西方向に
+1
+本，南北方向に
+1
+本，合計
+2
+本の道路を幹線道路として選ぶことになった．
+北から
+i
+本目 (
+1≦i≦H
+) の道路と，西から
+j
+本目 (
+1≦j≦W
+) の道路の交差点を，交差点
+(i,j)
+とする．交差点
+(i,j)
+と北から
+m
+本目 (
+1≦m≦H
+) の道路の距離は
+|i-m|
+であり，交差点
+(i,j)
+と西から
+n
+本目 (
+1≦n≦W
+) の道路の距離は
+|j-n|
+である．
+また，交差点
+(i,j)
+の近くには
+A_{i,j}
+人の住人が住んでいる．
+2
+本の幹線道路を選んだときの，JOI 市の全ての住人に対する，最寄りの交差点から近い方の幹線道路への距離の総和の最小値を求めよ．
+制約
+2 ≦ H ≦ 25
+2 ≦ W ≦ 25
+0 ≦ A_{i,j} ≦ 100
+(
+1 ≦ i ≦ H
+,
+1 ≦ j ≦ W
+)
+入力・出力
+入力
+入力は以下の形式で標準入力から与えられる．
+H
+W
+A_{1,1}
+A_{1,2}
+...
+A_{1,W}
+:
+A_{H,1}
+A_{H,2}
+...
+A_{H,W}
+出力
+JOI 市の全ての住人に対する，最寄りの交差点から近い方の幹線道路への距離の総和の最小値を出力せよ．
+入出力例
+入力例 1
+3 5
+1 1 1 1 1
+1 1 1 1 1
+1 1 1 1 1
+出力例 1
+8
+例えば，北から
+2
+本目の道路と西から
+1
+本目の道路を幹線道路とすればよい．
+入力例 2
+5 5
+1 2 3 1 5
+1 22 11 44 3
+1 33 41 53 2
+4 92 35 23 1
+4 2 6 3 5
+出力例 2
+164
+情報オリンピック日本委員会作 『第 17 回日本情報オリンピック JOI 2017/2018 予選競技課題』
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+H, W = list(map(int, input().split(' ')))
+intersections = [list(map(int, input().split(' '))) for i in range(H)]
+
+min_score = float('inf')
+for h in range(H):
+    for w in range(W):
+        score = 0
+        not_min_flag = False
+        for _h in range(H):
+            if _h == h: continue
+            for _w in range(W):
+                if _w == w: continue
+                score += intersections[_h][_w] * min(abs(h - _h), abs(w - _w))
+                if score > min_score:
+                    not_min_flag = True
+                    break
+            if not_min_flag: break
+        if score < min_score: min_score = score
+
+print(min_score)
+```

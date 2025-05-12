@@ -1,0 +1,29 @@
+n = int(input())
+
+for _ in range(n):
+    day_sum = 0
+    year, month, day = map(int, input().split())
+
+    # total days of the first year (including the first day)
+    day_sum += 1
+
+    if year % 3 == 0 or month % 2 == 1:
+        day_sum += 20 - day
+    else:
+        day_sum += 19 - day
+
+    for m in range(month+1, 11):
+        if year % 3 == 0 or m % 2 == 1:
+            day_sum += 20
+        else:
+            day_sum += 19
+
+    # total days from the second year to the second year from the last
+    for y in range(1, 1000-year):
+        for m in range(1, 11):
+            if (year+y) % 3 == 0 or m % 2 == 1:
+                day_sum += 20
+            else:
+                day_sum += 19
+
+    print(day_sum)

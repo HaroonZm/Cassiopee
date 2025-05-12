@@ -1,0 +1,22 @@
+# AOJ 1043: Selecting Teams Advanced to Regional
+# Python3 2018.7.6 bal4u
+
+def pr(i, u):
+	global total
+	print(team[i][0])
+	total, affi[u] = total+1, affi[u]+1
+
+while True:
+	n = int(input())
+	if n == 0: break
+	team = []
+	for i in range(n):
+		id, u, a, p = map(int, input().split())
+		team.append((id, u, a, p))
+	team.sort(key=lambda x:(-x[2],x[3],x[0]))
+	total, affi = 0, [0]*1002
+	for i in range(n):
+		u = team[i][1]
+		if   total < 10 and affi[u] < 3: pr(i, u)
+		elif total < 20 and affi[u] < 2: pr(i, u)
+		elif total < 26 and affi[u] < 1: pr(i, u)

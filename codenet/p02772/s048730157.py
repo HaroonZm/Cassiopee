@@ -1,0 +1,13 @@
+N = int(input())
+A = map(int, input().split())
+
+cnt = 0
+for a in A:
+    if a % 2 == 0:
+        if a % 3 == 0:
+            cnt += 1
+        elif a % 5 == 0:
+            cnt += 1
+    else:
+        cnt += 1
+print('APPROVED' if N == cnt else 'DENIED')

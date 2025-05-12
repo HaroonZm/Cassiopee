@@ -1,0 +1,129 @@
+Voici un énoncé de problème :
+
+Score :
+800
+points
+Problem Statement
+Given is a string
+S
+consisting of
+0
+and
+1
+. Find the number of strings, modulo
+998244353
+, that can result from applying the following operation on
+S
+between
+0
+and
+K
+times (inclusive):
+Choose a pair of integers
+i, j
+(1\leq i < j\leq |S|)
+such that the
+i
+-th and
+j
+-th characters of
+S
+are
+0
+and
+1
+, respectively. Remove the
+j
+-th character from
+S
+and insert it to the immediate left of the
+i
+-th character.
+Constraints
+1 \leq |S| \leq 300
+0 \leq K \leq 10^9
+S
+consists of
+0
+and
+1
+.
+Input
+Input is given from Standard Input in the following format:
+S
+K
+Output
+Find the number of strings, modulo
+998244353
+, that can result from applying the operation on
+S
+between
+0
+and
+K
+times (inclusive).
+Sample Input 1
+0101 1
+Sample Output 1
+4
+Four strings,
+0101
+,
+0110
+,
+1001
+, and
+1010
+, can result.
+Sample Input 2
+01100110 2
+Sample Output 2
+14
+Sample Input 3
+1101010010101101110111100011011111011000111101110101010010101010101 20
+Sample Output 3
+113434815
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+S,K=input().split()
+K=int(K)
+K=min(K,300)
+mod=998244353
+a=[]
+val=0
+for i in range(len(S)):
+    if S[i]=="0":
+        a.append(val)
+        val=0
+    else:
+        val+=1
+
+if val!=0:
+    a.append(val)
+m=len(a)
+K=min(sum(a),K)
+
+dp=[[[0 for i in range(K+1)] for j in range(K+1)] for k in range(m+1)]
+
+for j in range(K+1):
+    dp[m][j][j]=1
+
+b=[a[i] for i in range(m)]
+c=[a[i] for i in range(m)]
+for i in range(1,m):
+    b[i]+=b[i-1]
+b=[0]+b
+for i in range(m-2,-1,-1):
+    c[i]+=c[i+1]
+for i in range(m-1,-1,-1):
+    for j in range(K+1):
+        for k in range(min(b[i],K)+1):
+            M=max(k-j,-a[i])
+            dp[i][j][k]=sum(dp[i+1][j+l][k] for l in range(max(0,M),K-j+1))+sum(dp[i+1][j][k+l] for l in range(1,min(K-k,-M)+1))
+            dp[i][j][k]%=mod
+
+print(dp[0][0][0])
+```

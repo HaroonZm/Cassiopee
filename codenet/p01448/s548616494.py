@@ -1,0 +1,20 @@
+n=int(input())
+l=[]
+q=0
+for i in range(n):
+    p=[int(j) for j in input().split()]
+    q=max(q,p[1]+1)
+    l.append([p[0],p[1]+1])
+a=[]
+table=[0]*(q+1)
+for i in range(n):
+    table[l[i][0]]+=1
+    table[l[i][1]]-=1
+for i in range(1,q+1):
+    table[i]+=table[i-1]
+ans=0
+for i in range(len(table)):
+    if i<=table[i]+1 and i<=n+1:
+        ans=max(ans,i)
+
+print(ans-1)

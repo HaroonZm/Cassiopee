@@ -1,0 +1,139 @@
+Voici un énoncé de problème :
+
+Water Pipe Construction
+21XX 年，ついに人類は火星への移住計画を開始させた．火星への移住第一陣に選抜されたあなたは，火星行政中央局（the Administrative Center of Mars）に配属され，火星で起こる様々な問題に対処している．行政中央局の目下の最大の問題は自立した需要供給サイクルの確保である．月からの援助物資が届くまでには数ヶ月単位の時間がかかるため，基本的には火星内の需要は火星内で解決する必要がある．それに加えて，循環システムを確立するまでは資源を極力節約することが求められる．
+行政中央局は極地にある氷の採掘を開始した．太陽光でこれを溶かし，水として個々の基地に供給することが最終目標である．最初の段階として，水源のある基地から2つの主要基地までの導水管を敷設することにした．また，現時点ではいくつかの基地とそれらを結ぶ道路以外には開拓されておらず，未開拓のところに導水管を敷設するには多大なるコストと燃料を要するため，道路に沿って導水管を敷設することにした．さらに，技術上の制約のため，彼らの導水管は常に一方向だけに水が流れる．
+あなたの仕事は，これらの条件のもとで，導水管の敷設にかかるコストを最小にするプログラムを作成することである．
+Input
+入力は複数のデータセットから構成される．
+データセットの最初の行は 5 つの整数からなる．これらは順に，火星に存在する基地の数
+n
+(3 <=
+n
+<= 100)，基地を結ぶ道路の数
+m
+(2 <=
+m
+<= 1000)，水源となる基地の番号
+s
+， 導水管の目的地となる 2 つの主要基地の番号
+g
+1
+，
+g
+2
+を表す．基地の番号は 1 から
+n
+までの整数で表される．
+s
+，
+g
+1
+，
+g
+2
+は互いに異なる．
+続く
+m
+行には，導水管を敷設可能な道路の情報が与えられる．各行はある 2 つの基地間における道路の情報を表しており，3 つの整数
+b
+1
+，
+b
+2
+，
+c
+(1 <=
+c
+<= 1000) からなる．ここに
+b
+1
+，
+b
+2
+は道路の始端および終端の基地の番号を表し，これらは互いに異なる．
+c
+は基地
+b
+1
+から基地
+b
+2
+に向かう導水管を敷設するためにかかるコストである．
+全てのデータセットについて，水源から目的地まで水を供給する経路は常に存在すると仮定してよい．また，ある 2 つの基地間には高々 1 つの道路しか存在しないことから，コストの情報はそれぞれの方向について高々 1 回しか与えられない．
+入力の終了はスペース文字で区切られた 5 つのゼロが含まれる行で表される．
+Output
+それぞれのデータセットに対して，導水管を敷設するコストの最小値を 1 行に出力せよ．
+Sample Input
+4 5 1 3 4
+1 2 5
+2 3 5
+2 4 5
+1 3 8
+1 4 8
+0 0 0 0 0
+Output for the Sample Input
+15
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import defaultdict,deque
+import sys,heapq,bisect,math,itertools,string,queue,copy,time
+sys.setrecursionlimit(10**8)
+INF = float('inf')
+mod = 10**9+7
+eps = 10**-7
+def inp(): return int(input())
+def inpl(): return list(map(int, input().split()))
+def inpl_str(): return list(input().split())
+
+def cal(x,y,a):
+    return (x+y*W)*4 + a
+
+def uncal(val):
+    a = val%4
+    vxy = val//4
+    x,y = vxy%W, vxy//W
+    return x,y,a
+
+def dijkstra(lines,N,s):
+    weight = [INF]*N
+    weight[s] = 0
+    def search(s,w_0,q,weight):
+        for t,w in lines[s]:
+            w += w_0
+            if weight[t] > w:
+                heapq.heappush(q,[w,t])
+                weight[t] = w
+    q = [[0,s]]
+    heapq.heapify(q)
+    while q:
+        w,n = heapq.heappop(q)
+        search(n,w,q,weight)
+    return weight
+
+while True:
+    N,M,s,g1,g2 = inpl()
+    if N == 0 and M == 0:
+        break
+    else:
+        lines1 = defaultdict(set)
+        lines2 = defaultdict(set)
+        for _ in range(M):
+            x,y,c = inpl()
+            x,y = x-1,y-1
+            lines1[x].add((y,c))
+            lines2[y].add((x,c))
+
+        weights_s  = dijkstra(lines1,N,s-1)
+        weights_b1 = dijkstra(lines2,N,g1-1)
+        weights_b2 = dijkstra(lines2,N,g2-1)
+
+        ans = INF
+        for i in range(N):
+            tmp = weights_s[i] + weights_b1[i] + weights_b2[i]
+            ans = min(ans,tmp)
+        print(ans)
+```

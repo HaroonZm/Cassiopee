@@ -1,0 +1,98 @@
+Voici un énoncé de problème :
+
+Cross Points of Circles
+For given two circles $c1$ and $c2$, print the coordinates of the cross points of them.
+Input
+The input is given in the following format.
+$c1x\; c1y\; c1r$
+$c2x\; c2y\; c2r$
+$c1x$, $c1y$ and $c1r$ represent the coordinate and radius of the first circle.
+$c2x$, $c2y$ and $c2r$ represent the coordinate and radius of the second circle.
+All input values are given in integers.
+Output
+Print the coordinates ($x1$, $y1$) and ($x2$, $y2$) of the cross points $p1$ and $p2$ respectively in the following rules.
+If there is one cross point, print two coordinates with the same values.
+Print the coordinate with smaller $x$ first. In case of a tie, print the coordinate with smaller $y$ first.
+The output values should be in a decimal fraction with an error less than 0.000001.
+Constraints
+The given circle have at least one cross point and have different center coordinates.
+$-10,000 \leq c1x, c1y, c2x, c2y \leq 10,000$
+$1 \leq c1r, c2r \leq 10,000$
+Sample Input and Output
+Sample Input 1
+0 0 2
+2 0 2
+Sample Output 1
+1.00000000 -1.73205080 1.00000000 1.73205080
+Sample Input 2
+0 0 2
+0 3 1
+Sample Output 2
+0.00000000 2.00000000 0.00000000 2.00000000
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#!/usr/bin/env python
+
+"""
+input:
+0 0 2
+2 0 2
+
+output:
+1.00000000 -1.73205080 1.00000000 1.73205080
+"""
+
+import sys
+from math import sin, cos, atan2, acos
+
+class Circle(object):
+    __slots__ = ('centre', 'radius')
+
+    def __init__(self, centre=float('inf'), radius=-1):
+        self.centre = complex(centre)
+        self.radius = float(radius)
+
+def arg(p_vector):
+    return atan2(p_vector.imag, p_vector.real)
+
+def polar(a, r):
+    return a * cos(r) + a * sin(r) * 1j
+
+def get_circles_cross_points(c1, c2):
+    centre_distance = abs(c1.centre - c2.centre)
+    a = acos((pow(c1.radius, 2) + pow(centre_distance, 2) - pow(c2.radius, 2)) /
+             (2 * c1.radius * centre_distance))
+    t = arg(c2.centre - c1.centre)
+    p1, p2 = c1.centre + polar(c1.radius, t + a), c1.centre + polar(c1.radius, t - a)
+
+    if p1.real < p2.real:
+        ans = (p1, p2)
+    elif p1.real == p2.real:
+        if p1.imag < p2.imag:
+            ans = (p1, p2)
+        else:
+            ans = (p2, p1)
+    else:
+        ans = (p2, p1)
+    return ans
+
+def solve(_circle_info):
+    for i, circle in enumerate(_circle_info):
+        cx, cy, r = map(int, circle)
+        circles[i].centre = cx + cy * 1j
+        circles[i].radius = r
+
+    cp1, cp2 = get_circles_cross_points(*circles)
+    print('{0:.8f} {1:.8f} {2:.8f} {3:.8f}'.format(cp1.real, cp1.imag, cp2.real, cp2.imag))
+    return None
+
+if __name__ == '__main__':
+    _input = sys.stdin.readlines()
+    circle_info = map(lambda x: x.split(), _input)
+
+    circles = [Circle() for _ in range(2)]
+    solve(circle_info)
+```

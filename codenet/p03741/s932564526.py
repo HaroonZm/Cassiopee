@@ -1,0 +1,18 @@
+# +-+-...と-+-+...をためす
+
+N = int(input())
+A = list(map(int, input().split()))
+
+def solve(start_sgn):
+  sgn = start_sgn
+  r = 0
+  s = 0
+  for a in A:
+    s += a
+    if s*sgn <= 0:
+      r += abs(s-sgn)
+      s = sgn
+    sgn *= -1
+  return r
+
+print(min(solve(1), solve(-1)))

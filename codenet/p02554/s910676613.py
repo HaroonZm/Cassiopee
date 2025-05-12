@@ -1,0 +1,9 @@
+n = int(input())
+mod = 10**9+7
+part1 = 10 **n 
+part2 = 8 ** n
+part3 = 2 * (9 ** n) #-
+part1 %= mod
+part2 %= mod
+part3 %= mod
+print((part1 +part2 - part3)%mod)

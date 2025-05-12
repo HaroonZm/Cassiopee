@@ -1,0 +1,132 @@
+Voici un énoncé de problème :
+
+Score :
+1200
+points
+Problem Statement
+Snuke has decided to play with
+N
+cards and a deque (that is, a double-ended queue).
+Each card shows an integer from
+1
+through
+N
+, and the deque is initially empty.
+Snuke will insert the cards at the beginning or the end of the deque one at a time, in order from
+1
+to
+N
+.
+Then, he will perform the following action
+N
+times: take out the card from the beginning or the end of the deque and eat it.
+Afterwards, we will construct an integer sequence by arranging the integers written on the eaten cards, in the order they are eaten. Among the sequences that can be obtained in this way, find the number of the sequences such that the
+K
+-th element is
+1
+. Print the answer modulo
+10^{9} + 7
+.
+Constraints
+1 ≦ K ≦ N ≦ 2{,}000
+Input
+The input is given from Standard Input in the following format:
+N
+K
+Output
+Print the answer modulo
+10^{9} + 7
+.
+Sample Input 1
+2 1
+Sample Output 1
+1
+There is one sequence satisfying the condition:
+1,2
+. One possible way to obtain this sequence is the following:
+Insert both cards,
+1
+and
+2
+, at the end of the deque.
+Eat the card at the beginning of the deque twice.
+Sample Input 2
+17 2
+Sample Output 2
+262144
+Sample Input 3
+2000 1000
+Sample Output 3
+674286644
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def cmb(n, r, mod):#コンビネーションの高速計算　
+    if ( r<0 or r>n ):
+        return 0
+    r = min(r, n-r)
+    return g1[n] * g2[r] * g2[n-r] % mod
+
+mod = 10**9+7 #出力の制限
+N = 5000
+g1 = [1, 1] # 元テーブル
+g2 = [1, 1] #逆元テーブル
+inverse = [0, 1] #逆元テーブル計算用テーブル
+
+for i in range( 2, N + 1 ):
+    g1.append( ( g1[-1] * i ) % mod )
+    inverse.append( ( -inverse[mod % i] * (mod//i) ) % mod )
+    g2.append( (g2[-1] * inverse[-1]) % mod )
+
+N,K=map(int,input().split())
+
+if N==1:
+    print(1)
+elif K==1:
+    print(pow(2,N-2,mod))
+elif K==N:
+    dp=[[0 for i in range(K+1)] for j in range(K)]
+    imos=[0]*(K+1)
+
+    dp[0][K]=1
+    imos[K]=1
+
+    for i in range(1,K):
+        for j in range(K-i,K+1):
+            if j==K-i:
+                dp[i][j]=(imos[K]-imos[j])%mod
+            else:
+                dp[i][j]=(dp[i-1][j]+imos[K]-imos[j])%mod
+        imos=[dp[i][j] for j in range(K+1)]
+        for j in range(1,K+1):
+            imos[j]+=imos[j-1]
+            imos[j]%=mod
+    print(dp[N-1][1])
+else:
+    dp=[[0 for i in range(K+1)] for j in range(K)]
+    imos=[0]*(K+1)
+
+    dp[0][K]=1
+    imos[K]=1
+
+    for i in range(1,K):
+        for j in range(K-i,K+1):
+            if j==K-i:
+                dp[i][j]=(imos[K]-imos[j])%mod
+            else:
+                dp[i][j]=(dp[i-1][j]+imos[K]-imos[j])%mod
+        imos=[dp[i][j] for j in range(K+1)]
+        for j in range(1,K+1):
+            imos[j]+=imos[j-1]
+            imos[j]%=mod
+
+    ans=0
+    for M in range(N-K+1,N+1):
+        id=M-N+K
+        ans+=dp[K-1][id]*cmb(M-2,N-K-1,mod)
+
+    ans*=pow(2,N-K-1,mod)
+    print(ans%mod)
+```

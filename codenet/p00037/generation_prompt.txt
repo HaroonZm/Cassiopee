@@ -1,0 +1,93 @@
+Voici un énoncé de problème :
+
+格子上の経路
+上から見ると図 1 のような形の格子状の広場があります。この格子の各辺に「壁」があるかないかを 0 と 1 の並びで表します。点 A に立って壁に右手をつき、壁に右手をついたまま、矢印の方向に歩き続けて再び点 A に戻ってくるまでの経路を出力するプログラムを作成してください。
+図1
+Input
+入力は９行からなり、以下の図 2 に示すように、壁がある場合を 1、ない場合を 0 として、以下の形式で与えられます。
+1 行目は一番上の横線の壁の有無を左から 0 と 1 で表した文字列
+2 行目はその下の縦線の壁の有無を左から0 と1 で表した文字列
+3 行目は上から2 本目の横線の壁の有無を左から0 と1 で表した文字列
+...
+9 行目は一番下の横線の壁の有無を左から0 と1 で表した文字列
+図2 (壁あるところを太線で表しています) (対応する数字のならび)
+ただし、図１の太線に示すように、点 A から右に 1 区画分は必ず壁があるものとします。すなわち、1 行目の 1 文字目は常に 1 です。
+Output
+「図の左方向に一区画分進む」を '
+L
+'、「図の右方向に一区画分進む」を '
+R
+'、「図の上方向に一区画分進む」を '
+U
+'、「図の下方向に一区画分進む」を '
+D
+' で表わし、進む順に '
+L
+', '
+R
+', '
+U
+', '
+D
+' を１行に並べて出力します。
+Sample Input
+1111
+00001
+0110
+01011
+0010
+01111
+0010
+01001
+0111
+Output for the Sample Input
+RRRRDDDDLLLUUURRDDLURULLDDDRRRUUUULLLL
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def is_wall(x1,y1,x2,y2):
+    if x1<0 or 4<x1 or y1<0 or 4<y1 or x2<0 or 4<x2 or y2<0 or 4<y2:
+        return False
+    elif x1 == x2:
+        if y1>y2: y1,y2 = y2,y1
+        if y2-y1 != 1: return False
+        return (walls[y1*2+1][x1] == "1")
+    elif y1 == y2:
+        if x1>x2: x1,x2 = x2,x1
+        if x2-x1 != 1: return False
+        return (walls[y1*2][x1] == "1")
+    else: return False
+
+def nextmove(x,y):
+    lastmove = moves[-1]
+    if lastmove == 3: lastmove = -1
+    if lastmove < -1: lastmove += 4
+    if is_wall(x,y,x+direction[lastmove+1][1],y+direction[lastmove+1][2]):
+        return lastmove+1,x+direction[lastmove+1][1],y+direction[lastmove+1][2]
+
+    if is_wall(x,y,x+direction[lastmove][1],y+direction[lastmove][2]):
+        return lastmove,x+direction[lastmove][1],y+direction[lastmove][2]
+
+    if is_wall(x,y,x+direction[lastmove-1][1],y+direction[lastmove-1][2]):
+        return lastmove-1,x+direction[lastmove-1][1],y+direction[lastmove-1][2]
+
+    if is_wall(x,y,x+direction[lastmove-2][1],y+direction[lastmove-2][2]):
+        return lastmove-2,x+direction[lastmove-2][1],y+direction[lastmove-2][2]
+
+direction = [["R",1,0],["U",0,-1],["L",-1,0],["D",0,1]]
+walls = []
+moves = [0]
+for _ in range(9):
+    walls.append(input())
+lastx = 1
+lasty = 0
+print("R", end = "")
+while True:
+    move,lastx,lasty = nextmove(lastx, lasty)
+    moves.append(move)
+    print(direction[move][0], end = "")
+    if lastx == 0 and lasty == 0: break
+print()
+```

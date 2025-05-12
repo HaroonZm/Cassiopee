@@ -1,0 +1,132 @@
+Voici un énoncé de problème :
+
+Score :
+300
+points
+Problem Statement
+We have a sequence of
+N
+integers
+A~=~A_0,~A_1,~...,~A_{N - 1}
+.
+Let
+B
+be a sequence of
+K \times N
+integers obtained by concatenating
+K
+copies of
+A
+. For example, if
+A~=~1,~3,~2
+and
+K~=~2
+,
+B~=~1,~3,~2,~1,~3,~2
+.
+Find the inversion number of
+B
+, modulo
+10^9 + 7
+.
+Here the inversion number of
+B
+is defined as the number of ordered pairs of integers
+(i,~j)~(0 \leq i < j \leq K \times N - 1)
+such that
+B_i > B_j
+.
+Constraints
+All values in input are integers.
+1 \leq N \leq 2000
+1 \leq K \leq 10^9
+1 \leq A_i \leq 2000
+Input
+Input is given from Standard Input in the following format:
+N
+K
+A_0
+A_1
+...
+A_{N - 1}
+Output
+Print the inversion number of
+B
+, modulo
+10^9 + 7
+.
+Sample Input 1
+2 2
+2 1
+Sample Output 1
+3
+In this case,
+B~=~2,~1,~2,~1
+. We have:
+B_0 > B_1
+B_0 > B_3
+B_2 > B_3
+Thus, the inversion number of
+B
+is
+3
+.
+Sample Input 2
+3 5
+1 1 1
+Sample Output 2
+0
+A
+may contain multiple occurrences of the same number.
+Sample Input 3
+10 998244353
+10 9 8 7 5 6 3 4 2 1
+Sample Output 3
+185297239
+Be sure to print the output modulo
+10^9 + 7
+.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import bisect
+MOD = 10**9 + 7
+ 
+class Bit:
+    def __init__(self, n):
+        self.size = n
+        self.tree = [0] * (n + 1)
+  
+    def sum(self, i):
+        s = 0
+        while i > 0:
+            s += self.tree[i]
+            i -= i & -i
+        return s
+  
+    def add(self, i, x):
+        while i <= self.size:
+            self.tree[i] += x
+            i += i & -i
+ 
+n, k = [int(item) for item in input().split()]
+a = [int(item) for item in input().split()]
+bit = Bit(2010 * 2)
+ans = 0
+ 
+for i, p in enumerate(a):
+    bit.add(p, 1)
+    ans += i + 1 - bit.sum(p)
+ 
+a.sort()
+big = 0
+for item in a:
+    big += n - bisect.bisect_right(a, item)
+ 
+times = (k * (k - 1) // 2) % MOD
+ans2 = (ans * k) % MOD + (big * times) % MOD
+ans2 %= MOD
+print(ans2)
+```

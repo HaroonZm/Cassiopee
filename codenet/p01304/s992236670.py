@@ -1,0 +1,32 @@
+n=int(input())
+for i in range(n):
+    x,y=map(int,input().split())
+    l=[[0 for i in range(y+1)] for j in range(x+1)]
+    m=int(input())
+    l1=[]#マタタビの落ちている区間のリスト
+    if m!=0:
+        for j in range(m):
+            l2=list(map(int,input().split()))
+            l1.append(l2)
+    for i in range(1,x+1):
+        if [i,0,i-1,0] in l1 or [i-1,0,i,0] in l1:
+          break
+        l[i][0]=1
+    for i in range(1,y+1):
+        if [0,i,0,i-1] in l1 or [0,i-1,0,i] in l1:
+          break
+        l[0][i]=1
+    for i in range(1,y+1):
+        for j in range(1,x+1):#2重ループで各点の到達方法の場合の数を記録
+            if ([j,i-1,j,i] in l1 or [j,i,j,i-1] in l1) and ([j,i,j-1,i] in l1 or [j-1,i,j,i] in l1):
+                l[j][i]=0
+            elif ([j,i,j-1,i] in l1 or [j-1,i,j,i] in l1):
+                l[j][i]=l[j][i-1]
+            elif ([j,i-1,j,i] in l1 or [j,i,j,i-1] in l1):#マタタビの落ちている区間は除く
+                l[j][i]=l[j-1][i]
+            else:
+                l[j][i]=l[j-1][i]+l[j][i-1]
+    if l[x][y]==0:
+      print("Miserable Hokusai!")
+    else:
+      print(l[x][y])

@@ -1,0 +1,50 @@
+import sys
+read = sys.stdin.buffer.read
+readline = sys.stdin.buffer.readline
+readlines = sys.stdin.buffer.readlines
+
+import numpy as np
+
+N = int(readline())
+m = map(int,read().split())
+AB = zip(m,m)
+
+graph = [[] for _ in range(N+1)]
+for a,b in AB:
+    graph[a].append(b)
+    graph[b].append(a)
+
+root = 1
+parent = [0] * (N+1)
+order = []
+stack = [root]
+while stack:
+    x = stack.pop()
+    order.append(x)
+    for y in graph[x]:
+        if y == parent[x]:
+            continue
+        parent[y] = x
+        stack.append(y)
+
+full = (1 << 60) - 1
+uninity = [0] * (N+1)
+dp = [0] * (N+1)
+twice = [0] * (N+1)
+for x in order[::-1]:
+    p = parent[x]
+    n = twice[x].bit_length() - 1
+    if n >= 0:
+        dp[x] |= (1 << (n+1)) - 1
+    can_use = full & (~dp[x])
+    lsb = can_use & (-can_use)
+    uninity[x] = lsb
+    dp[x] |= lsb
+    dp[x] &= full & ~(lsb - 1)
+    
+    twice[p] |= (dp[x] & dp[p])
+    dp[p] |= dp[x]
+
+x = max(uninity)
+answer = x.bit_length() - 1
+print(answer)

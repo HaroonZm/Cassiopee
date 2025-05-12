@@ -1,0 +1,116 @@
+Voici un énoncé de problème :
+
+Score :
+400
+points
+Problem Statement
+Takahashi has a maze, which is a grid of
+H \times W
+squares with
+H
+horizontal rows and
+W
+vertical columns.
+The square at the
+i
+-th row from the top and the
+j
+-th column is a "wall" square if
+S_{ij}
+is
+#
+, and a "road" square if
+S_{ij}
+is
+.
+.
+From a road square, you can move to a horizontally or vertically adjacent road square.
+You cannot move out of the maze, move to a wall square, or move diagonally.
+Takahashi will choose a starting square and a goal square, which can be any road squares, and give the maze to Aoki.
+Aoki will then travel from the starting square to the goal square, in the minimum number of moves required.
+In this situation, find the maximum possible number of moves Aoki has to make.
+Constraints
+1 \leq H,W \leq 20
+S_{ij}
+is
+.
+or
+#
+.
+S
+contains at least two occurrences of
+.
+.
+Any road square can be reached from any road square in zero or more moves.
+Input
+Input is given from Standard Input in the following format:
+H
+W
+S_{11}
+...
+S_{1W}
+:
+S_{H1}
+...
+S_{HW}
+Output
+Print the maximum possible number of moves Aoki has to make.
+Sample Input 1
+3 3
+...
+...
+...
+Sample Output 1
+4
+If Takahashi chooses the top-left square as the starting square and the bottom-right square as the goal square, Aoki has to make four moves.
+Sample Input 2
+3 5
+...#.
+.#.#.
+.#...
+Sample Output 2
+10
+If Takahashi chooses the bottom-left square as the starting square and the top-right square as the goal square, Aoki has to make ten moves.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+input = sys.stdin.readline
+rs = lambda: input().strip()
+ri = lambda: int(input())
+rl = lambda: list(map(int, input().split()))
+mod = 10**9 + 7
+
+H, W = rl()
+M = []
+for i in range(H):
+    row = rs()
+    M.append(row)
+
+import collections
+def get_dist(i, j):
+    visited = {}
+    queue = collections.deque()
+    queue.append((i,j,0)) 
+    max_l = 0
+    while queue:
+        i, j, l = queue.popleft()
+        if (i,j) in visited: continue
+        max_l = max(max_l, l)
+        visited[(i,j)] = 1
+        for di, dj in [(1,0), (-1,0), (0,1), (0,-1)]:
+            ni, nj = i+di, j+dj
+            if 0 <= ni < H and 0 <= nj < W and M[ni][nj] != '#':
+                queue.append((ni,nj,l+1))
+    return max_l
+
+max_move = 0
+for i in range(H):
+    for j in range(W):
+        if M[i][j] == '#': continue
+        d = get_dist(i, j)
+        max_move = max(max_move, d)
+print(max_move)
+```

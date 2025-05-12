@@ -1,0 +1,203 @@
+Voici un énoncé de problème :
+
+必勝７並べ
+トランプを使ったゲームに「７並べ」があります。ここではそれを簡単にしたゲームを考えます。１から１３の番号がそれぞれ書かれた１３枚のカードを使って７並べをします。対戦は、２者だけで次のようにゲームを進めます。
+「場」に７のカードを置きます。
+２者には、残りのカードがランダムに６枚ずつ配布されます。
+先手の手持ちのカードのうち、場にあるカードの番号と連続する番号のカードがあれば、そのうちの１枚を場に置きます。プレイヤーはカードが置ける場合には必ず置かなければいけません。無いときに限り、カードを出さずに相手の番になります。
+後手も同じ要領で、手持ちのカードを場に置きます。
+手順３と４を繰り返して、一方の手持ちのカードがなくなるまで続けます。先に手持ちのカードをすべて場に置けた方が勝者となります。
+先手のカードの番号が与えられたとき、後手がどのようにカードを出してきても、先手が勝つ手順が少なくとも一つあるかを判定して出力するプログラムを作成せよ。
+Input
+入力は以下の形式で与えられる。
+N
+game
+1
+game
+2
+:
+game
+N
+１行目には、ゲームを行う回数
+N
+(1 ≤
+N
+≤ 100) が与えられる。続く
+N
+行に、
+i
+回目のゲームの情報
+game
+i
+が与えられる。各
+game
+i
+は、以下の形式で与えられる。
+f
+1
+f
+2
+f
+3
+f
+4
+f
+5
+f
+6
+f
+j
+(1 ≤
+f
+j
+≤ 13,
+f
+j
+≠ 7) は先手に配られるカードの番号である。ただし、同じ行に番号が重複して現れることはない（
+j
+≠
+k
+について
+f
+j
+≠
+f
+k
+)。
+Output
+各ゲームについて、後手がどのようにカードを出してきても、先手が勝つ手順が少なくとも一つある場合「yes」、そうでない場合「no」と１行に出力する。
+Sample Input 1
+5
+1 2 3 4 5 6
+1 3 5 6 8 4
+1 2 3 4 5 8
+1 2 4 5 10 11
+1 2 3 6 9 11
+Sample Output 1
+yes
+yes
+no
+yes
+no
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import heapq
+from collections import deque
+from enum import Enum
+import sys
+import math
+from _heapq import heappush, heappop
+import copy
+from test.support import _MemoryWatchdog
+
+BIG_NUM = 2000000000
+HUGE_NUM = 99999999999999999
+MOD = 1000000007
+EPS = 0.000000001
+sys.setrecursionlimit(100000)
+
+class Type(Enum):
+    TRUE = 0
+    FALSE = 1
+    UNDEFINED = 2
+
+MIN = 1
+MAX = 13
+
+dp = [[[None]*2 for _ in range(15)] for _ in range(15)]
+
+def recursive(L,R,Sente,Gote,rest_Sente,rest_Gote,is_Sente):
+
+    if dp[L][R][is_Sente] != Type.UNDEFINED:
+        return dp[L][R][is_Sente] == Type.TRUE
+
+    #終了判定
+    if rest_Sente == 0:
+        return True
+    elif rest_Gote == 0:
+        return  False
+
+    if is_Sente == True:
+
+        if (L < MIN or (L >= MIN and Sente[L] == False)) and (R > MAX or (R <= MAX and Sente[R] == False)): #パス
+
+            return recursive(L,R,Sente,Gote,rest_Sente,rest_Gote,False)
+
+        else:
+
+            ret = False #先手に行動の選択権があるため、論理和を取る
+
+            next_Sente = [None]*14
+            for i in range(MIN,MAX+1):
+                next_Sente[i] = Sente[i]
+
+            if L >= MIN and Sente[L] == True:
+                next_Sente[L] = False
+                ret |= recursive(L-1,R,next_Sente,Gote,rest_Sente-1,rest_Gote,False)
+                next_Sente[L] = True
+            if R <= MAX and Sente[R] == True:
+                next_Sente[R] = False
+                ret |= recursive(L,R+1,next_Sente,Gote,rest_Sente-1,rest_Gote,False)
+
+            if ret == True:
+                dp[L][R][is_Sente] = Type.TRUE
+            else:
+                dp[L][R][is_Sente] = Type.FALSE
+
+            return ret
+
+    else: #is_Sente == False
+
+        if (L < MIN or (L >= MIN and Gote[L] == False)) and (R > MAX or (R <= MAX and Gote[R] == False)): #パス
+
+            return recursive(L,R,Sente,Gote,rest_Sente,rest_Gote,True)
+
+        else:
+            ret = True #後手に行動の選択権があるため、論理積を取る
+
+            next_Gote = [None]*14
+            for i in range(MIN,MAX+1):
+                next_Gote[i] = Gote[i]
+
+            if L >= MIN and Gote[L] == True:
+                next_Gote[L] = False
+                ret &= recursive(L-1,R,Sente,next_Gote,rest_Sente,rest_Gote-1,True)
+                next_Gote[L] = True
+            if R <= MAX and Gote[R] == True:
+                next_Gote[R] = False
+                ret &= recursive(L,R+1,Sente,next_Gote,rest_Sente,rest_Gote-1,True)
+
+            if ret == True:
+                dp[L][R][is_Sente] = Type.TRUE
+            else:
+                dp[L][R][is_Sente] = Type.FALSE
+
+            return ret
+
+N = int(input())
+
+for _ in range(N):
+    Sente = [False]*14
+    Gote = [None]*14
+
+    for L in range(0,7):
+        for R in range(8,15):
+            dp[L][R][True] = Type.UNDEFINED
+            dp[L][R][False] = Type.UNDEFINED
+
+    tmp_input = list(map(int,input().split()))
+
+    for i in range(len(tmp_input)):
+        Sente[tmp_input[i]] = True
+
+    for i in range(MIN,MAX+1):
+        Gote[i] = not Sente[i]
+
+    if recursive(6,8,Sente,Gote,6,6,True) == True:
+        print("yes")
+    else:
+        print("no")
+```

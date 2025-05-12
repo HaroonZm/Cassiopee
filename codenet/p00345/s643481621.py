@@ -1,0 +1,22 @@
+from math import gcd
+
+s = input()
+x, y = s.split(".")
+if "(" in s:
+  da = y.index("(")
+  db = y.index(")") - 1
+  ya, b = y.split("(")
+  lb = len(b) - 1
+  a = int(x + ya)
+  b = int(b[:-1])
+  deco = a * (10 ** db - 10 ** (db - lb)) + b * 10 ** da
+  nume = 10 ** da * (10 ** db - 10 ** (db - lb))
+  div = gcd(deco, nume)
+  print(deco // div, nume // div, sep="/")
+else:
+  da = len(y)
+  a = int(x + y)
+  deco = a
+  nume = 10 ** da
+  div = gcd(deco, nume)
+  print(deco // div, nume // div, sep="/")

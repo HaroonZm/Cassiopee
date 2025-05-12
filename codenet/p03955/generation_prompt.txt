@@ -1,0 +1,231 @@
+Voici un énoncé de problème :
+
+Score :
+1500
+points
+Problem Statement
+We have a grid with
+3
+rows and
+N
+columns.
+The cell at the
+i
+-th row and
+j
+-th column is denoted (
+i
+,
+j
+).
+Initially, each cell (
+i
+,
+j
+) contains the integer
+i+3j-3
+.
+A grid with
+N=5
+columns
+Snuke can perform the following operation any number of times:
+Choose a
+3×3
+subrectangle of the grid. The placement of integers within the subrectangle is now rotated by
+180°
+.
+An example sequence of operations (each chosen subrectangle is colored blue)
+Snuke's objective is to manipulate the grid so that each cell (
+i
+,
+j
+) contains the integer
+a_{i,j}
+.
+Determine whether it is achievable.
+Constraints
+5≤N≤10^5
+1≤a_{i,j}≤3N
+All
+a_{i,j}
+are distinct.
+Input
+The input is given from Standard Input in the following format:
+N
+a_{1,1}
+a_{1,2}
+...
+a_{1,N}
+a_{2,1}
+a_{2,2}
+...
+a_{2,N}
+a_{3,1}
+a_{3,2}
+...
+a_{3,N}
+Output
+If Snuke's objective is achievable, print
+Yes
+. Otherwise, print
+No
+.
+Sample Input 1
+5
+9 6 15 12 1
+8 5 14 11 2
+7 4 13 10 3
+Sample Output 1
+Yes
+This case corresponds to the figure in the problem statement.
+Sample Input 2
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+Sample Output 2
+No
+Sample Input 3
+5
+1 4 7 10 13
+2 5 8 11 14
+3 6 9 12 15
+Sample Output 3
+Yes
+The objective is already achieved with the initial placement of the integers.
+Sample Input 4
+6
+15 10 3 4 9 16
+14 11 2 5 8 17
+13 12 1 6 7 18
+Sample Output 4
+Yes
+Sample Input 5
+7
+21 12 1 16 13 6 7
+20 11 2 17 14 5 8
+19 10 3 18 15 4 9
+Sample Output 5
+No
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+"""
+
+https://atcoder.jp/contests/agc006/tasks/agc006_e
+
+まず、ちゃんと並んでない場合はだめ
+
+3x+0
+3x+1
+3x+2
+またはこれが上下反転されているもの以外が存在したら即NO
+これを xと表すことにする。上下反転を-xと表すこととする
+すると初期状態はxで表すと
+1,2,3,4,5…,N　となる。
+
+操作は、連続する3つを選び、両端を入れ替え、3つの項に-1を掛ける
+となる。
+
+そのため、偶奇が違う数があるとout
+次に転倒数を考える。転倒数は交換するたびに1減る or 1増える
+偶奇番目を分けて考える
+
+交換すると、両端の偶奇の正負のパリティは変化しないが、反対側が変化する
+よって、偶奇が逆の集合の転倒数を求める
+→奇数ならば積は負・偶数なら積は正　が保たれる　そうでない場合はNO
+
+それ以外はすべて作れるのか…？証明したい
+
+ 1 2 3 4
+-3-2-1 4
+-3-4 1 2
+
+分からん…とりあえず出してみよう
+
+"""
+
+from sys import stdin
+import sys
+
+def bitadd(a,w,bit): #aにwを加える(1-origin)
+ 
+    x = a
+    while x <= (len(bit)-1):
+        bit[x] += w
+        x += x & (-1 * x)
+ 
+def bitsum(a,bit): #ind 1～aまでの和を求める
+ 
+    ret = 0
+    x = a
+    while x > 0:
+        ret += bit[x]
+        x -= x & (-1 * x)
+    return ret
+
+N = int(stdin.readline())
+
+a = []
+for i in range(3):
+    tmp = list(map(int,stdin.readline().split()))
+    a.append(tmp)
+
+lis = []
+bi  = []
+
+for j in range(N):
+    a[0][j] -= 1
+    a[1][j] -= 1
+    a[2][j] -= 1
+    if a[0][j]//3 == a[1][j]//3 == a[2][j]//3 and a[0][j]//3%2 == j%2:
+        if a[0][j] > a[1][j] > a[2][j]:
+            lis.append(a[0][j]//3)
+            bi.append(-1)
+        elif a[0][j] < a[1][j] < a[2][j]:
+            lis.append(a[0][j]//3)
+            bi.append(1)
+        else:
+            print ("No")
+            sys.exit()
+    else:
+        print ("No")
+        sys.exit()
+
+evenall = 1
+for i in range(0,N,2):
+    evenall *= bi[i]
+oddall = 1
+for i in range(1,N,2):
+    oddall *= bi[i]
+
+a = lis
+#print (a,bi)
+#even
+BIT = [0] * (N+2)
+ans = 0
+for i in range(0,N,2):
+    ans += i//2 - bitsum(a[i]+1,BIT)
+    bitadd(a[i]+1,1,BIT)
+
+#print (ans , oddall)
+if (ans % 2 == 0 and oddall == -1) or (ans % 2 == 1 and oddall == 1):
+    print ("No")
+    sys.exit()
+
+#odd
+BIT = [0] * (N+2)
+ans = 0
+for i in range(1,N,2):
+    ans += i//2 - bitsum(a[i]+1,BIT)
+    bitadd(a[i]+1,1,BIT)
+
+#print (ans , evenall)
+if (ans % 2 == 0 and evenall == -1) or (ans % 2 == 1 and evenall == 1):
+    print ("No")
+    sys.exit()
+
+print ("Yes")
+```

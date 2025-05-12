@@ -1,0 +1,13 @@
+n = int(input())
+v = [int(i) for i in input().split()]
+
+v.sort()
+
+for i in range(1,n):
+    x = v.pop(0)
+    y = v.pop(0)
+    xy = (x + y) / 2
+    v.append(xy)
+    v.sort()
+
+print(v.pop(0))

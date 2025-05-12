@@ -1,0 +1,16 @@
+x0,y0=map(int,input().split())
+x1,y1=map(int,input().split())
+x2,y2=map(int,input().split())
+def make_dist(i,j,k,l):
+    return ((i-k)**2+(j-l)**2)**0.5
+a=y1-y2
+b=x2-x1
+c=x1*y2-y1*x2
+d12=make_dist(x1,y1,x2,y2)
+d01=make_dist(x0,y0,x1,y1)
+d02=make_dist(x0,y0,x2,y2)
+S_double=d12*abs(a*x0+b*y0+c)/(make_dist(a,b,0,0))
+r=S_double/(d01+d02+d12)
+d=max(d01,d02,d12)
+ans=d*r/(2*r+d)
+print(ans)

@@ -1,0 +1,313 @@
+Voici un énoncé de problème :
+
+Problem G:
+True Liars
+After having drifted about in a small boat for a couple of days, Akira Crusoe Maeda was finally cast ashore on a foggy island. Though he was exhausted and despaired, he was still fortunate to remember a legend of the foggy island, which he had heard from patriarchs in his childhood. This must be the island in the legend.
+In the legend, two tribes have inhabited the island, one is divine and the other is devilish; once members of the divine tribe bless you, your future is bright and promising, and your soul will eventually go to Heaven; in contrast, once members of the devilish tribe curse you, your future is bleak and hopeless, and your soul will eventually fall down to Hell.
+In order to prevent the worst-case scenario, Akira should distinguish the devilish from the divine. But how? They looked exactly alike and he could not distinguish one from the other solely by their appearances. He still had his last hope, however. The members of the divine tribe are truth-tellers, that is, they always tell the truth and those of the devilish tribe are liars, that is, they always tell a lie.
+He asked some of the whether or not some are divine. They knew one another very much and always responded to him "faithfully" according to their individual natures (i.e., they always tell the truth or always a lie). He did not dare to ask any other forms of questions, since the legend says that a devilish member would curse a person forever when he did not like the question. He had another piece of useful information: the legend tells the populations of both tribes. These numbers in the legend are trustworthy since everyone living on this island is immortal and none have ever been born at least these millennia.
+You are a good computer programmer and so requested to help Akira by writing a program that classifies the inhabitants according to their answers to his inquiries.
+Input
+The input consists of multiple data sets, each in the following format:
+n
+p
+1
+p
+2
+x
+1
+y
+1
+a
+1
+x
+2
+y
+2
+a
+2
+...
+x
+i
+y
+i
+a
+i
+...
+x
+n
+y
+n
+a
+n
+The first line has three non-negative integers
+n
+,
+p
+1
+, and
+p
+2
+.
+n
+is the number of questions Akira asked.
+p
+1
+and
+p
+2
+are the populations of the divine and devilish tribes, respectively, in the legend. Each of the following
+n
+lines has two integers
+x
+i
+,
+y
+i
+and one word
+a
+i
+.
+x
+i
+and
+y
+i
+are the identification numbers of inhabitants, each of which is between 1 and
+p
+1
++
+p
+2
+, inclusive.
+a
+i
+is either "yes", if the inhabitant
+x
+i
+said that the inhabitant
+y
+i
+was a member of the divine tribe, or "no", otherwise. Note that
+x
+i
+and
+y
+i
+can be the same number since "are you a member of the divine tribe?" is a valid question. Note also that two lines may have the same
+x
+'s and
+y
+'s since Akira was very upset and might have asked the same question to the same one more than once.
+You may assume that
+n
+is less than 1000 and that
+p
+1
+and
+p
+2
+are less than 300. A line with three zeros, i.e., "0 0 0", represents the end of the input. You can assume that each data set is consistent and no contradictory answers are included.
+Output
+For each data set, if it includes sufficient information to classify all the inhabitants, print the identification numbers of all the divine ones in ascending order, one in a line. In addition, following the output numbers, print "end" in a line. Otherwise, i.e., if a given data set does not include sufficient information to identify all the divine members, print "no" in a line.
+Sample Input
+2 1 1
+1 2 no
+2 1 no
+3 2 1
+1 1 yes
+2 2 yes
+3 3 yes
+2 2 1
+1 2 yes
+2 3 no
+5 4 3
+1 2 yes
+1 3 no
+4 5 yes
+5 6 yes
+6 7 no
+0 0 0
+Output for the Sample Input
+no
+no
+1
+2
+end
+3
+4
+5
+6
+end
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+sys.setrecursionlimit(10000000)
+MOD = 10 ** 9 + 7
+INF = 10 ** 15
+
+class UnionFind():
+    def __init__(self,n):
+        self.n = n
+        self.parents = [-1]*n
+
+    def find(self,x): #根を見つける、繋ぎ直す
+        if self.parents[x] < 0:
+            return x
+        else:
+            self.parents[x] = self.find(self.parents[x])
+            return self.parents[x]
+    
+    def unite(self,x,y): #x,yの含むグループを併合する
+        x = self.find(x)
+        y = self.find(y)
+
+        if x == y:
+            return
+        
+        if self.parents[x] > self.parents[y]:
+            x,y = y,x
+
+        self.parents[x] += self.parents[y]
+        self.parents[y] = x
+    
+    def same(self,x,y):#xとyが同じグループにいるか判定
+        return self.find(x) == self.find(y)
+    
+    def members(self,x):#xと同じグループのメンバーを列挙
+        root = self.find(x)
+        return [i for i in range(self.n) if self.find(i) == root]
+    
+    def size(self,x):#xが属するグループのメンバーの数
+        return -self.parents[self.find(x)]
+    
+    def roots(self):#ufの根を列挙
+        return [i for i, x in enumerate(self.parents) if x < 0]
+
+    def group_count(self):#グループの数を数える
+        return len(self.roots())
+    
+    def all_group_members(self):#根:メンバの辞書を返す
+        return {r: self.members(r) for r in self.roots()}
+
+def solve(N,P,Q):
+    M = P + Q
+    uf = UnionFind(M + M)
+    flag = True
+    for _ in range(N):
+        q = input().split()
+        x = int(q[0]) - 1
+        y = int(q[1]) - 1
+        a = q[2]
+        if a == 'yes':
+            if x == y:
+                continue
+            if uf.same(x,y + M) or uf.same(x + M,y):
+                flag = False
+                break
+            uf.unite(x,y)
+            uf.unite(x + M,y + M)
+        else:
+            if x == y:
+                flag = False
+                break
+            if uf.same(x,y) or uf.same(x + M,y + M):
+                flag = False
+                break
+            uf.unite(x,y + M)
+            uf.unite(x + M,y)
+    
+    if not flag:
+        print('no')
+        return
+    for i in range(M):
+        if uf.same(i,i + M):
+            print('no')
+            return
+    
+    root = uf.roots()
+    member = uf.all_group_members()
+    each_god = []
+    before_searched = [0] * M
+    candidate = []
+    for r in root:
+        god = 0
+        evil = 0
+        flag = True
+        for m in member[r]:
+            if m < M:
+                if before_searched[m] == 1:
+                    flag = False
+                    break
+                else:
+                    god += 1
+                    before_searched[m] = 1
+            else:
+                if before_searched[m - M] == 1:
+                    flag = False
+                    break
+                else:
+                    evil += 1
+                    before_searched[m - M] = 1
+        if flag:
+            candidate.append(r)
+            each_god.append((god,evil))
+
+    dp = [[0]*(1 + P) for _ in range(len(candidate) + 1)]
+    if each_god[0][0] <= P:
+        dp[1][each_god[0][0]] = 1
+    if each_god[0][1] <= P:
+        dp[1][each_god[0][1]] += 1
+    for i,(g,e) in enumerate(each_god[1:],1):
+        for j in range(P + 1):
+            if j - e >= 0:
+                dp[i + 1][j] += dp[i][j - e]
+            if j - g >= 0:
+                dp[i + 1][j] += dp[i][j - g]
+    
+    #print('each_god: ',each_god)
+    #print('candidate ',candidate)
+    #print('dp: ',dp)
+                
+    if dp[-1][P] == 1:
+        ans = []
+        now = P
+        for i in range(len(candidate) - 1,0,-1):
+            if 0 <=  now - each_god[i][0] <= P and dp[i][now - each_god[i][0]] == 1:
+                for m in member[candidate[i]]:
+                    if m < M:
+                        ans.append(m + 1)
+                now -= each_god[i][0]
+            elif 0 <= now - each_god[i][1] <= P and dp[i][now - each_god[i][1]] == 1:
+                for m in member[candidate[i]]:
+                    if m >= M:
+                        ans.append(m - M + 1)
+                now -= each_god[i][1]
+        if now > 0:
+            if now == each_god[0][0]:
+                for m in member[candidate[0]]:
+                    if m < M:
+                        ans.append(m + 1)
+            elif now == each_god[0][1]:
+                for m in member[candidate[0]]:
+                    if m >= M:
+                        ans.append(m - M + 1)
+        ans.sort()
+        if ans:
+            print('\n'.join(map(str,ans)))
+        print('end')
+    else:
+        print('no')
+
+def main():
+    while True:
+        N,P,Q = map(int,input().split())
+        if N == 0 and P == 0 and Q == 0:
+            return 
+        solve(N,P,Q)
+if __name__ == '__main__':
+    main()
+```

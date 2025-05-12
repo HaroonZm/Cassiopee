@@ -1,0 +1,143 @@
+Voici un énoncé de problème :
+
+Score :
+400
+points
+Problem Statement
+There is a grid with
+H
+horizontal rows and
+W
+vertical columns, and there are obstacles on some of the squares.
+Snuke is going to choose one of the squares not occupied by an obstacle and place a lamp on it.
+The lamp placed on the square will emit straight beams of light in four cardinal directions: up, down, left, and right.
+In each direction, the beam will continue traveling until it hits a square occupied by an obstacle or it hits the border of the grid. It will light all the squares on the way, including the square on which the lamp is placed, but not the square occupied by an obstacle.
+Snuke wants to maximize the number of squares lighted by the lamp.
+You are given
+H
+strings
+S_i
+(
+1 \leq i \leq H
+), each of length
+W
+. If the
+j
+-th character (
+1 \leq j \leq W
+) of
+S_i
+is
+#
+, there is an obstacle on the square at the
+i
+-th row from the top and the
+j
+-th column from the left; if that character is
+.
+, there is no obstacle on that square.
+Find the maximum possible number of squares lighted by the lamp.
+Constraints
+1 \leq H \leq 2,000
+1 \leq W \leq 2,000
+S_i
+is a string of length
+W
+consisting of
+#
+and
+.
+.
+.
+occurs at least once in one of the strings
+S_i
+(
+1 \leq i \leq H
+).
+Input
+Input is given from Standard Input in the following format:
+H
+W
+S_1
+:
+S_H
+Output
+Print the maximum possible number of squares lighted by the lamp.
+Sample Input 1
+4 6
+#..#..
+.....#
+....#.
+#.#...
+Sample Output 1
+8
+If Snuke places the lamp on the square at the second row from the top and the second column from the left, it will light the following squares: the first through fifth squares from the left in the second row, and the first through fourth squares from the top in the second column, for a total of eight squares.
+Sample Input 2
+8 8
+..#...#.
+....#...
+##......
+..###..#
+...#..#.
+##....#.
+#...#...
+###.#..#
+Sample Output 2
+13
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import defaultdict
+
+H, W = map(int, input().split())
+mass = list()
+for i in range(H):
+    mass.append(input())
+
+values_col = defaultdict(int)
+values_row = defaultdict(int)
+
+ind_row = [[0 for i in range(W)] for j in range(H)]
+ind_col = [[0 for i in range(W)] for j in range(H)]
+
+ind = 0
+for i, m_row in enumerate(mass):
+    ind += 1
+    for j, chr in enumerate(mass[i]):
+        if chr == '#':
+            ind += 1
+        else:
+            values_row[ind] += 1
+            ind_row[i][j] = ind
+
+# print('ROW')
+# for i in range(H):
+#     for j in range(W):
+#         print(values_row[ind_row[i][j]], end=' ')
+#     print()
+
+ind = 0
+for j in range(W):
+    ind += 1
+    for i in range(H):
+        chr = mass[i][j]
+        if chr == '#':
+            ind += 1
+        else:
+            values_col[ind] += 1
+            ind_col[i][j] = ind
+
+# print('COL')
+# for i in range(H):
+#     for j in range(W):
+#         print(values_col[ind_col[i][j]], end=' ')
+#     print()
+
+ans = 0
+for i in range(H):
+    for j in range(W):
+        ans = max(ans, values_row[ind_row[i][j]] + values_col[ind_col[i][j]] - 1)
+print(ans)
+```

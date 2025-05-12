@@ -1,0 +1,191 @@
+Voici un énoncé de problème :
+
+イクタ君は、無向グラフについて異常なほどの思い入れを持っている。イクタ君は、無向グラフ
+G
+とその 2 点
+s,t
+の組
+(G,s,t)
+のうち、その「うつくしさ」が大きいものが好きである。
+組
+(G,s,t)
+の「うつくしさ」とは、辺
+e = \{u, v\}
+(
+u
+と
+v
+は
+G
+の異なる 2 点) で、
+G
+における
+s
+から
+t
+への最短路の長さが、
+G
+に
+e
+をつけくわえた無向グラフにおける
+s
+から
+t
+への最短路の長さより 1 だけ大きいものの個数である。
+あなたの仕事は、組
+(G,s,t)
+が与えられたとき、その「うつくしさ」を求めるプログラムを書くことである。
+Input
+入力は以下の形式で与えられる。
+N
+M
+s
+t
+x
+1
+y
+1
+...
+x
+i
+y
+i
+...
+x
+M
+y
+M
+最初に無向グラフの頂点数、辺数、2つの頂点を表す整数
+N,M,s,t
+が入力される。
+2行目から
+M+1
+行目までは辺によって結ばれている2つの頂点が入力される。
+(ただし、
+G
+の頂点集合を
+\{1,
+...
+, N\}
+とする。)
+Constraints
+入力中の各変数は以下の制約を満たす。
+2≤ N ≤ 100,000
+1≤ M ≤ 300,000
+1≤ s,t,x
+i
+,y
+i
+≤ N
+s
+と
+t
+とは異なる
+s
+から
+t
+に辿り着けることは保証されている
+Output
+与えられたグラフを
+G
+としたとき、組
+(G,s,t)
+の「うつくしさ」を1行で出力せよ。
+Sample Input 1
+3 2 1 3
+1 2
+2 3
+Output for the Sample Input 1
+1
+頂点1から頂点3に辺を張ると、2点間の最短距離が 1 短くなる。
+Sample Input 2
+9 8 7 8
+2 6
+4 9
+8 6
+9 2
+3 8
+1 8
+8 5
+7 9
+Output for the Sample Input 2
+7
+Sample Input 3
+4 3 1 4
+1 2
+3 4
+4 1
+Output for the Sample Input 3
+0
+頂点1と頂点4には既に辺が張られているので、これ以上距離を縮めることはできない。
+Sample Input 4
+9 7 8 9
+9 6
+6 5
+3 6
+3 7
+2 5
+8 5
+1 4
+Output for the Sample Input 4
+2
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from collections import deque, defaultdict
+n, m, s, t = map(int, input().split())
+s -= 1
+t -= 1
+edges = [[] for _ in range(n)]
+for _ in range(m):
+  x, y = map(int, input().split())
+  x -= 1
+  y -= 1
+  edges[x].append(y)
+  edges[y].append(x)
+
+def dist_from(s):
+  INF = 10 ** 20
+  dist = [INF] * n
+  dist[s] = 0
+  que = deque()
+  que.append((0, s))
+  while que:
+    score, node = que.popleft()
+    for to in edges[node]:
+      if dist[to] > score + 1:
+        dist[to] = score + 1
+        que.append((score + 1, to))
+  return dist
+
+dist_from_s = dist_from(s)
+dic1 = {}
+for i, d in enumerate(dist_from_s):
+  if d in dic1:
+    dic1[d].add(i)
+  else:
+    dic1[d] = {i}
+
+dist_from_t = dist_from(t)
+dic2 = {}
+for i, d in enumerate(dist_from_t):
+  if d in dic2:
+    dic2[d].add(i)
+  else:
+    dic2[d] = {i}
+
+st_dist = dist_from_s[t]
+ans = 0
+for key in dic1:
+  another_key = st_dist - key - 2
+  if another_key in dic2:
+    add = len(dic1[key]) * len(dic2[another_key])
+    for u in dic1[key]:
+      for to in edges[u]:
+        if to in dic2[another_key]:
+          add -= 1
+    ans += add
+print(ans)
+```

@@ -1,0 +1,209 @@
+Voici un énoncé de problème :
+
+Convex Hull
+Find the convex hull of a given set of points
+P
+. In other words, find the smallest convex polygon containing all the points of
+P
+. Here, in a convex polygon, all interior angles are less than or equal to 180 degrees.
+Please note that you should find all the points of
+P
+on both corner and boundary of the convex polygon.
+Input
+n
+x
+1
+y
+1
+x
+2
+y
+2
+:
+x
+n
+y
+n
+The first integer
+n
+is the number of points in
+P
+. The coordinate of the
+i
+-th point
+p
+i
+is given by two integers
+x
+i
+and
+y
+i
+.
+Output
+In the first line, print the number of points on the corner/boundary of the convex polygon. In the following lines, print
+x y
+coordinates of the set of points.
+The coordinates should be given in the order of counter-clockwise visit of them starting from the point in
+P
+with the minimum
+y
+-coordinate, or the leftmost such point in case of a tie.
+Constraints
+3 ≤
+n
+≤ 100000
+-10000 ≤
+x
+i
+,
+y
+i
+≤ 10000
+No point in the
+P
+will occur more than once.
+Sample Input 1
+7
+2 1
+0 0
+1 2
+2 2
+4 2
+1 3
+3 3
+Sample Output 1
+5
+0 0
+2 1
+4 2
+3 3
+1 3
+Sample Input 2
+4
+0 0
+2 2
+0 2
+0 1
+Sample Output 2
+4
+0 0
+2 2
+0 2
+0 1
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+from operator import itemgetter, attrgetter
+from itertools import starmap
+import cmath
+from math import isinf, sqrt, acos, atan2
+readline = sys.stdin.readline
+EPS = 1e-9
+ONLINE_FRONT = -2
+CLOCKWISE = -1
+ON_SEGMENT = 0
+COUNTER_CLOCKWISE = 1
+ONLINE_BACK = 2
+class Circle(object):
+    __slots__ = ('c', 'r')
+    def __init__(self, c, r):
+        self.c = c
+        self.r = r
+class Segment(object):
+    __slots__ = ('fi', 'se')
+    def __init__(self, fi, se):
+        self.fi = fi
+        self.se = se
+Line = Segment
+def cross(a, b):
+    return a.real * b.imag - a.imag * b.real
+def dot(a, b):
+    return a.real * b.real + a.imag * b.imag
+def norm(base):
+    return abs(base) ** 2
+def project(s, p2):
+    base = s.fi - s.se
+    r = dot(p2 - s.fi, base) / norm(base)
+    return s.fi + base * r
+def reflect(s, p):
+    return p + (project(s, p) - p) * 2.0
+def ccw(p1, p2, p3):
+    a = p2 - p1
+    b = p3 - p1
+    if cross(a, b) > EPS: return 1
+    if cross(a, b) < -EPS: return -1
+    if dot(a, b) < -EPS: return 2
+    if norm(a) < norm(b): return -2
+    return 0
+def intersect4(p1, p2, p3, p4):
+    return (ccw(p1, p2, p3) * ccw(p1, p2, p4) <= 0 and
+			ccw(p3, p4, p1) * ccw(p3, p4, p2) <= 0)
+def intersect2(s1, s2):
+    return intersect4(s1.fi, s1.se, s2.fi, s2.se)
+def getDistance(a, b):  return abs(a - b)
+def getDistanceLP(l, p):
+    return abs(cross(l.se - l.fi, p - l.fi) / abs(l.se - l.fi))
+def getDistanceSP(s, p):
+    if dot(s.se - s.fi, p - s.fi) < 0.0: return abs(p - s.fi)
+    if dot(s.fi - s.se, p - s.se) < 0.0: return abs(p - s.se)
+    return getDistanceLP(s, p)
+def getDistances(s1, s2):
+    if intersect2(s1, s2): return 0.0
+    return min(getDistanceSP(s1, s2.fi), getDistanceSP(s1, s2.se),
+               getDistanceSP(s2, s1.fi), getDistanceSP(s2, s1.se))
+def getCrossPoint(s1, s2):
+	base = s2.se - s2.fi
+	d1 = abs(cross(base, s1.fi - s2.fi))
+	d2 = abs(cross(base, s1.se - s2.fi))
+	t = d1 / (d1 + d2)
+	return s1.fi + (s1.se - s1.fi) * t
+def getCrossPointsCL(c, l):
+    pr = project(l, c.c)
+    e = (l.se - l.fi) / abs(l.se - l.fi)
+    base = sqrt(c.r * c.r - norm(pr - c.c))
+    return Segment(*sorted((pr + e * base, pr - e * base)), key=attrgetter('real', 'imag'))
+def getCrossPointsCC(c1, c2):
+    d = abs(c1.c - c2.c)
+    a = acos((c1.r * c1.r + d * d - c2.r * c2.r) / (2.0 * c1.r * d))
+    t = cmath.phase(c2.c - c1.c)
+    return Segment(*sorted((c1.c + cmath.rect(c1.r, t + a), c1.c + cmath.rect(c1.r, t - a)), key=attrgetter('real', 'imag')))
+def contains(g, p):
+    n = len(g)
+    x = False
+    for i in range(n):
+        a = g[i] - p
+        b = g[(i + 1) % n] - p
+        if abs(cross(a, b)) < EPS and dot(a, b) < EPS: return 1
+        if a.imag > b.imag: a, b = b, a
+        if a.imag < EPS and EPS < b.imag and cross(a, b) > EPS: x = not x
+    return 2 if x else 0
+def andrewScan(s):
+    if len(s) < 3: return s
+    s.sort(key=attrgetter('imag'))
+    u = s[0:2]
+    l = s[-2:][::-1]
+    _ccw = 0
+    for i in s[2:]:
+        for q in range(len(u), 1, -1):
+            _ccw = ccw(u[q - 2], u[q - 1], i)
+            if not (_ccw != CLOCKWISE and _ccw != ONLINE_FRONT): break
+            u.pop()
+        u.append(i)
+    for i in s[:-2][::-1]:
+        for q in range(len(l), 1, -1):
+            _ccw = ccw(l[q - 2], l[q - 1], i)
+            if not (_ccw != CLOCKWISE and _ccw != ONLINE_FRONT): break
+            l.pop()
+        l.append(i)
+    return l[::-1] + u[1:len(u) - 1][::-1]
+n = int(readline())
+pg = [complex(*map(int, readline().split())) for _ in [0] * n]
+ans = andrewScan(pg)
+print(len(ans))
+for i in range(len(ans)):
+    print(int(ans[i].real), int(ans[i].imag))
+```

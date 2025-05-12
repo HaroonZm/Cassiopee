@@ -1,0 +1,203 @@
+Voici un énoncé de problème :
+
+Score :
+1100
+points
+Problem Statement
+There are
+2^N
+players, numbered
+1, 2, ..., 2^N
+.
+They decided to hold a tournament.
+The tournament proceeds as follows:
+Choose a permutation of
+1, 2, ..., 2^N
+:
+p_1, p_2, ..., p_{2^N}
+.
+The players stand in a row in the order of Player
+p_1
+, Player
+p_2
+,
+...
+, Player
+p_{2^N}
+.
+Repeat the following until there is only one player remaining in the row:
+Play the following matches: the first player in the row versus the second player in the row, the third player versus the fourth player, and so on. The players who lose leave the row. The players who win stand in a row again, preserving the relative order of the players.
+The last player who remains in the row is the champion.
+It is known that, the result of the match between two players can be written as follows, using
+M
+integers
+A_1, A_2, ..., A_M
+given as input:
+When
+y = A_i
+for some
+i
+, the winner of the match between Player
+1
+and Player
+y
+(
+2 \leq y \leq 2^N
+) will be Player
+y
+.
+When
+y \neq A_i
+for every
+i
+, the winner of the match between Player
+1
+and Player
+y
+(
+2 \leq y \leq 2^N
+) will be Player
+1
+.
+When
+2 \leq x < y \leq 2^N
+, the winner of the match between Player
+x
+and Player
+y
+will be Player
+x
+.
+The champion of this tournament depends only on the permutation
+p_1, p_2, ..., p_{2^N}
+chosen at the beginning.
+Find the number of permutation
+p_1, p_2, ..., p_{2^N}
+chosen at the beginning of the tournament that would result in Player
+1
+becoming the champion, modulo
+10^9 + 7
+.
+Constraints
+1 \leq N \leq 16
+0 \leq M \leq 16
+2 \leq A_i \leq 2^N
+(
+1 \leq i \leq M
+)
+A_i < A_{i + 1}
+(
+1 \leq i < M
+)
+Input
+Input is given from Standard Input in the following format:
+N
+M
+A_1
+A_2
+...
+A_M
+Output
+Print the answer.
+Sample Input 1
+2 1
+3
+Sample Output 1
+8
+Examples of
+p
+that satisfy the condition are:
+[1, 4, 2, 3]
+and
+[3, 2, 1, 4]
+. Examples of
+p
+that do not satisfy the condition are:
+[1, 2, 3, 4]
+and
+[1, 3, 2, 4]
+.
+Sample Input 2
+4 3
+2 4 6
+Sample Output 2
+0
+Sample Input 3
+3 0
+Sample Output 3
+40320
+Sample Input 4
+3 3
+3 4 7
+Sample Output 4
+2688
+Sample Input 5
+16 16
+5489 5490 5491 5492 5493 5494 5495 5497 18993 18995 18997 18999 19000 19001 19002 19003
+Sample Output 5
+816646464
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+input = sys.stdin.readline
+
+def main():
+    def com(com_n, com_r):
+        return fac[com_n] * inv[com_r] * inv[com_n - com_r] % md
+
+    md = 10 ** 9 + 7
+    n, m = map(int, input().split())
+    aa = list(map(lambda x: int(x) - 1, input().split()))
+    n2 = 2 ** n
+
+    # combinationの準備
+    n_max = n2
+    fac = [1]
+    inv = [1] * (n_max + 1)
+    k_fac_inv = 1
+    for i in range(1, n_max + 1):
+        k_fac_inv = k_fac_inv * i % md
+        fac.append(k_fac_inv)
+    k_fac_inv = pow(k_fac_inv, md - 2, md)
+    for i in range(n_max, 1, -1):
+        inv[i] = k_fac_inv
+        k_fac_inv = k_fac_inv * i % md
+
+    dp = [[0] * n2 for _ in range(m + 1)]
+    dp[0][0] = 1
+    for i in range(m):
+        a = aa[m - 1 - i]
+        for b in range(n2):
+            pre = dp[i][b]
+            if pre == 0: continue
+            dp[i + 1][b] = (dp[i + 1][b] + pre) % md
+            k = 1
+            for _ in range(n):
+                if b & k == 0 and n2 - a - b >= k:
+                    nb = b | k
+                    dp[i + 1][nb] = (dp[i + 1][nb] + pre * com(n2 - 1 - a - b, k - 1)) % md
+                k <<= 1
+    for b in range(n2):
+        k = 1
+        p = n2 - 1 - b
+        for _ in range(n):
+            if b & k == 0:
+                dp[m][b] = dp[m][b] * com(p, k) % md
+                p -= k
+            k <<= 1
+    ans = 0
+    for b in range(n2):
+        coff = -1 if bin(b).count("1") % 2 else 1
+        ans = ans + coff * dp[m][b]
+    k = 1
+    for _ in range(n - 1):
+        k <<= 1
+        ans = ans * fac[k] % md
+    ans = ans * n2 % md
+    print(ans)
+
+main()
+```

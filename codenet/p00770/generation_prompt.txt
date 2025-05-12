@@ -1,0 +1,224 @@
+Voici un énoncé de problème :
+
+Prime Caves
+An international expedition discovered abandoned Buddhist cave temples
+in a giant cliff standing on the middle of a desert. There were many
+small caves dug into halfway down the vertical cliff, which were
+aligned on square grids. The archaeologists in the expedition were
+excited by Buddha's statues in those caves. More excitingly, there
+were scrolls of Buddhism sutras (holy books) hidden in some of the caves. Those
+scrolls, which estimated to be written more than
+thousand years ago, were of immeasurable value.
+The leader of the expedition wanted to collect as many scrolls as
+possible. However, it was not easy to get into the caves as they were
+located in the middle of the cliff. The only way to enter a cave was to
+hang you from a helicopter. Once entered and explored a cave, you can
+climb down to one of the three caves under your cave; i.e., either the
+cave directly below your cave, the caves one left or right to the cave
+directly below your cave. This can be repeated for as many times as
+you want, and then you can descent down to the ground by using a long rope.
+So you can explore several caves in one attempt. But which caves
+you should visit? By examining the results of the preliminary
+attempts, a mathematician member of the expedition discovered
+that (1) the caves can be numbered from the central one, spiraling
+out as shown in Figure D-1; and (2) only those caves with their cave
+numbers being prime (let's call such caves
+prime caves
+),
+which are circled in the figure, store scrolls. From the next
+attempt, you would be able to maximize the number of prime caves to
+explore.
+Figure D-1: Numbering of the caves and the prime caves
+Write a program, given the total number of the caves and the cave visited first, that finds the descending route containing the maximum number of prime caves.
+Input
+The input consists of multiple datasets. Each dataset has an
+integer
+m
+(1 ≤
+m
+≤ 10
+6
+) and an integer
+n
+(1 ≤
+n
+≤
+m
+) in one line, separated by a space.
+m
+represents the total number of caves.
+n
+represents the cave number of the cave from which you will start your exploration. The last
+dataset is followed by a line with two zeros.
+Output
+For each dataset, find the path that starts from the cave
+n
+and
+contains the largest number of prime caves, and output the number of
+the prime caves on the path and the last prime cave number on the
+path in one line, separated by a space. The cave
+n
+, explored first, is included
+in the caves on the path.
+If there is more than one such path, output for the path
+in which the last of the prime caves explored has the largest number among such paths.
+When there is no such path that explores prime caves, output "
+0
+0
+" (without quotation marks).
+Sample Input
+49 22
+46 37
+42 23
+945 561
+1081 681
+1056 452
+1042 862
+973 677
+1000000 1000000
+0 0
+Output for the Sample Input
+0 0
+6 43
+1 23
+20 829
+18 947
+10 947
+13 947
+23 947
+534 993541
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import math,string,itertools,fractions,heapq,collections,re,array,bisect,sys,random,time,copy,functools
+
+sys.setrecursionlimit(10**7)
+inf = 10**20
+eps = 1.0 / 10**10
+mod = 10**9+7
+dd = [(-1,0),(0,1),(1,0),(0,-1)]
+ddn = [(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1)]
+
+def LI(): return [int(x) for x in sys.stdin.readline().split()]
+def LI_(): return [int(x)-1 for x in sys.stdin.readline().split()]
+def LF(): return [float(x) for x in sys.stdin.readline().split()]
+def LS(): return sys.stdin.readline().split()
+def I(): return int(sys.stdin.readline())
+def F(): return float(sys.stdin.readline())
+def S(): return input()
+def pf(s): return print(s, flush=True)
+
+class Prime():
+    def __init__(self, n):
+        self.M = m = int(math.sqrt(n)) + 10
+        self.A = a = [True] * m
+        a[0] = a[1] = False
+        self.T = t = []
+        for i in range(2, int(math.sqrt(m)) + 1):
+            if not a[i]:
+                continue
+            t.append(i)
+            for j in range(i*i,m,i):
+                a[j] = False
+
+    def is_prime(self, n):
+        return self.A[n]
+
+    def division(self, n):
+        d = collections.defaultdict(int)
+        for c in self.T:
+            while n % c == 0:
+                d[c] += 1
+                n //= c
+            if n < 2:
+                break
+        if n > 1:
+            d[n] += 1
+        return d.items()
+
+    def sowa(self, n):
+        r = 1
+        for k,v in self.division(n):
+            t = 1
+            for i in range(1,v+1):
+                t += math.pow(k, i)
+            r *= t
+        return r
+
+def main():
+    rr = []
+    pr = Prime(10**12)
+    dc = collections.defaultdict(lambda: inf)
+    dc[(0,0)] = 1
+    cd = [(inf,inf), (0,0)]
+    ti = 2
+    for i in range(1, 1000):
+        si = i
+        sj = i
+        i2 = i*2
+        for k in range(i2):
+            si -= 1
+            t = (si, sj)
+            dc[t] = ti
+            cd.append(t)
+            ti += 1
+        for k in range(i2):
+            sj -= 1
+            t = (si, sj)
+            dc[t] = ti
+            cd.append(t)
+            ti += 1
+        for k in range(i2):
+            si += 1
+            t = (si, sj)
+            dc[t] = ti
+            cd.append(t)
+            ti += 1
+        for k in range(i2):
+            sj += 1
+            t = (si, sj)
+            dc[t] = ti
+            cd.append(t)
+            ti += 1
+        if ti > 10**6:
+            break
+
+    def f(m, n):
+        fm = {}
+        def ff(k):
+            if k in fm:
+                return fm[k]
+            dk = dc[k]
+            if dk > m:
+                fm[k] = (0, 0)
+                return (0, 0)
+
+            cm = (0, 0)
+            for i in range(-1, 2):
+                ct = ff((k[0]+1, k[1]+i))
+                if cm < ct:
+                    cm = ct
+            if pr.is_prime(dk):
+                if cm[0] == 0:
+                    fm[k] = (1, dk)
+                else:
+                    fm[k] = (cm[0]+1, cm[1])
+            else:
+                fm[k] = cm
+            return fm[k]
+
+        r = ff(cd[n])
+        return ' '.join(map(str, r))
+
+    while True:
+        m,n = LI()
+        if m == 0 and n == 0:
+            break
+        rr.append(f(m,n))
+
+    return '\n'.join(map(str, rr))
+
+print(main())
+```

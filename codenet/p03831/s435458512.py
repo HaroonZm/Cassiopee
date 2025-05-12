@@ -1,0 +1,11 @@
+def run():
+    n, a, b = map(int, input().split())
+    l = [int(i) for i in input().split()]
+    ans = 0
+    for i in range(n - 1):
+        ad = (l[i + 1] - l[i]) * a
+        ans += min(ad, b)
+    print(ans)
+
+if __name__ == '__main__':
+    run()

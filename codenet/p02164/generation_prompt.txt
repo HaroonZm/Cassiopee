@@ -1,0 +1,70 @@
+Voici un énoncé de problème :
+
+Problem C: Satake likes straight
+Problem
+Satake君は曲がったことが嫌いです。
+例えば、鉛筆や箸、家が曲がった形をしているのは嫌いですし、右折や左折などの行動をとることも嫌いです。
+さて、XY 平面上で暮らすSatake君は $N$ 個のお店 $(X_{1},Y_{1}),(X_{2},Y_{2}), \ldots , (X_{N},Y_{N})$ で買い物をするようお使いを頼まれました。座標 $(0, 0)$ にある家から $(1, 0)$ の方向を向いた状態で出発し、すべてのお店で買い物をしたあと、家に帰ります。お店を回る順番は自由です。Satake君はお使いとして次に示す任意の行動を何度でも行うことができます。
+向いている方向に好きなだけ進む
+お店か家と同じ座標のとき時計回りか反時計回りに好きな角度だけその場で回転する
+お店と同じ座標のとき座標や向いている方向の状態を維持したまま買い物をする
+先程も言ったようにSatake君は曲がることが嫌いです。心の準備ができるように、Satake君が行動2.で回転する角度の和の最小値を求めてください。例として、時計回りに $90^{\circ}$ 回転した後、反時計回りに $90^{\circ}$ 回転した場合、角度の和は $180^{\circ}$ となります。
+Input
+入力は以下の形式で与えられます。
+$N$
+$X_{1}$ $Y_{1}$
+$\vdots$
+$X_{N}$ $Y_{N}$
+入力は $N+1$ 行からなります。
+$1$ 行目には買い物をする店の個数を表す $N$ が与えられます。
+$2$ 行目から続く $N$ 行には、買い物をするお店の座標 $X_{i}, Y_{i}$ が空白区切りで与えられます。
+Constraints
+入力は以下の条件を満たします。
+$2 \le N \le 8$
+$-1000 \le X_{i}, Y_{i} \le 1000 \quad (1 \le i \le N)$
+$(X_{i}, Y_{i}) \ne (0, 0) \quad (1 \le i \le N)$
+$(X_{i}, Y_{i}) \ne (X_{j}, Y_{j}) \quad (i \ne j)$
+入力はすべて整数
+Output
+Satake君が回転する角度の和の最小値を度数法で出力してください。ただし想定解との絶対誤差が $10^{-4}$ 以下のときのみ正解とします。
+Sample Input 1
+2
+0 1
+0 -1
+Sample Output 1
+450.00000000
+Satake君は最初 $(1, 0)$ 方向を向いて出発することに注意してください。
+Sample Input 2
+3
+1 0
+0 1
+-2 -1
+Sample Output 2
+386.565051
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from math import atan2, degrees
+from itertools import permutations
+
+N = int(input())
+XY = [list(map(int, input().split())) for _ in range(N)]
+px = py = 0
+ans = float("inf")
+for t in permutations(XY):
+    a = 0
+    deg = 0
+    for x, y in t + ([0, 0],):
+        d = degrees(atan2(y-py, x-px))
+        delta = deg - d
+        if delta < 0: delta += 360
+        if delta > 180: delta = 360 - delta
+        a += delta
+
+        px, py = x, y
+        deg = d
+    ans = min(a, ans)
+print(ans)
+```

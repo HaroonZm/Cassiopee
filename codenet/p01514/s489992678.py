@@ -1,0 +1,26 @@
+while 1:
+    t, p, r = map(int, input().split())
+    if t == 0:
+        break
+
+    data = [[0 for i in range(3)] for j in range(t)]  # [ID, Solved, Penalty]
+    wrong = [[0 for i in range(p)] for j in range(t)]
+    for i in range(t):
+        data[i][0] = i + 1
+
+    for _ in range(r):
+        log = list(input().split())
+        team = int(log[0]) - 1
+        quiz = int(log[1]) - 1
+        time = int(log[2])
+        flag = log[3]
+
+        if flag == "CORRECT":
+            data[team][1] += 1
+            data[team][2] += (wrong[team][quiz] * 1200 + time)
+        else:
+            wrong[team][quiz] += 1
+
+    data = sorted(data, key=lambda x: (-x[1], x[2], x[0]))
+    for D in data:
+        print(' '.join(str(d) for d in D))

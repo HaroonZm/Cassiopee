@@ -1,0 +1,33 @@
+# AOJ 1037 Midnight Teatime
+# Python3 2018.7.6 bal4u
+
+def calc():
+	global sz
+	n = sz
+	sz += 1
+	if tree[0] == '(':
+		del tree[0]
+		left = calc()
+		del tree[0]
+		right = calc()
+		del tree[0]
+		for i in range(16):
+			for j in range(16):
+				k = left[i] * right[j]
+				if k:
+					buf[n][i & j] += k
+					buf[n][i | j] += k
+					buf[n][i ^ j] += k
+	else: buf[n][info[int(tree.pop(0))-1]] = 1
+	return buf[n]
+
+while True:
+	tree = list(input())
+	if tree[0] == 'E': break
+	buf, sz = [[0 for j in range(16)] for i in range(20)], 0
+	info = [0]*10
+	for i in range(int(input())):
+		p = list(map(int, input().split()))
+		for j in range(4):
+			if p[j]: info[i] |= (1<<j)
+	print(calc()[15])

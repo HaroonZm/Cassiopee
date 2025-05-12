@@ -1,0 +1,227 @@
+Voici un énoncé de problème :
+
+Score :
+600
+points
+Problem Statement
+Given are two sequences
+a=\{a_0,\ldots,a_{N-1}\}
+and
+b=\{b_0,\ldots,b_{N-1}\}
+of
+N
+non-negative integers each.
+Snuke will choose an integer
+k
+such that
+0 \leq k < N
+and an integer
+x
+not less than
+0
+, to make a new sequence of length
+N
+,
+a'=\{a_0',\ldots,a_{N-1}'\}
+, as follows:
+a_i'= a_{i+k \mod N}\ XOR \ x
+Find all pairs
+(k,x)
+such that
+a'
+will be equal to
+b
+.
+What is
+\mbox{ XOR }
+?
+The XOR of integers
+A
+and
+B
+,
+A \mbox{ XOR } B
+, is defined as follows:
+When
+A \mbox{ XOR } B
+is written in base two, the digit in the
+2^k
+'s place (
+k \geq 0
+) is
+1
+if either
+A
+or
+B
+, but not both, has
+1
+in the
+2^k
+'s place, and
+0
+otherwise.
+For example,
+3 \mbox{ XOR } 5 = 6
+. (In base two:
+011 \mbox{ XOR } 101 = 110
+.)
+Constraints
+1 \leq N \leq 2 \times 10^5
+0 \leq a_i,b_i < 2^{30}
+All values in input are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+a_0
+a_1
+...
+a_{N-1}
+b_0
+b_1
+...
+b_{N-1}
+Output
+Print all pairs
+(k, x)
+such that
+a'
+and
+b
+will be equal, using one line for each pair, in ascending order of
+k
+(ascending order of
+x
+for pairs with the same
+k
+).
+If there are no such pairs, the output should be empty.
+Sample Input 1
+3
+0 2 1
+1 2 3
+Sample Output 1
+1 3
+If
+(k,x)=(1,3)
+,
+a_0'=(a_1\ XOR \ 3)=1
+a_1'=(a_2\ XOR \ 3)=2
+a_2'=(a_0\ XOR \ 3)=3
+and we have
+a' = b
+.
+Sample Input 2
+5
+0 0 0 0 0
+2 2 2 2 2
+Sample Output 2
+0 2
+1 2
+2 2
+3 2
+4 2
+Sample Input 3
+6
+0 1 3 7 6 4
+1 5 4 6 2 3
+Sample Output 3
+2 2
+5 5
+Sample Input 4
+2
+1 2
+0 0
+Sample Output 4
+No pairs may satisfy the condition.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+# import time
+import sys
+from collections import Counter, defaultdict
+buff_readline = sys.stdin.buffer.readline
+readline = sys.stdin.readline
+
+def read_int():
+    return int(buff_readline())
+
+def read_int_n():
+    return list(map(int, buff_readline().split()))
+
+gpw = None
+
+class RH():
+    def __init__(self, s, base, mod):
+        self.base = base
+        self.mod = mod
+
+        l = len(s)
+        self.h = h = [0]*(l+1)
+        tmp = 0
+        for i in range(l):
+            tmp = (tmp*base + s[i]) % mod
+            h[i+1] = tmp
+
+        global gpw
+        if gpw is None:
+            self.pw = pw = [1]*(len(s)+1)
+            v = 1
+            for i in range(l):
+                pw[i+1] = v = v * base % mod
+            gpw = pw
+        else:
+            self.pw = gpw
+
+    def calc(self, l, r):
+        return (self.h[r] - self.h[l] * self.pw[r-l]) % self.mod
+
+def slv(N, A, B):
+    L = max(max(A), max(B)).bit_length()
+    ah = []
+    bh = []
+    bnh = []
+    for i in range(L):
+        ta = []
+        tb = []
+        tbn = []
+        for a, b in zip(A, B):
+            ta.append(a >> i & 1)
+            tb.append(b >> i & 1)
+            tbn.append(tb[-1] ^ 1)
+        ah.append(RH(ta, 641, 10**9+7))
+        bh.append(RH(tb, 641, 10**9+7))
+        bnh.append(RH(tbn, 641, 10**9+7))
+
+    x = [0] * N
+    for i in range(L):
+        for k in range(N):
+            l = ah[i].calc(k, N)
+            r = ah[i].calc(0, k)
+            if x[k] is None:
+                continue
+            if l == bnh[i].calc(0, N-k) and r == bnh[i].calc(N-k, N):
+                x[k] += 1 << i
+            elif l == bh[i].calc(0, N-k) and r == bh[i].calc(N-k, N):
+                pass
+            else:
+                x[k] = None
+
+    ans = []
+    for k, xx in enumerate(x):
+        if xx is not None:
+            ans.append('%d %d' % (k, xx))
+
+    return ans
+
+def main():
+    N = read_int()
+    A = read_int_n()
+    B = read_int_n()
+    print(*slv(N, A, B), sep='\n')
+
+if __name__ == '__main__':
+    main()
+```

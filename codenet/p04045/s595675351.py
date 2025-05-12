@@ -1,0 +1,9 @@
+N,K = map(int,input().split())
+D  = {int(n) for n in input().split()}
+for j in range(N,N*10):
+    if N <= j:
+        L = {int(result) for result in str(j)}
+        if D.isdisjoint(L):
+            D_love = j
+            break    
+print(D_love)

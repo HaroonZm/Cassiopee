@@ -1,0 +1,245 @@
+Voici un énoncé de problème :
+
+Score :
+700
+points
+Problem Statement
+We have a sandglass consisting of two bulbs, bulb A and bulb B. These bulbs contain some amount of sand.
+When we put the sandglass, either bulb
+A
+or
+B
+lies on top of the other and becomes the
+upper bulb
+. The other bulb becomes the
+lower bulb
+.
+The sand drops from the upper bulb to the lower bulb at a rate of
+1
+gram per second.
+When the upper bulb no longer contains any sand, nothing happens.
+Initially at time
+0
+, bulb A is the upper bulb and contains
+a
+grams of sand; bulb B contains
+X-a
+grams of sand (for a total of
+X
+grams).
+We will turn over the sandglass at time
+r_1,r_2,..,r_K
+. Assume that this is an instantaneous action and takes no time. Here, time
+t
+refer to the time
+t
+seconds after time
+0
+.
+You are given
+Q
+queries.
+Each query is in the form of
+(t_i,a_i)
+.
+For each query, assume that
+a=a_i
+and find the amount of sand that would be contained in bulb A at time
+t_i
+.
+Constraints
+1≤X≤10^9
+1≤K≤10^5
+1≤r_1<r_2< .. <r_K≤10^9
+1≤Q≤10^5
+0≤t_1<t_2< .. <t_Q≤10^9
+0≤a_i≤X (1≤i≤Q)
+All input values are integers.
+Input
+The input is given from Standard Input in the following format:
+X
+K
+r_1
+r_2
+..
+r_K
+Q
+t_1
+a_1
+t_2
+a_2
+:
+t_Q
+a_Q
+Output
+For each query, print the answer in its own line.
+Sample Input 1
+180
+3
+60 120 180
+3
+30 90
+61 1
+180 180
+Sample Output 1
+60
+1
+120
+In the first query,
+30
+out of the initial
+90
+grams of sand will drop from bulb A, resulting in
+60
+grams.
+In the second query, the initial
+1
+gram of sand will drop from bulb A, and nothing will happen for the next
+59
+seconds. Then, we will turn over the sandglass, and
+1
+second after this, bulb
+A
+contains
+1
+gram of sand at the time in question.
+Sample Input 2
+100
+1
+100000
+4
+0 100
+90 100
+100 100
+101 100
+Sample Output 2
+100
+10
+0
+0
+In every query, the upper bulb initially contains
+100
+grams, and the question in time comes before we turn over the sandglass.
+Sample Input 3
+100
+5
+48 141 231 314 425
+7
+0 19
+50 98
+143 30
+231 55
+342 0
+365 100
+600 10
+Sample Output 3
+19
+52
+91
+10
+58
+42
+100
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+X=int(input())
+K=int(input())
+r=list(map(int,input().split()))
+Q=int(input())
+p=[tuple(map(int,input().split())) for i in range(Q)]
+
+N=Q
+L=0
+R=Q-1
+start=0
+sign="-"
+
+# N: 処理する区間の長さ
+
+N0 = 2**(N-1).bit_length()
+data = [0]*(2*N0)
+INF = 0
+# 区間[l, r+1)の値をvに書き換える
+# vは(t, value)という値にする (新しい値ほどtは大きくなる)
+def update(l, r, v):
+    L = l + N0; R = r + N0
+    while L < R:
+        if R & 1:
+            R -= 1
+            data[R-1] += v
+
+        if L & 1:
+            data[L-1] += v
+            L += 1
+        L >>= 1; R >>= 1
+# a_iの現在の値を取得
+def query(k):
+    k += N0-1
+    s = INF
+    while k >= 0:
+        s += data[k]
+        k = (k - 1) // 2
+    return s
+
+q=[]
+for i in range(Q):
+    t,a=p[i]
+    p[i]=(a,t,i)
+
+p.sort()
+dic=[-1]*Q
+for i in range(Q):
+    a,t,id=p[i]
+    update(i,i+1,a)
+    dic[id]=i
+    q.append((t,id,0))
+
+for i in range(K):
+    q.append((r[i],-1,r[i]-r[i-1]*(i>0)))
+
+q.sort()
+ans=[0]*Q
+for val,id,c in q:
+    if id==-1:
+        if sign=="-":
+            update(L,R+1,-c)
+            while query(L+1)<0 and L<R:
+                L+=1
+            a=query(L)
+            if a<0:
+                update(L,L+1,-a)
+            start=val
+            sign="+"
+        else:
+            update(L,R+1,c)
+            while query(R-1)>X and L<R:
+                R-=1
+            a=query(R)
+            if a>X:
+                update(R,R+1,X-a)
+            start=val
+            sign="-"
+    else:
+        pid,id=id,dic[id]
+        if sign=="-":
+            if id<L:
+                res=max(query(L)-(val-start),0)
+            elif id>R:
+                res=max(query(R)-(val-start),0)
+            else:
+                res=max(query(id)-(val-start),0)
+        else:
+            if id<L:
+                res=min(query(L)+(val-start),X)
+            elif id>R:
+                res=min(query(R)+(val-start),X)
+            else:
+                res=min(query(id)+(val-start),X)
+        ans[pid]=res
+
+for i in range(Q):
+    print(ans[i])
+```

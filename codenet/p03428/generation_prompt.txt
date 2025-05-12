@@ -1,0 +1,145 @@
+Voici un énoncé de problème :
+
+Score :
+600
+points
+Problem Statement
+There are
+N
+holes in a two-dimensional plane. The coordinates of the
+i
+-th hole are
+(x_i,y_i)
+.
+Let
+R=10^{10^{10^{10}}}
+. Ringo performs the following operation:
+Randomly choose a point from the interior of a circle of radius
+R
+centered at the origin, and put Snuke there. Snuke will move to the hole with the smallest Euclidean distance from the point, and fall into that hole. If there are multiple such holes, the hole with the smallest index will be chosen.
+For every
+i
+(1 \leq i \leq N)
+, find the probability that Snuke falls into the
+i
+-th hole.
+Here, the operation of randomly choosing a point from the interior of a circle of radius
+R
+is defined as follows:
+Pick two real numbers
+x
+and
+y
+independently according to uniform distribution on
+[-R,R]
+.
+If
+x^2+y^2\leq R^2
+, the point
+(x,y)
+is chosen. Otherwise, repeat picking the real numbers
+x,y
+until the condition is met.
+Constraints
+2 \leq N \leq 100
+|x_i|,|y_i| \leq 10^6(1\leq i\leq N)
+All given points are pairwise distinct.
+All input values are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+x_1
+y_1
+:
+x_N
+y_N
+Output
+Print
+N
+real numbers. The
+i
+-th real number must represent the probability that Snuke falls into the
+i
+-th hole.
+The output will be judged correct when, for all output values, the absolute or relative error is at most
+10^{-5}
+.
+Sample Input 1
+2
+0 0
+1 1
+Sample Output 1
+0.5
+0.5
+If Ringo put Snuke in the region
+x+y\leq 1
+, Snuke will fall into the first hole. The probability of this happening is very close to
+0.5
+.
+Otherwise, Snuke will fall into the second hole, the probability of which happening is also very close to
+0.5
+.
+Sample Input 2
+5
+0 0
+2 8
+4 5
+2 6
+3 10
+Sample Output 2
+0.43160120892732328768
+0.03480224363653196956
+0.13880483535586193855
+0.00000000000000000000
+0.39479171208028279727
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import math
+N = int(input())
+ps = []
+for i in range(N):
+  x, y = map(int, input().split())
+  ps.append((x, y, i))
+ps.sort()
+
+# i -> j のベクトル
+def vec(pi, pj):
+  return (pj[0] - pi[0], pj[1] - pi[1])
+# i -> j 向きの外積
+def det(vi, vj):
+  return vi[0] * vj[1] - vi[1] * vj[0]
+
+# 凸包を求める
+cvx = []
+for i in list(range(N)) + list(range(N-1))[::-1]:
+  while len(cvx) >= 2 and det(vec(ps[cvx[-2]], ps[cvx[-1]]), vec(ps[cvx[-1]], ps
+[i])) < 0:
+    cvx.pop()
+  cvx.append(i)
+
+# 凸包の各頂点について、頂点から出る2辺のなす角を計算
+ans = {}
+pi = None
+for i in cvx:
+  x, y, j = ps[i]
+  if pi is not None:
+    px, py, pj = ps[pi]
+    slope = math.atan2(y-py, x-px)
+    if j not in ans: ans[j] = [0, 0]
+    if pj not in ans: ans[pj] = [0, 0]
+    ans[j][0] = slope
+    ans[pj][1] = slope
+  pi = i
+
+for i in range(N):
+  if i not in ans:
+    print(0)
+    continue
+  v1, v2 = ans[i]
+  if v2 < v1:
+    v2 += 2*math.pi
+  print(round((v2-v1) / (2*math.pi), 8))
+```

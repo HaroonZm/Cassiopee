@@ -1,0 +1,12 @@
+tem = []
+for i in range(5):
+    tem.append(int(input()))
+    
+t = 0
+if (tem[0]<0):
+    t += (0-tem[0])*(tem[2])
+    t += tem[3]
+    t += tem[1]*(tem[4])
+elif (tem[0]>0):
+    t += (tem[1] - tem[0])*(tem[4])
+print(t)

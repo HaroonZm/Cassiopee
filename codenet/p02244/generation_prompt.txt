@@ -1,0 +1,66 @@
+Voici un énoncé de problème :
+
+8 Queens Problem
+The goal of 8 Queens Problem is to put eight queens on a chess-board such that none of them threatens any of others. A queen threatens the squares in the same row, in the same column, or on the same diagonals as shown in the following figure.
+For a given chess board where $k$ queens are already placed, find the solution of the 8 queens problem.
+Input
+In the first line, an integer $k$ is given. In the following $k$ lines, each square where a queen is already placed is given by two integers $r$ and $c$. $r$ and $c$ respectively denotes the row number and the column number. The row/column numbers start with 0.
+Output
+Print a $8 \times 8$ chess board by strings where a square with a queen is represented by '
+Q
+' and an empty square is represented by '
+.
+'.
+Constraints
+There is exactly one solution
+Sample Input 1
+2
+2 2
+5 3
+Sample Output 1
+......Q.
+Q.......
+..Q.....
+.......Q
+.....Q..
+...Q....
+.Q......
+....Q...
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from itertools import permutations
+n=int(input())
+q=[list(map(int,input().split())) for _ in range(n)]
+l=list(range(8))
+Q=list(permutations(l,8))
+def OK(s):
+    a=list(s)
+    b=list(s)
+    for i in range(len(s)):
+        a[i]-=i
+        b[i]+=i
+    for i,j in enumerate(a[:-1]):
+        if j in a[i+1:]:
+            return False
+    for i,j in enumerate(b[:-1]):
+        if j in b[i+1:]:
+            return False
+    return True
+for i in Q:
+    chk=i
+    for x,y in q:
+        if i[x]!=y:
+            chk=[]
+            break
+    if chk:
+        if OK(i):
+            A=i
+            break
+ans=[['.']*8 for _ in range(8)]
+for i,j in enumerate(A):
+    ans[i][j]='Q'
+    print(''.join(map(str,ans[i])))
+```

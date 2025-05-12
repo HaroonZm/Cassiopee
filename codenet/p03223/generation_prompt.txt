@@ -1,0 +1,165 @@
+Voici un énoncé de problème :
+
+Score :
+400
+points
+Problem Statement
+You are given
+N
+integers; the
+i
+-th of them is
+A_i
+.
+Find the maximum possible sum of the absolute differences between the adjacent elements after arranging these integers in a row in any order you like.
+Constraints
+2 \leq N \leq 10^5
+1 \leq A_i \leq 10^9
+All values in input are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+A_1
+:
+A_N
+Output
+Print the maximum possible sum of the absolute differences between the adjacent elements after arranging the given integers in a row in any order you like.
+Sample Input 1
+5
+6
+8
+1
+2
+3
+Sample Output 1
+21
+When the integers are arranged as
+3,8,1,6,2
+, the sum of the absolute differences between the adjacent elements is
+|3 - 8| + |8 - 1| + |1 - 6| + |6 - 2| = 21
+. This is the maximum possible sum.
+Sample Input 2
+6
+3
+1
+4
+1
+5
+9
+Sample Output 2
+25
+Sample Input 3
+3
+5
+5
+1
+Sample Output 3
+8
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+N = int(input())
+
+A = [int(input()) for i in range(N)]
+
+A.sort()
+
+right = A[0]
+left = A[0]
+index_l = 1
+index_r = len(A)-1
+ans_l = 0
+count = 1
+while(1):
+	if count % 2 == 1:
+		if index_r - index_l >= 1:
+			if abs(left-A[index_r])+abs(right-A[index_r-1]) > abs(right-A[index_r])+abs(left-A[index_r-1]):
+				ans_l += abs(left-A[index_r])+abs(right-A[index_r-1])
+				left = A[index_r]
+				right = A[index_r-1]
+			else:
+				ans_l += abs(right-A[index_r])+abs(left-A[index_r-1])
+				left = A[index_r-1]
+				right = A[index_r]
+			index_r -= 2
+		elif index_r - index_l == 0:
+			if abs(left-A[index_r]) > abs(right-A[index_r]):
+				ans_l += abs(left-A[index_r])
+			else:
+				ans_l += abs(right-A[index_r])
+			index_r -= 1
+		else: break
+	else:
+		if index_r - index_l >= 1:
+			if abs(left-A[index_l])+abs(right-A[index_l+1]) > abs(right-A[index_l])+abs(left-A[index_l+1]):
+				ans_l += abs(left-A[index_l])+abs(right-A[index_l+1])
+				left = A[index_l]
+				right = A[index_l+1]
+			else:
+				ans_l += abs(right-A[index_l])+abs(left-A[index_l+1])
+				left = A[index_l+1]
+				right = A[index_l]
+			index_l += 2
+		elif index_r - index_l == 0:
+			if abs(left-A[index_r]) > abs(right-A[index_r]):
+				ans_l += abs(left-A[index_r])
+			else:
+				ans_l += abs(right-A[index_r])
+			index_l += 1
+		else:
+			break
+	count += 1
+
+A.reverse()
+
+right = A[0]
+left = A[0]
+index_l = 1
+index_r = len(A)-1
+ans_r = 0
+count = 1
+while(1):
+	if count % 2 == 1:
+		if index_r - index_l >= 1:
+			if abs(left-A[index_r])+abs(right-A[index_r-1]) > abs(right-A[index_r])+abs(left-A[index_r-1]):
+				ans_r += abs(left-A[index_r])+abs(right-A[index_r-1])
+				left = A[index_r]
+				right = A[index_r-1]
+			else:
+				ans_r += abs(right-A[index_r])+abs(left-A[index_r-1])
+				left = A[index_r-1]
+				right = A[index_r]
+			index_r -= 2
+		elif index_r - index_l == 0:
+			if abs(left-A[index_r]) > abs(right-A[index_r]):
+				ans_r += abs(left-A[index_r])
+			else:
+				ans_r += abs(right-A[index_r])
+			index_r -= 1
+		else: break
+	else:
+		if index_r - index_l >= 1:
+			if abs(left-A[index_l])+abs(right-A[index_l+1]) > abs(right-A[index_l])+abs(left-A[index_l+1]):
+				ans_r += abs(left-A[index_l])+abs(right-A[index_l+1])
+				left = A[index_l]
+				right = A[index_l+1]
+			else:
+				ans_r += abs(right-A[index_l])+abs(left-A[index_l+1])
+				left = A[index_l+1]
+				right = A[index_l]
+			index_l += 2
+		elif index_r - index_l == 0:
+			if abs(left-A[index_r]) > abs(right-A[index_r]):
+				ans_r += abs(left-A[index_r])
+			else:
+				ans_r += abs(right-A[index_r])
+			index_l += 1
+		else:
+			break
+	count += 1
+
+		
+print(max(ans_l,ans_r))
+```

@@ -1,0 +1,9 @@
+N=int(input())
+P=list(map(int,input().split()))
+P.sort(reverse=True)
+result=0
+
+for i in range(N):
+    if P[i]>=i+1:
+        result=i+1
+print(result)

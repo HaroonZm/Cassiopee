@@ -1,0 +1,13 @@
+n,k=map(int, input().split())  #複数数値入力　「A B」みたいなスペース空いた入力のとき
+p=list(map(int, input().split()))  #リスト入力 「a1 a2 a3 ...」みたいな配列のような入力のとき
+#最大のリストを選定
+before_pi = p[0]
+before_sum = sum(p[0:k])+ 0.0
+suml = [sum(p[0:k])]
+for i in range(1,n-k+1):
+    before_sum = before_sum - before_pi+p[i+k-1]
+    suml.append(before_sum)
+    before_pi = p[i]
+
+#計算
+print((max(suml)+k)/2.0)

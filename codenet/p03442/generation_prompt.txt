@@ -1,0 +1,136 @@
+Voici un énoncé de problème :
+
+Score :
+1000
+points
+Problem Statement
+You are given a tree with
+N
+vertices. The vertices are numbered
+0
+through
+N-1
+, and the edges are numbered
+1
+through
+N-1
+.
+Edge
+i
+connects Vertex
+x_i
+and
+y_i
+, and has a value
+a_i
+.
+You can perform the following operation any number of times:
+Choose a simple path and a non-negative integer
+x
+, then for each edge
+e
+that belongs to the path, change
+a_e
+by executing
+a_e ← a_e ⊕ x
+(⊕ denotes XOR).
+Your objective is to have
+a_e = 0
+for all edges
+e
+.
+Find the minimum number of operations required to achieve it.
+Constraints
+2 ≤ N ≤ 10^5
+0 ≤ x_i,y_i ≤ N-1
+0 ≤ a_i ≤ 15
+The given graph is a tree.
+All input values are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+x_1
+y_1
+a_1
+x_2
+y_2
+a_2
+:
+x_{N-1}
+y_{N-1}
+a_{N-1}
+Output
+Find the minimum number of operations required to achieve the objective.
+Sample Input 1
+5
+0 1 1
+0 2 3
+0 3 6
+3 4 4
+Sample Output 1
+3
+The objective can be achieved in three operations, as follows:
+First, choose the path connecting Vertex
+1, 2
+, and
+x = 1
+.
+Then, choose the path connecting Vertex
+2, 3
+, and
+x = 2
+.
+Lastly, choose the path connecting Vertex
+0, 4
+, and
+x = 4
+.
+Sample Input 2
+2
+1 0 0
+Sample Output 2
+0
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+N = int(input())
+B = [0]*N
+for i in range(N-1):
+    x, y, a = map(int, input().split())
+    B[x] ^= a
+    B[y] ^= a
+D = {}
+for b in B:
+    D[b] = D.get(b, 0) + 1
+D[0] = 0
+ans = 0
+first = 0
+for b in D:
+    ans += D[b]//2
+    if D[b]%2:
+        first |= 1 << b
+
+A = [0]*(1 << 16)
+for i in range(1, 1<<16):
+    bit = i & -i
+    l = len(bin(bit))-3
+    A[i] = A[i ^ bit] ^ l
+
+memo = {0: 0}
+def dfs(state):
+    if state in memo:
+        return memo[state]
+    cur = state
+    res = 10**9+7
+    while cur:
+        if A[cur] == 0:
+            res = min(res, dfs(state ^ cur) + bin(cur).count('1')-1)
+        cur -= 1
+        cur &= state
+    memo[state] = res
+    return res
+ans += dfs(first)
+print(ans)
+```

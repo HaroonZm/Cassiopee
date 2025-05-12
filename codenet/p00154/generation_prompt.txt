@@ -1,0 +1,149 @@
+Voici un énoncé de problème :
+
+カードの組み合わせ
+整数が書いてあるカードが何枚か入っている袋を使ってゲームをしましょう。各回のゲームで参加者はまず、好きな数
+n
+を一つ宣言します。そして、袋の中から適当な枚数だけカードを一度に取り出して、それらのカードに書かれた数の総和が
+n
+に等しければ豪華賞品がもらえます。なお、それぞれのゲーム終了後カードは袋に戻されます。
+袋の中の
+m
+種類のカードの情報および、
+g
+回のゲームで参加者が宣言した数を入力とし、それぞれのゲームで豪華商品をもらえるカードの組み合わせが何通りあるかを出力するプログラムを作成してください。
+Input
+複数のデータセットの並びが入力として与えられます。入力の終わりはゼロひとつの行で示されます。
+各データセットは以下の形式で与えられます。
+m
+a
+1
+b
+1
+a
+2
+b
+2
+:
+a
+m
+b
+m
+g
+n
+1
+n
+2
+:
+n
+g
+１行目にカードの種類数
+m
+（1 ≤
+m
+≤ 7）、続く
+m
+行に
+i
+種類目のカードに書かれた整数
+a
+i
+(1 ≤
+a
+i
+≤ 100) とその枚数
+b
+i
+(1 ≤
+b
+i
+≤ 10) が空白区切りで与えられます。
+続く行にゲームの回数
+g
+(1 ≤
+g
+≤ 10)、続く
+g
+行にゲーム
+i
+で宣言された整数
+n
+i
+(1 ≤
+n
+i
+≤ 1,000) が与えられます。
+データセットの数は 100 を超えない。
+Output
+入力データセットごとに、
+i
+行目にゲーム
+i
+で豪華賞品がもらえるカードの組み合わせ数を出力します。
+Sample Input
+5
+1 10
+5 3
+10 3
+25 2
+50 2
+4
+120
+500
+100
+168
+7
+1 10
+3 10
+5 10
+10 10
+25 10
+50 10
+100 10
+3
+452
+574
+787
+0
+Output for the Sample Input
+16
+0
+12
+7
+9789
+13658
+17466
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+readline = sys.stdin.readline
+write = sys.stdout.write
+ans = []
+while 1:
+    M = int(readline())
+    if M == 0:
+        break
+    P = [list(map(int, input().split())) for i in range(M)]
+    memo = {}
+    def dfs(i, rest):
+        if i == M:
+            return rest == 0
+        key = (i, rest)
+        if key in memo:
+            return memo[key]
+        res = 0
+        a, b = P[i]
+        for j in range(0, b+1):
+            if rest - j*a < 0:
+                break
+            res += dfs(i+1, rest - j*a)
+        memo[key] = res
+        return res
+    G = int(input())
+    for i in range(G):
+        ans.append(str(dfs(0, int(input()))))
+write("\n".join(ans))
+write("\n")
+```

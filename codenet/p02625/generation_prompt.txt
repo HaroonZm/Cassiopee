@@ -1,0 +1,112 @@
+Voici un énoncé de problème :
+
+Score :
+500
+points
+Problem Statement
+Count the pairs of length-
+N
+sequences consisting of integers between
+1
+and
+M
+(inclusive),
+A_1, A_2, \cdots, A_{N}
+and
+B_1, B_2, \cdots, B_{N}
+, that satisfy all of the following conditions:
+A_i \neq B_i
+, for every
+i
+such that
+1\leq i\leq N
+.
+A_i \neq A_j
+and
+B_i \neq B_j
+, for every
+(i, j)
+such that
+1\leq i < j\leq N
+.
+Since the count can be enormous, print it modulo
+(10^9+7)
+.
+Constraints
+1\leq N \leq M \leq 5\times10^5
+All values in input are integers.
+Input
+Input is given from Standard Input in the following format:
+N
+M
+Output
+Print the count modulo
+(10^9+7)
+.
+Sample Input 1
+2 2
+Sample Output 1
+2
+A_1=1,A_2=2,B_1=2,B_2=1
+and
+A_1=2,A_2=1,B_1=1,B_2=2
+satisfy the conditions.
+Sample Input 2
+2 3
+Sample Output 2
+18
+Sample Input 3
+141421 356237
+Sample Output 3
+881613484
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+#atcoder template
+def main():
+    import sys
+    imput = sys.stdin.readline
+    #文字列入力の時は上記はerrorとなる。
+    #ここにコード
+    #input
+    n, m = map(int, input().split())
+
+    #output
+    mod = pow(10, 9) + 7
+
+    n_ = 5 * pow(10, 5) + 5
+    fun = [1] * (n_+1)
+    for i in range(1, n_+1):
+        fun[i] = fun[i-1] * i % mod
+    rev = [1] * (n_+1)
+    rev[n_] = pow(fun[n_], mod-2, mod)
+    for i in range(n_-1, 0, -1):
+        rev[i] = rev[i+1] * (i+1) % mod
+    def cmb(n,r):
+        if n < 0 or r < 0 or r > n: return 0
+        return fun[n] * rev[r] % mod * rev[n-r] % mod
+    def perm(n, r):
+        if n < 0 or r < 0 or r > n: return 0
+        return fun[n] * rev[n-r] % mod
+
+    #Aを1, 2, ..., nとする。
+    #求める写像の総数をs(n, m)とする。
+    #s(n, m) = sum(k=0, n)(cmb(n, k)* (-1)^k * cmb(m-k, n-k)*(n-k)!)
+
+    import math
+    answer = 0
+    for i in range(n+1):
+        temp = perm(n, i) * cmb(m, i) * pow(perm(m-i, n-i), 2)
+        temp %= mod
+        if i % 2 == 0:
+            answer += temp
+        else:
+            answer -= temp
+    print(answer % mod)
+
+    #N = 1のときなどcorner caseを確認！
+if __name__ == "__main__":
+    main()
+```

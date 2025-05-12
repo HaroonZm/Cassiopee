@@ -1,0 +1,7 @@
+N = int(input())
+X = list(map(int, input().split()))
+ans = 0
+mod = 998244353
+for i, x in enumerate(X):
+    ans = (ans * 2 + x * pow(x+1, i, mod)) % mod
+print(ans)

@@ -1,0 +1,29 @@
+import math
+def prodR(s,a,c,N):
+    R=[s]
+    for i in range(1,N+1):
+        R.append((a*R[i-1]+c)%256)
+    return R[1:]
+
+def entropy(R,I,N):
+    O=[(I[i]+R[i])%256 for i in range(N)]
+    L=[0]*256
+    for i in O:
+        L[i]+=1
+    H=-sum(float(L[i])/N*math.log(float(L[i])/N,2) for i in range(256) if L[i]!=0)
+    return H
+
+while True:
+    N=input()
+    if N==0:break
+    I=map(int,raw_input().split())
+    maxInt=1e10
+    for s in range(16):
+        for a in range(16):
+            for c in range(16):
+                R=prodR(s,a,c,N)
+                H=entropy(R,I,N)
+                if maxInt>H:
+                    maxInt=H
+                    ans=s,a,c
+    print "%d %d %d"%(ans[0],ans[1],ans[2])

@@ -1,0 +1,83 @@
+Voici un énoncé de problème :
+
+Problem J:
+ICPC: Ideal Coin Payment and Change
+Taro, a boy who hates any inefficiencies, pays coins so that the number of coins to be returned as change is minimized in order to do smoothly when he buys something.
+One day, however, he doubt if this way is really efficient. When he pays more number of coins, a clerk consumes longer time to find the total value. Maybe he should pay with least possible number of coins.
+Thinking for a while, he has decided to take the middle course. So he tries to minimize total number of paid coins and returned coins as change.
+Now he is going to buy a product of P yen having several coins. Since he is not good at calculation, please write a program that computes the minimal number of coins.
+You may assume following things:
+There are 6 kinds of coins, 1 yen, 5 yen, 10 yen, 50 yen, 100 yen and 500 yen.
+The total value of coins he has is at least
+P
+yen.
+A clerk will return the change with least number of coins.
+Input
+Input file contains several data sets.
+One data set has following format:
+P
+N
+1
+N
+5
+N
+10
+N
+50
+N
+100
+N
+500
+N
+i
+is an integer and is the number of coins of
+i
+yen that he have.
+The end of input is denoted by a case where
+P
+= 0. You should output nothing for this data set.
+Output
+Output total number of coins that are paid and are returned.
+Constraints
+Judge data contains at most 100 data sets.
+0 ≤
+N
+i
+≤ 1000
+Sample Input
+123 3 0 2 0 1 1
+999 9 9 9 9 9 9
+0 0 0 0 0 0 0
+Output for the Sample Input
+6
+3
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+while True:
+    p, n1, n5, n10, n50, n100, n500 = map(int, input().split())
+    if p == 0:break
+    values = (500, 100, 50, 10, 5, 1)
+    values_cnt = (n500, n100, n50, n10, n5, n1)
+    INF = 10 ** 20
+
+    def return_cnt(x):
+        ret = 0
+        for value in values:
+            ret += x // value
+            x %= value
+        return ret
+
+    def make_price(x):
+        ret = 0
+        for value, cnt in zip(values, values_cnt):
+            available_cnt = x // value
+            ret += min(available_cnt, cnt)
+            x -= value * min(available_cnt, cnt)
+        if x == 0:return ret
+        return INF
+
+    print(min([make_price(i) + return_cnt(i - p) for i in range(p, p + 500)]))
+```

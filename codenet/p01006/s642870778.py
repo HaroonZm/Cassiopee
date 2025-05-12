@@ -1,0 +1,22 @@
+# AOJ 1516: Nasty Boys
+# Python3 2018.7.13 bal4u
+
+rr = [0,0,0,1,1,1,2,2,2]
+cc = [0,1,2,0,1,2,0,1,2]
+A = ord('A')
+
+for i in range(1000):
+	buf = list(input())
+	j = 0
+	r, c = rr[ord(buf[j])-A], cc[ord(buf[j])-A]
+	j, f = j+1, True
+	while j < len(buf) and f:
+		f = False
+		r2, c2 = rr[ord(buf[j])-A], cc[ord(buf[j])-A]
+		j += 1
+		if r2 == r:
+			if c2 == c+1 or c2 == c-1: f = True
+		elif c2 == c:
+			if r2 == r+1 or r2 == r-1: f = True
+		r, c = r2, c2
+	if f: print(*buf, sep='')

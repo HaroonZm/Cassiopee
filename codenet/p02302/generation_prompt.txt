@@ -1,0 +1,225 @@
+Voici un énoncé de problème :
+
+Convex Cut
+As shown in the figure above, cut a convex polygon
+g
+by a line
+p1p2
+and print the area of the cut polygon which is on the left-hand side of the line.
+g
+is represented by a sequence of points
+p
+1
+,
+p
+2
+,...,
+p
+n
+where line segments connecting
+p
+i
+and
+p
+i+1
+(1 ≤
+i
+≤
+n−1
+) are sides of the convex polygon. The line segment connecting
+p
+n
+and
+p
+1
+is also a side of the polygon.
+Input
+The input is given in the following format:
+g
+(the sequence of the points of the polygon)
+q
+(the number of queries = the number of target lines)
+1st query
+2nd query
+:
+q
+th query
+g
+is given as a sequence of points
+p
+1
+,...,
+p
+n
+in the following format:
+n
+x
+1
+y
+1
+x
+2
+y
+2
+:
+x
+n
+y
+n
+The first integer
+n
+is the number of points. The coordinate of the
+i
+-th point
+p
+i
+is given by two integers
+x
+i
+and
+y
+i
+. The coordinates of points are given in the order of counter-clockwise visit of them. Note that all interior angles of given convex polygons are less than or equal to 180.
+For each query, a line represented by two points
+p1
+and
+p2
+is given. The coordinates of the points are given by four integers
+p1x
+,
+p1y
+,
+p2x
+and
+p2y
+.
+Output
+For each query, print the area of the cut polygon. The output values should be in a decimal fraction with an error less than 0.00001.
+Constraints
+3 ≤
+n
+≤ 100
+1 ≤
+q
+≤ 100
+-10000 ≤
+x
+i
+,
+y
+i
+≤ 10000
+-10000 ≤
+p1x
+,
+p1y
+,
+p2x
+,
+p2y
+≤ 10000
+No point in
+g
+will occur more than once.
+p1
+≠
+p2
+Sample Input
+4
+1 1
+4 1
+4 3
+1 3
+2
+2 0 2 4
+2 4 2 0
+Sample Output
+2.00000000
+4.00000000
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+# cross point
+def cross(c1, c2):
+    return c1.real * c2.imag - c1.imag * c2.real
+
+def cross_point(p1, p2, p3, p4):
+    # p1 and p2 are  points on a segment.
+    # p3 and p4 are points on the other segment.
+    base = p4 - p3
+    hypo1 = p1 - p3
+    hypo2 = p2 - p3
+    d1 = cross(base, hypo1) / abs(base)
+    d2 = cross(base, hypo2) / abs(base)
+    cp = p1 + d1 / (d1 - d2) * (p2 - p1)
+    return cp
+
+# area of a triangle
+def _area_of_triangle(c1, c2, c3):
+    v1 = c2 - c1
+    v2 = c3 - c1
+    return abs(v1.real * v2.imag - v1.imag * v2.real) / 2
+
+# convex cut
+def convex_cut(points, c1, c2):
+    points.append(points[0])
+    ref_vec = c2 - c1
+    cross_point1 = None
+    flag = 0
+    # Detection of one intersection point
+    for i, segment in enumerate(zip(points, points[1:])):
+        p1, p2 = segment
+        cross1 = cross(ref_vec, p1 - c1)
+        cross2 = cross(ref_vec, p2 - c1)
+        flag += cross1
+        if cross1 <= 0 and cross2 > 0:
+            cross_point1 = cross_point(c1, c2, p1, p2)
+            points = points[i+1:]
+            break
+        elif cross1 > 0 and cross2 <= 0:
+            cross_point1 = cross_point(c1, c2, p1, p2)
+            points = points[i::-1] + points[:i:-1]
+            break
+    # Processing when there is no intersection point
+    if cross_point1 == None:
+        if flag > 0:
+            cross_point1 = points[0]
+            points = points[1:]
+        else:
+            return 0
+    # find area
+    cut_area = 0
+    for p1, p2 in zip(points, points[1:]):
+        if cross(ref_vec, p1 - c1) * cross(ref_vec, p2 - c1) <= 0:
+            cross_point2 = cross_point(c1, c2, p1, p2)
+            cut_area += _area_of_triangle(cross_point1, cross_point2, p1)
+            break
+        else:
+            cut_area += _area_of_triangle(cross_point1, p1, p2)
+    return cut_area
+
+# acceptance of input
+import sys
+
+file_input = sys.stdin
+
+n = int(file_input.readline())
+
+def string_to_complex(s):
+    x, y = map(float, s.split())
+    return x + y * 1j
+
+G = [string_to_complex(file_input.readline()) for i in range(n)]
+
+# output
+q = int(file_input.readline())
+
+for line in file_input:
+    p1x, p1y, p2x, p2y = map(int, line.split())
+    p1 = p1x + p1y * 1j
+    p2 = p2x + p2y * 1j
+    ans = convex_cut(G.copy(), p1, p2)
+    print("{:f}".format(ans))
+```

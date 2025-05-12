@@ -1,0 +1,153 @@
+Voici un énoncé de problème :
+
+Score :
+100
+points
+Problem Statement
+There is a grid with
+H
+horizontal rows and
+W
+vertical columns.
+Let
+(i, j)
+denote the square at the
+i
+-th row from the top and the
+j
+-th column from the left.
+In the grid,
+N
+Squares
+(r_1, c_1), (r_2, c_2), \ldots, (r_N, c_N)
+are wall squares, and the others are all empty squares.
+It is guaranteed that Squares
+(1, 1)
+and
+(H, W)
+are empty squares.
+Taro will start from Square
+(1, 1)
+and reach
+(H, W)
+by repeatedly moving right or down to an adjacent empty square.
+Find the number of Taro's paths from Square
+(1, 1)
+to
+(H, W)
+, modulo
+10^9 + 7
+.
+Constraints
+All values in input are integers.
+2 \leq H, W \leq 10^5
+1 \leq N \leq 3000
+1 \leq r_i \leq H
+1 \leq c_i \leq W
+Squares
+(r_i, c_i)
+are all distinct.
+Squares
+(1, 1)
+and
+(H, W)
+are empty squares.
+Input
+Input is given from Standard Input in the following format:
+H
+W
+N
+r_1
+c_1
+r_2
+c_2
+:
+r_N
+c_N
+Output
+Print the number of Taro's paths from Square
+(1, 1)
+to
+(H, W)
+, modulo
+10^9 + 7
+.
+Sample Input 1
+3 4 2
+2 2
+1 4
+Sample Output 1
+3
+There are three paths as follows:
+Sample Input 2
+5 2 2
+2 1
+4 2
+Sample Output 2
+0
+There may be no paths.
+Sample Input 3
+5 5 4
+3 1
+3 5
+1 3
+5 3
+Sample Output 3
+24
+Sample Input 4
+100000 100000 1
+50000 50000
+Sample Output 4
+123445622
+Be sure to print the count modulo
+10^9 + 7
+.
+
+
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import sys
+input = sys.stdin.readline
+sys.setrecursionlimit(10 ** 7)
+
+import numpy as np
+
+MOD = 10**9 + 7
+
+H,W,N = map(int,input().split())
+R,C = np.array(sys.stdin.read().split() + [H,W],dtype=np.int64).reshape(N+1,2).T
+
+ind = np.argsort((R<<32)+C)
+R = R[ind]
+C = C[ind]
+
+def cumprod(arr):
+    L = len(arr); Lsq = int(L**.5+1)
+    arr = np.resize(arr,Lsq**2).reshape(Lsq,Lsq)
+    for n in range(1,Lsq):
+        arr[:,n] *= arr[:,n-1]; arr[:,n] %= MOD
+    for n in range(1,Lsq):
+        arr[n] *= arr[n-1,-1]; arr[n] %= MOD
+    return arr.ravel()[:L]
+
+U = 2 * 10**5 + 10
+x = np.arange(U,dtype=np.int64)
+x[0] = 1
+fact = cumprod(x)
+x = np.arange(U,0,-1,dtype=np.int64)
+x[0] = pow(int(fact[-1]),MOD-2,MOD)
+fact_inv = cumprod(x)[::-1]
+
+dp = np.zeros(N+1,dtype=np.int64)
+dp += fact[R+C-2] * fact_inv[R-1] % MOD * fact_inv[C-1] % MOD
+
+for i,(r,c) in enumerate(zip(R,C)):
+    j = np.where((R<=r)&(C<=c)&(R+C<r+c))
+    dx,dy = r-R[j],c-C[j]
+    dp[i] -= (dp[j] * fact[dx+dy] % MOD * fact_inv[dx] % MOD * fact_inv[dy] % MOD).sum()
+    dp[i] %= MOD
+
+answer = dp[-1]
+print(answer)
+```

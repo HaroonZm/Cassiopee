@@ -1,0 +1,51 @@
+for t in xrange(input()):
+    h, w = map(int, raw_input().split())
+    A = [list(raw_input()) for i in xrange(h)]
+    xmin = {}; xmax = {}
+    ymin = {}; ymax = {}
+    obj = set()
+    for i in xrange(h):
+        for j in xrange(w):
+            c = A[i][j]
+            if c == '.': continue
+            xmin[c] = min(xmin.get(c, 99), j)
+            xmax[c] = max(xmax.get(c, -1), j)
+            ymin[c] = min(ymin.get(c, 99), i)
+            ymax[c] = max(ymax.get(c, -1), i)
+            obj.add(c)
+    if not obj:
+        print "SAFE"
+        continue
+    ok = 1
+    g = {e: set() for e in obj}
+    deg = {e: 0 for e in obj}
+    for q in obj:
+        for i in xrange(ymin[q], ymax[q]+1):
+            for j in xrange(xmin[q], xmax[q]+1):
+                c = A[i][j]
+                if c == '.':
+                    ok = 0
+                    break
+                if c != q:
+                    g[q].add(c)
+            if not ok: break
+        if not ok: break
+    if not ok:
+        print "SUSPICIOUS"
+        continue
+    for e in obj:
+        for t in g[e]:
+            deg[t] += 1
+    cnt = len(obj)
+    used = set()
+    for e in obj:
+        for e in obj:
+            if not deg[e] and e not in used:
+                for t in g[e]:
+                    deg[t] -= 1
+                used.add(e)
+                cnt -= 1
+    if cnt:
+        print "SUSPICIOUS"
+    else:
+        print "SAFE"
