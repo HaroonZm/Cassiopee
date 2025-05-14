@@ -4,16 +4,29 @@ from tqdm import tqdm
 import datetime
 import tiktoken
 import numpy as np
+import os
+import argparse
+from pathlib import Path
 
-script = """def union(a,b):
-  return list(set(a + b))
-union([1, 2, 3, 4, 5], [6, 2, 8, 1, 4]) # [1,2,3,4,5,6,8]"""
+def charger_script_depuis_fichier(nom_fichier):
+    """
+    Lit tout le contenu du fichier situé dans le répertoire 'data'
+    et le renvoie comme une chaîne de caractères.
+    """
+    projet_racine = Path(__file__).resolve().parent.parent
+    raw_dir       = projet_racine / "data" / "raw_scripts"
+    chemin_fichier  = raw_dir / nom_fichier
+
+    if not chemin_fichier.exists():
+        raise FileNotFoundError(f"Fichier introuvable : {chemin_fichier}")
+    with open(chemin_fichier, "r", encoding="utf-8") as f:
+        return f.read()
 
 # Initialisation du client OpenAI
 client = OpenAI(api_key="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")
 
 def tokeniser_avec_tiktoken(texte, modele="gpt-4o-mini"):
-    """rrr
+    """
     Tokenise le texte en utilisant tiktoken, la bibliothèque officielle d'OpenAI pour la tokenisation.
     Cette fonction utilise l'encodeur correspondant au modèle spécifié.
     
@@ -599,14 +612,79 @@ def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction
         precision_top10 = (correct_top10_tokens / total_tokens) * 100
         print(f"Précision (1ère position): {precision:.2f}%")
         print(f"Précision (top 10): {precision_top10:.2f}%")
-    
-    print(f"Les résultats détaillés ont été sauvegardés dans: {nom_fichier}")
-    print(f"La matrice de log probabilités a été sauvegardée en format numpy.")
-    
+       
     return matrice, structure_tokens
 
-# Exécuter l'analyse
 if __name__ == "__main__":
-    # On peut spécifier différents modèles pour la tokenisation et la prédiction
-    # Par exemple: main(modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini")
-    main()
+    # Répertoires cibles
+    projet_racine = Path(__file__).resolve().parent.parent
+    raw_dir       = projet_racine / "data" / "raw_scripts"
+    matrix_dir    = projet_racine / "data" / "matrix"
+    results_dir   = projet_racine / "data" / "results"
+
+    # Création si nécessaire
+    matrix_dir.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # CLI
+    parser = argparse.ArgumentParser(
+        description="Analyse des prédictions token par token pour un ou plusieurs scripts.")
+    parser.add_argument(
+        "-f", "--file",
+        help="Nom du fichier unique à analyser (dans data/raw_scripts/). Ex: 'foo.py'",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--all",
+        help="Analyser tous les fichiers Python (*.py) du dossier data/raw_scripts/",
+        action="store_true",
+    )
+    args = parser.parse_args()
+
+    # Détermination des fichiers à traiter
+    if args.all:
+        fichiers = sorted(raw_dir.glob("*.py"))
+        if not fichiers:
+            parser.error(f"Aucun .py trouvé dans {raw_dir}")
+    else:
+        nom       = args.file or "script.py"
+        chemin    = raw_dir / nom
+        if not chemin.exists():
+            parser.error(f"Fichier introuvable : {chemin}")
+        fichiers = [chemin]
+
+    # Boucle d'analyse
+    for fpath in fichiers:
+        stem   = fpath.stem
+        print(f"\n--- Analyse de {fpath.name} ---")
+
+        # 1) On charge le script
+        script = fpath.read_text(encoding="utf-8")
+
+        # 2) On exécute votre pipeline
+        resultats_analyse, tokens_reference = analyser_predictions_token_par_token(
+            script,
+            modele_tokenisation="gpt-4o-mini",
+            modele_prediction="gpt-4o-mini"
+        )
+        matrice, structure = construire_matrice_logprob(tokens_reference, resultats_analyse)
+
+        # 3) On affiche en console
+        afficher_matrice_brute(matrice, structure)
+
+        # 4) On sauve dans les bons dossiers
+        matrix_path = matrix_dir  / f"matrix_{stem}.npy"
+        result_path = results_dir / f"result_{stem}.txt"
+
+        sauvegarder_matrice_numpy(matrice, nom_fichier=str(matrix_path))
+        sauvegarder_resultats(
+            resultats_analyse,
+            script,
+            matrice,
+            structure,
+            nom_fichier=str(result_path)
+        )
+
+        print(f"→ Matrice enregistrée : {matrix_path.name}")
+        print(f"→ Rapport enregistré : {result_path.name}")
