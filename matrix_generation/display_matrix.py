@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import os
+from pathlib import Path
 
 def charger_matrice(chemin_fichier):
     """
@@ -197,34 +198,72 @@ def visualiser_matrice(matrice, mode='heatmap', sauvegarder=False, nom_sortie='v
     plt.show()
 
 def main():
-    """Fonction principale"""
-    # Configurer le parseur d'arguments
-    parser = argparse.ArgumentParser(description="Visualiser une matrice de log probabilités stockée dans un fichier .npy")
-    
-    parser.add_argument("fichier", nargs="?", default="matrice_logprob.npy", help="Chemin vers le fichier .npy contenant la matrice (défaut: matrice_logprob.npy)")
-    parser.add_argument("--console", "-c", action="store_true", help="Afficher la matrice dans la console")
-    parser.add_argument("--values", "-v", action="store_true", help="Afficher les valeurs numériques dans la console (plutôt que des catégories)")
-    parser.add_argument("--mode", "-m", choices=["heatmap", "categorical"], default="heatmap", help="Mode de visualisation graphique (défaut: heatmap)")
-    parser.add_argument("--save", "-o", action="store_true", help="Sauvegarder la visualisation")
-    parser.add_argument("--output", default="visualisation.png", help="Nom du fichier de sortie pour la visualisation (défaut: visualisation.png)")
-    
-    # Analyser les arguments
+    # Dossier où sont stockées les .npy
+    projet_racine = Path(__file__).resolve().parent.parent
+    matrix_dir    = projet_racine / "data" / "matrix"
+
+    parser = argparse.ArgumentParser(
+        description="Visualiser une ou plusieurs matrices de log-probabilités (.npy)")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-a", "--all",
+        action="store_true",
+        help="Afficher toutes les matrices (*.npy) du dossier data/matrix/")
+    group.add_argument("-f", "--file",
+        metavar="FICHIER",
+        help="Nom du fichier unique à visualiser (dans data/matrix/)")
+    parser.add_argument("-c", "--console",
+        action="store_true",
+        help="Afficher aussi la matrice dans la console")
+    parser.add_argument("-v", "--values",
+        action="store_true",
+        help="(pour --console) Afficher les valeurs numériques plutôt que catégories")
+    parser.add_argument("-m", "--mode",
+        choices=["heatmap","categorical"],
+        default="heatmap",
+        help="Mode graphique (défaut: heatmap)")
+    parser.add_argument("-o", "--save",
+        action="store_true",
+        help="Sauvegarder chaque visualisation en PNG")
+    parser.add_argument("-O", "--output-dir",
+        default=None,
+        help="Répertoire où écrire les PNG (par défaut: même dossier que la matrice)")
+
     args = parser.parse_args()
-    
-    # Vérifier si le fichier existe
-    if not os.path.exists(args.fichier):
-        print(f"Erreur: Le fichier {args.fichier} n'existe pas.")
-        exit(1)
-    
-    # Charger la matrice
-    matrice = charger_matrice(args.fichier)
-    
-    # Afficher dans la console si demandé
-    if args.console:
-        afficher_matrice_console(matrice, args.values)
-    
-    # Toujours faire la visualisation graphique
-    visualiser_matrice(matrice, args.mode, args.save, args.output)
+
+    # Préparer la liste de Path à traiter
+    if args.all:
+        fichiers = sorted(matrix_dir.glob("*.npy"))
+        if not fichiers:
+            parser.error(f"Aucun .npy trouvé dans {matrix_dir}")
+    else:
+        nom = args.file or "matrix_script.npy"
+        chemin = matrix_dir / nom
+        if not chemin.exists():
+            parser.error(f"Fichier introuvable : {chemin}")
+        fichiers = [chemin]
+
+    # Boucle sur chaque fichier
+    for npy_path in fichiers:
+        print(f"\n=== {npy_path.name} ===")
+        matrice = charger_matrice(str(npy_path))
+
+        if args.console:
+            afficher_matrice_console(matrice, afficher_valeurs=args.values)
+
+        # Déterminer répertoire de sortie PNG
+        if args.save:
+            out_dir = Path(args.output_dir) if args.output_dir else npy_path.parent
+            out_dir.mkdir(parents=True, exist_ok=True)
+            nom_png = out_dir / (npy_path.stem + ".png")
+        else:
+            nom_png = None
+
+        visualiser_matrice(
+            matrice,
+            mode=args.mode,
+            sauvegarder=args.save,
+            nom_sortie=str(nom_png) if nom_png else "visualisation.png"
+        )
 
 if __name__ == "__main__":
     main()
