@@ -12,7 +12,8 @@ import logging
 from pathlib import Path
 from openai import OpenAI
 
-OPENAI_API_KEY="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"
+
+OPENAI_API_KEY = "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"
 
 # Configuration du logging
 logging.basicConfig(
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 class SimpleBatchManager:
     """Gestionnaire simple pour les batchs OpenAI"""
     
-    def __init__(self, api_key=None, output_dir="detector_dataset"):
+    def __init__(self, api_key=None, output_dir="batches"):
         """
         Initialise le gestionnaire de batch simple.
         
@@ -218,7 +219,7 @@ class SimpleBatchManager:
             return 0
         
         # Utiliser le répertoire de sortie personnalisé s'il est spécifié
-        save_dir = Path(output_dir) if output_dir else self.output_dir / "results" / batch_id
+        save_dir = Path(output_dir) if output_dir else self.output_dir / batch_id
         save_dir.mkdir(parents=True, exist_ok=True)
         
         saved_count = 0
