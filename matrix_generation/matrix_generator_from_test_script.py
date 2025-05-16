@@ -185,128 +185,106 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
 
 def construire_matrice_logprob(tokens_reference, resultats_analyse, top_k=10):
     """
-    Construit une matrice 2D de log probabilités préservant la structure spatiale du code
-    selon les spécifications du compte-rendu technique.
-    
-    Args:
-        tokens_reference (list): Liste de tous les tokens du script
-        resultats_analyse (list): Résultats de l'analyse token par token
-        top_k (int): Nombre d'alternatives à considérer pour déterminer si un token est une anomalie
-        
-    Returns:
-        tuple: La matrice 2D et un dictionnaire contenant les informations sur la structure
+    Construit une matrice 244×244 de log probabilités,
+    en padding avec 100 et anomalies à -50.
+    Lève une erreur si les dimensions dynamiques dépassent 244×244.
     """
-    print("Construction de la matrice 2D de log probabilités...")
-    
-    # Reconstituer le texte complet pour identifier les lignes correctement
+    # 1) Reconstituer le texte complet et découper en lignes
     texte_complet = ''.join(tokens_reference)
-    lignes_texte = texte_complet.split('\n')
-    
-    # Pour les lignes qui ne se terminent pas par un '\n' explicite dans le dernier token
-    if tokens_reference[-1] != '\n':
-        lignes_texte[-1] = lignes_texte[-1]  # Garder la dernière ligne
-    else:
-        # Si le texte se termine par un '\n', ajouter une ligne vide
-        lignes_texte.append('')
-    
-    # Supprimer la dernière ligne si elle est vide
-    if lignes_texte[-1] == '':
-        lignes_texte = lignes_texte[:-1]
-    
-    n_lignes = len(lignes_texte)
-    
-    # Initialiser les structures pour suivre les tokens par ligne
+    lignes_texte  = texte_complet.split('\n')
+
+    # 2) Parcourir les tokens pour déterminer tokens_par_ligne et positions
     tokens_par_ligne = []
     position_tokens_dans_matrice = []
-    
-    # Variables pour suivre la position actuelle
     ligne_courante = 0
     position_dans_ligne = 0
-    
-    # Parcourir tous les tokens pour les affecter aux lignes correctes
-    tokens_dans_lignes = [[] for _ in range(n_lignes)]
-    
-    for i, token in enumerate(tokens_reference):
-        # Ajouter le token à la ligne courante
-        tokens_dans_lignes[ligne_courante].append(token)
+
+    for idx, token in enumerate(tokens_reference):
+        # Enregistrer la position
         position_tokens_dans_matrice.append((ligne_courante, position_dans_ligne))
         position_dans_ligne += 1
-        
-        # Si le token est un saut de ligne, passer à la ligne suivante
+
+        # Si le token contient un saut de ligne, on change de ligne
         if '\n' in token:
             tokens_par_ligne.append(position_dans_ligne)
             ligne_courante += 1
             position_dans_ligne = 0
-            # S'assurer qu'on ne dépasse pas le nombre de lignes
-            if ligne_courante >= n_lignes:
+            if ligne_courante >= len(lignes_texte):
                 break
-    
-    # Ajouter le nombre de tokens pour la dernière ligne si nécessaire
-    if ligne_courante < n_lignes and position_dans_ligne > 0:
+
+    # Ajouter la dernière ligne si nécessaire
+    if position_dans_ligne > 0:
         tokens_par_ligne.append(position_dans_ligne)
-    
-    # Déterminer le nombre maximum de tokens par ligne
-    max_tokens = max(tokens_par_ligne) if tokens_par_ligne else 0
-    
-    print(f"Structure du code: {n_lignes} lignes, {max_tokens} tokens maximum par ligne")
-    print(f"Tokens par ligne: {tokens_par_ligne}")
-    
-    # Initialiser la matrice avec des valeurs de padding (100)
+
+    # 3) Calculer les dimensions dynamiques
+    n_lignes_dyn   = len(lignes_texte)
+    max_tokens_dyn = max(tokens_par_ligne) if tokens_par_ligne else 0
+
+    # 4) Vérifier la limite 244×244
+    if n_lignes_dyn > 244 or max_tokens_dyn > 244:
+        raise ValueError(
+            f"Dimensions dynamiques du code ({n_lignes_dyn} lignes × "
+            f"{max_tokens_dyn} tokens par ligne) dépassent la limite 244×244."
+        )
+
+    # 5) Forcer la taille fixe
+    n_lignes, max_tokens = 244, 244
+    print(f"Construction d'une matrice FIXE : {n_lignes} lignes × {max_tokens} colonnes (padding=100)")
+
+    # 6) Initialiser la matrice de padding
     matrice = np.full((n_lignes, max_tokens), 100.0)
-    
-    # Créer un dictionnaire pour garder trace de la structure
+
+    # 7) Remplir la matrice avec log-probabilités ou valeurs spéciales
+    for idx_token, (i, j) in enumerate(position_tokens_dans_matrice):
+        # Ignorer toute position hors de la matrice fixe
+        if i >= n_lignes or j >= max_tokens:
+            continue
+
+        # Chercher le résultat d'analyse correspondant
+        resultat = next((r for r in resultats_analyse if r["position"] == idx_token), None)
+        if not resultat:
+            matrice[i, j] = -50.0
+            continue
+
+        # Tokens d'amorce
+        if resultat.get("amorce", False):
+            matrice[i, j] = -10.0
+            continue
+
+        # Sinon calculer la log-proba
+        attendu  = resultat["attendu"]
+        predit   = resultat.get("predit")
+        alternatives = resultat.get("alternatives", [])
+
+        # Valeur par défaut pour anomalie
+        val_logprob = -50.0
+
+        # Si correct (stricte ou adaptée), prendre la logprob de la prédiction
+        if resultat.get("correct", False) or resultat.get("correct_adapte", False):
+            for alt in alternatives:
+                if alt["token"] == predit:
+                    val_logprob = alt["logprob"]
+                    break
+        else:
+            # Sinon chercher le token attendu (ou adapté) dans les alternatives
+            for alt in alternatives:
+                if alt["token"] == attendu or alt.get("token_adapte") == attendu:
+                    val_logprob = alt["logprob"]
+                    break
+
+        matrice[i, j] = val_logprob
+
+    # 8) Retourner la matrice fixe et la structure complète
     structure_tokens = {
-        "lignes": n_lignes,
-        "max_tokens": max_tokens,
+        "fixed_lignes": n_lignes,
+        "fixed_max_tokens": max_tokens,
+        "dyn_lignes": n_lignes_dyn,
+        "dyn_max_tokens": max_tokens_dyn,
         "tokens_par_ligne": tokens_par_ligne,
         "position_tokens": position_tokens_dans_matrice
     }
-    
-    # Remplir la matrice avec les log probabilités
-    for idx_token, (i, j) in enumerate(position_tokens_dans_matrice):
-        if i < n_lignes and j < max_tokens:
-            # Trouver le résultat d'analyse correspondant au token
-            resultat = None
-            for r in resultats_analyse:
-                if r["position"] == idx_token:
-                    resultat = r
-                    break
-            
-            if resultat:
-                if resultat.get("amorce", False):
-                    # Pour les tokens d'amorce, utiliser une valeur spéciale -10
-                    matrice[i, j] = -10.0
-                else:
-                    # Vérifier si le token est dans le top-k
-                    token_attendu = resultat.get("attendu")
-                    alternatives = resultat.get("alternatives", [])
-                    
-                    # Par défaut, considérer comme anomalie
-                    val_logprob = -50.0
-                    
-                    # Vérifier si le token est dans les alternatives
-                    for alt in alternatives:
-                        if alt["token"] == token_attendu or alt.get("token_adapte") == token_attendu:
-                            val_logprob = alt["logprob"]
-                            break
-                    
-                    # Si le token prédit est correct, utiliser sa log probabilité
-                    if resultat.get("correct", False) or resultat.get("correct_adapte", False):
-                        for alt in alternatives:
-                            if alt["token"] == resultat.get("predit"):
-                                val_logprob = alt["logprob"]
-                                break
-                    
-                    # Si le token n'est pas dans le top-k, c'est une anomalie
-                    if not resultat.get("correct_top10", False):
-                        val_logprob = -50.0
-                    
-                    matrice[i, j] = val_logprob
-            else:
-                # Si pas de résultat (rare), mettre -50 (anomalie)
-                matrice[i, j] = -50.0
-    
     return matrice, structure_tokens
+
 
 def afficher_matrice_brute(matrice, structure_tokens):
     """
@@ -616,15 +594,9 @@ def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction
     return matrice, structure_tokens
 
 if __name__ == "__main__":
-    # Répertoires cibles
+    # Répertoires racine
     projet_racine = Path(__file__).resolve().parent.parent
     raw_dir       = projet_racine / "data" / "raw_scripts"
-    matrix_dir    = projet_racine / "data" / "matrix"
-    results_dir   = projet_racine / "data" / "results"
-
-    # Création si nécessaire
-    matrix_dir.mkdir(parents=True, exist_ok=True)
-    results_dir.mkdir(parents=True, exist_ok=True)
 
     # CLI
     parser = argparse.ArgumentParser(
@@ -648,21 +620,34 @@ if __name__ == "__main__":
         if not fichiers:
             parser.error(f"Aucun .py trouvé dans {raw_dir}")
     else:
-        nom       = args.file or "script.py"
-        chemin    = raw_dir / nom
+        nom    = args.file or "script.py"
+        chemin = raw_dir / nom
         if not chemin.exists():
             parser.error(f"Fichier introuvable : {chemin}")
         fichiers = [chemin]
 
     # Boucle d'analyse
     for fpath in fichiers:
-        stem   = fpath.stem
+        stem = fpath.stem  # nom sans extension, ex: "gen_example"
+
+        # 1) Choix du dossier de sortie selon le préfixe
+        if stem.startswith(("gen", "var")):
+            base_out = projet_racine / "data" / "ia"
+        else:
+            base_out = projet_racine / "data" / "nia"
+
+        matrix_dir  = base_out / "matrice"
+        results_dir = base_out / "resultats"
+
+        # Création des dossiers si nécessaire
+        matrix_dir.mkdir(parents=True, exist_ok=True)
+        results_dir.mkdir(parents=True, exist_ok=True)
+
         print(f"\n--- Analyse de {fpath.name} ---")
+        print(f"→ Résultats dans : {base_out}")
 
-        # 1) On charge le script
+        # 2) Chargement et exécution de l'analyse
         script = fpath.read_text(encoding="utf-8")
-
-        # 2) On exécute votre pipeline
         resultats_analyse, tokens_reference = analyser_predictions_token_par_token(
             script,
             modele_tokenisation="gpt-4o-mini",
@@ -670,10 +655,7 @@ if __name__ == "__main__":
         )
         matrice, structure = construire_matrice_logprob(tokens_reference, resultats_analyse)
 
-        # 3) On affiche en console
-        afficher_matrice_brute(matrice, structure)
-
-        # 4) On sauve dans les bons dossiers
+        # 3) Sauvegardes
         matrix_path = matrix_dir  / f"matrix_{stem}.npy"
         result_path = results_dir / f"result_{stem}.txt"
 
@@ -687,4 +669,4 @@ if __name__ == "__main__":
         )
 
         print(f"→ Matrice enregistrée : {matrix_path.name}")
-        print(f"→ Rapport enregistré : {result_path.name}")
+        print(f"→ Rapport enregistré  : {result_path.name}")
