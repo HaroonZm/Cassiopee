@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-Script flexible pour le traitement de datasets de code Python avec l'API Batch d'OpenAI.
-Prend en charge deux types de datasets:
-1. Dataset CodeNet traditionnel avec énoncés de problèmes et solutions
-2. Dataset simple contenant uniquement des fichiers Python à reformuler
+Script flexible pour le traitement de datasets de code Python avec l'API OpenAI.
+Prend en charge deux types de datasets et deux modes d'API (Batch avec 50% d'économie, ou synchrone standard).
 """
 
 import os
@@ -17,8 +15,13 @@ import tempfile
 from pathlib import Path
 from openai import OpenAI
 
-
-OPENAI_API_KEY = "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"
+# ==============================================
+# CONFIGURATION : ENTREZ VOTRE CLÉ API ICI
+# ==============================================
+# Remplacez None par votre clé API OpenAI entre guillemets
+# Exemple: OPENAI_API_KEY = "sk-votreCleFournieParOpenAI"
+OPENAI_API_KEY = "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"
+# ==============================================
 
 # Configuration du logging
 logging.basicConfig(
@@ -46,6 +49,26 @@ REFORM_TEMPLATES = {
     "docs_none": "Réécris ce code Python sans aucun commentaire ni docstring. Renvoie uniquement le code brut sans délimiteurs markdown.",
     "docs_detailed": "Réécris ce code Python avec des commentaires détaillés expliquant chaque section et des docstrings complètes pour toutes les fonctions. Renvoie uniquement le code brut sans délimiteurs markdown.",
     "format_verbose": "Réécris ce code Python avec des noms de variables très explicites et une structure espacée pour maximiser la lisibilité. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    
+    # Signatures typiques d'IA (NOUVEAUX)
+    "ai_complex_simple": "Réécris ce code Python avec des solutions élégantes mais inutilement complexes pour des problèmes simples. Préfère l'ingéniosité à la lisibilité. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "ai_naming_patterns": "Réécris ce code Python en utilisant des patterns de nommage extrêmement cohérents et systématiques (comme data_manager, data_processor, data_validator). Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "ai_overexplained": "Réécris ce code Python avec des commentaires excessivement détaillés expliquant même les concepts évidents et basiques. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    
+    # Variété d'idiomes (NOUVEAUX)
+    "idiom_avoid_pythonic": "Réécris ce code Python en évitant délibérément les idiomes Python courants et en préférant des approches plus verbales et explicites. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "idiom_overuse_comprehensions": "Réécris ce code Python en utilisant excessivement les compréhensions de liste/dictionnaire, même quand une approche plus simple serait plus appropriée. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "idiom_latest_features": "Réécris ce code Python en surchargeant le code avec des fonctionnalités Python récentes (3.10+) comme les pattern matching, les unions de types, etc. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    
+    # Variations structurelles (NOUVEAUX)
+    "structure_fragmented": "Réécris ce code Python en le fragmentant en de nombreuses petites fonctions, même quand cela rend le code plus complexe à suivre. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "structure_flat": "Réécris ce code Python avec une structure excessivement plate, en minimisant les fonctions et en préférant des blocs de code linéaires. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "structure_perfect_format": "Réécris ce code Python avec une indentation et un formatage parfaitement cohérents, comme si le code avait été généré par une machine. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    
+    # Anti-détection (NOUVEAUX)
+    "stealth_human_like": "Réécris ce code Python pour qu'il ressemble à du code écrit par un humain, avec de légères incohérences de style, quelques commentaires personnels et potentiellement quelques imperfections mineures. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "stealth_mixed_style": "Réécris ce code Python en mélangeant délibérément plusieurs styles de programmation pour éviter les patterns trop cohérents. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "stealth_quirky": "Réécris ce code Python avec quelques choix de conception non-conventionnels qui seraient typiques d'un développeur avec des préférences personnelles particulières. Renvoie uniquement le code brut sans délimiteurs markdown.",
 }
 
 # Templates pour générer du code depuis zéro à partir d'un énoncé (uniquement pour CodeNet)
@@ -53,6 +76,13 @@ GENERATION_TEMPLATES = {
     "standard": "Crée une solution complète en Python pour ce problème. Sois concis et efficace. Renvoie uniquement le code brut sans délimiteurs markdown.",
     "detailed": "Crée une solution complète en Python pour ce problème avec des commentaires détaillés expliquant ton approche. Renvoie uniquement le code brut sans délimiteurs markdown.",
     "optimized": "Crée la solution la plus optimisée possible en Python pour ce problème, en tenant compte de la complexité temporelle et spatiale. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    
+    # Nouveaux templates de génération
+    "gen_beginner_style": "Crée une solution en Python pour ce problème comme le ferait un programmeur débutant, avec une approche simple et directe, possiblement non-optimale. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "gen_over_engineered": "Crée une solution excessivement sophistiquée en Python pour ce problème, avec des abstractions peut-être superflues comme si tu anticipais de futures extensions même pour cette tâche simple. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "gen_minimalist": "Crée la solution la plus minimaliste et concise possible en Python pour ce problème, en utilisant le moins de lignes possible, même au détriment de la lisibilité. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "gen_production_ready": "Crée une solution robuste et prête pour la production pour ce problème, avec gestion des erreurs exhaustive, validation des entrées et journalisation appropriée. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "gen_human_like": "Crée une solution Python pour ce problème qui semble avoir été écrite par un humain, avec quelques commentaires personnels, peut-être une ou deux approches non-optimales et un style légèrement incohérent. Renvoie uniquement le code brut sans délimiteurs markdown.",
 }
 
 class BatchRequestItem:
@@ -85,7 +115,7 @@ class BatchRequestItem:
             "method": "POST",
             "url": "/v1/chat/completions",
             "body": {
-                "model": "gpt-4o",
+                "model": "gpt-4.1-mini",
                 "messages": [
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": user_message}
@@ -99,7 +129,7 @@ class BatchRequestItem:
 class FlexibleBatchProcessor:
     """Processeur flexible pour les datasets de code Python"""
     
-    def __init__(self, input_path, output_path, api_key=None, poll_interval=60, batch_size=1000):
+    def __init__(self, input_path, output_path, api_key=None, poll_interval=60, batch_size=1000, use_batch=True):
         """
         Initialise le processeur flexible.
         
@@ -109,11 +139,13 @@ class FlexibleBatchProcessor:
             api_key (str, optional): Clé API OpenAI. Par défaut, utilise la variable définie dans le script.
             poll_interval (int): Intervalle en secondes entre chaque vérification de l'état du batch
             batch_size (int): Taille maximale d'un lot de requêtes (max 50000)
+            use_batch (bool): Utiliser l'API Batch (True) ou des appels synchrones (False)
         """
         self.input_path = Path(input_path)
         self.output_path = Path(output_path)
         self.poll_interval = poll_interval
         self.batch_size = min(batch_size, 50000)  # OpenAI limite à 50000 requêtes par batch
+        self.use_batch = use_batch
         
         # Initialiser le client OpenAI
         if OPENAI_API_KEY:
@@ -148,6 +180,7 @@ class FlexibleBatchProcessor:
             "solutions_from_scratch": 0,
             "batches_submitted": 0,
             "batches_completed": 0,
+            "api_calls": 0,
             "api_errors": 0,
             "file_errors": 0
         }
@@ -376,7 +409,10 @@ class FlexibleBatchProcessor:
                 batch = self.client.batches.retrieve(batch_id)
                 status = batch.status
                 
-                logger.info(f"Batch {batch_id} - État: {status} - Terminé: {batch.request_counts.completed}/{batch.request_counts.total}")
+                requests_completed = batch.request_counts.completed if batch.request_counts else 0
+                requests_total = batch.request_counts.total if batch.request_counts else 0
+                
+                logger.info(f"Batch {batch_id} - État: {status} - Terminé: {requests_completed}/{requests_total}")
                 
                 if status == "completed":
                     self.stats["batches_completed"] += 1
@@ -467,6 +503,64 @@ class FlexibleBatchProcessor:
             logger.error(f"Erreur lors du traitement des résultats du batch {batch.id}: {e}")
             return {}
     
+    def process_synchronous(self, requests):
+        """
+        Traite les requêtes de manière synchrone (sans utiliser l'API Batch).
+        
+        Args:
+            requests (list): Liste de BatchRequestItem
+            
+        Returns:
+            dict: Dictionnaire des résultats par custom_id
+        """
+        results = {}
+        total = len(requests)
+        
+        logger.info(f"Traitement synchrone de {total} requêtes...")
+        
+        for i, request in enumerate(requests):
+            try:
+                logger.info(f"Traitement de la requête {i+1}/{total}: {request.custom_id}")
+                
+                # Construire le message système et utilisateur
+                system_message = "Tu es un expert en Python chargé de reformuler ou générer du code selon des instructions spécifiques. Le code généré doit être fonctionnel et respecter les contraintes demandées."
+                user_message = f"{request.prompt_template}\n\n{request.content}"
+                
+                # Appel API synchrone
+                response = self.client.chat.completions.create(
+                    model="gpt-4.1-mini",
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        {"role": "user", "content": user_message}
+                    ],
+                    max_tokens=4096
+                )
+                
+                self.stats["api_calls"] += 1
+                
+                # Extraire et nettoyer la réponse
+                if response and response.choices and len(response.choices) > 0:
+                    content = response.choices[0].message.content
+                    cleaned_content = self.clean_code_response(content)
+                    results[request.custom_id] = cleaned_content
+                
+                # Ajouter un délai pour éviter les erreurs de rate limit
+                if (i+1) % 10 == 0:
+                    logger.info(f"Pause pour éviter le rate limit ({i+1}/{total} requêtes traitées)")
+                    time.sleep(2)
+                
+            except Exception as e:
+                logger.error(f"Erreur lors du traitement de la requête {request.custom_id}: {e}")
+                self.stats["api_errors"] += 1
+        
+        logger.info(f"Traitement synchrone terminé: {len(results)}/{total} requêtes traitées avec succès")
+        
+        # Sauvegarder les résultats
+        requests_map = {req.custom_id: req.metadata for req in requests}
+        self.save_results_to_files("synchronous", results, requests_map)
+        
+        return results
+    
     def save_results_to_files(self, batch_id, results, requests_map):
         """
         Sauvegarde les résultats dans les fichiers appropriés.
@@ -496,6 +590,8 @@ class FlexibleBatchProcessor:
                 # Traiter les reformulations
                 file_path = metadata.get("file_path")
                 variation_key = metadata.get("variation_key")
+                problem_id = metadata.get("problem_id", "unknown")
+                subdirs = metadata.get("subdirs", "")
                 
                 if not all([file_path, variation_key]):
                     logger.warning(f"Métadonnées incomplètes pour {custom_id}")
@@ -503,22 +599,16 @@ class FlexibleBatchProcessor:
                 
                 # Créer le chemin de sortie
                 input_path = Path(file_path)
-                relative_path = input_path.relative_to(self.input_path) if input_path.is_relative_to(self.input_path) else input_path.name
                 
-                if self.dataset_type == "codenet":
-                    # Format CodeNet: problème/solution
-                    problem_id = relative_path.parts[0] if len(relative_path.parts) > 0 else "unknown"
-                    solution_id = input_path.name
-                    
-                    output_dir = self.output_path / problem_id / f"original_{solution_id}"
-                    output_file = output_dir / f"ai_{variation_key}.py"
+                # Construire solution_id en incluant les sous-dossiers si présents
+                filename = input_path.name
+                if subdirs:
+                    solution_id = f"{subdirs}_{filename}"
                 else:
-                    # Format code uniquement: dossier/fichier.py
-                    parent_dir = relative_path.parent
-                    file_name = input_path.stem
-                    
-                    output_dir = self.output_path / parent_dir / file_name
-                    output_file = output_dir / f"ai_{variation_key}.py"
+                    solution_id = filename
+                
+                output_dir = self.output_path / problem_id / f"original_{solution_id}"
+                output_file = output_dir / f"ai_{variation_key}.py"
                 
                 # Créer le répertoire de sortie
                 self.create_directories(output_dir)
@@ -537,6 +627,8 @@ class FlexibleBatchProcessor:
                         "file_path": str(file_path),
                         "output_path": str(output_file),
                         "variation_type": variation_key,
+                        "problem_id": problem_id,
+                        "subdirs": subdirs,
                         "is_reformulation": True,
                         "batch_id": batch_id,
                         "custom_id": custom_id,
@@ -680,14 +772,6 @@ class FlexibleBatchProcessor:
     def collect_code_only_requests(self, files, variation_limit=3, test_mode=False):
         """
         Collecte les requêtes pour le dataset contenant uniquement des fichiers Python.
-        
-        Args:
-            files (list): Liste des chemins de fichiers Python
-            variation_limit (int): Nombre maximum de variations par fichier
-            test_mode (bool): Indique si le script est en mode test
-            
-        Returns:
-            list: Liste de BatchRequestItem
         """
         all_requests = []
         
@@ -696,7 +780,7 @@ class FlexibleBatchProcessor:
             files = files[:5]
             variation_limit = min(variation_limit, 2)
         
-        # Sélectionner aléatoirement un sous-ensemble de variations pour chaque fichier
+        # Sélectionner aléatoirement un sous-ensemble de variations
         available_variations = list(REFORM_TEMPLATES.keys())
         if len(available_variations) > variation_limit:
             selected_variations = random.sample(available_variations, variation_limit)
@@ -709,15 +793,34 @@ class FlexibleBatchProcessor:
                 if not code:
                     continue
                 
+                # Obtenir le chemin relatif pour extraire les sous-dossiers
+                relative_path = file_path.relative_to(self.input_path) if file_path.is_relative_to(self.input_path) else file_path.name
+                
+                # Extraire le premier niveau comme problem_id
+                if len(relative_path.parts) > 0:
+                    problem_id = relative_path.parts[0]
+                    
+                    # Capturer tous les sous-dossiers entre le premier niveau et le fichier
+                    subdirs = '_'.join(str(part) for part in relative_path.parts[1:-1]) if len(relative_path.parts) > 2 else ""
+                else:
+                    problem_id = "unknown"
+                    subdirs = ""
+                
                 for variation_key in selected_variations:
-                    # Générer un ID unique pour cette requête
-                    custom_id = f"var_{file_path.stem}_{uuid.uuid4().hex[:8]}_{variation_key}"
+                    # Inclure le sous-dossier dans le custom_id pour l'identification
+                    if subdirs:
+                        custom_id = f"var_{problem_id}_{subdirs}_{file_path.stem}_{uuid.uuid4().hex[:4]}_{variation_key}"
+                    else:
+                        custom_id = f"var_{problem_id}_{file_path.stem}_{uuid.uuid4().hex[:4]}_{variation_key}"
+                    
                     prompt_template = REFORM_TEMPLATES.get(variation_key)
                     
                     metadata = {
                         "type": "reformulation",
                         "file_path": str(file_path),
-                        "variation_key": variation_key
+                        "variation_key": variation_key,
+                        "problem_id": problem_id,
+                        "subdirs": subdirs
                     }
                     
                     request = BatchRequestItem(custom_id, prompt_template, code, metadata)
@@ -778,42 +881,51 @@ class FlexibleBatchProcessor:
             logger.info(f"Collecte des requêtes pour {len(python_files)} fichiers Python...")
             all_requests = self.collect_code_only_requests(python_files, variation_limit, test_mode)
         
-        # Diviser les requêtes en lots selon la taille maximale de batch
-        batches = []
-        for i in range(0, len(all_requests), self.batch_size):
-            batch_requests = all_requests[i:i+self.batch_size]
-            batches.append(batch_requests)
+        logger.info(f"Collecte terminée: {len(all_requests)} requêtes à traiter")
         
-        logger.info(f"Collecte terminée: {len(all_requests)} requêtes divisées en {len(batches)} batches")
-        
-        # Traiter chaque batch
-        for i, batch_requests in enumerate(batches):
-            logger.info(f"Traitement du batch {i+1}/{len(batches)} avec {len(batch_requests)} requêtes...")
+        # Traitement selon le mode (batch ou synchrone)
+        if self.use_batch:
+            # Mode Batch: diviser les requêtes en lots
+            batches = []
+            for i in range(0, len(all_requests), self.batch_size):
+                batch_requests = all_requests[i:i+self.batch_size]
+                batches.append(batch_requests)
             
-            # Soumettre le batch
-            batch_id, _ = self.submit_batch(batch_requests)
-            if not batch_id:
-                logger.error(f"Échec de la soumission du batch {i+1}/{len(batches)}")
-                continue
+            logger.info(f"Mode Batch: {len(all_requests)} requêtes divisées en {len(batches)} batches")
             
-            # Vérifier l'état du batch jusqu'à ce qu'il soit terminé
-            batch = self.poll_batch_status(batch_id)
-            if not batch:
-                logger.error(f"Échec du suivi du batch {batch_id}")
-                continue
-            
-            # Traiter les résultats du batch
-            self.process_batch_results(batch)
-            
-            # Afficher les statistiques intermédiaires
-            logger.info(f"Statistiques intermédiaires: {self.stats}")
+            # Traiter chaque batch
+            for i, batch_requests in enumerate(batches):
+                logger.info(f"Traitement du batch {i+1}/{len(batches)} avec {len(batch_requests)} requêtes...")
+                
+                # Soumettre le batch
+                batch_id, _ = self.submit_batch(batch_requests)
+                if not batch_id:
+                    logger.error(f"Échec de la soumission du batch {i+1}/{len(batches)}")
+                    continue
+                
+                # Vérifier l'état du batch jusqu'à ce qu'il soit terminé
+                batch = self.poll_batch_status(batch_id)
+                if not batch:
+                    logger.error(f"Échec du suivi du batch {batch_id}")
+                    continue
+                
+                # Traiter les résultats du batch
+                self.process_batch_results(batch)
+                
+                # Afficher les statistiques intermédiaires
+                logger.info(f"Statistiques intermédiaires: {self.stats}")
+        else:
+            # Mode synchrone: traiter les requêtes une par une
+            logger.info(f"Mode synchrone: traitement de {len(all_requests)} requêtes...")
+            self.process_synchronous(all_requests)
+            logger.info(f"Statistiques finales: {self.stats}")
         
         return self.stats
 
 
 def main():
     """Fonction principale"""
-    parser = argparse.ArgumentParser(description='Traitement flexible de datasets de code Python avec l\'API Batch d\'OpenAI.')
+    parser = argparse.ArgumentParser(description='Traitement flexible de datasets de code Python avec l\'API OpenAI.')
     parser.add_argument('--input', type=str, required=True, help='Chemin vers le dataset d\'entrée (CodeNet ou dossier de code Python)')
     parser.add_argument('--output', type=str, required=True, help='Chemin de sortie pour les fichiers générés')
     parser.add_argument('--test', action='store_true', help='Activer le mode test (traiter uniquement un petit échantillon)')
@@ -824,11 +936,13 @@ def main():
     parser.add_argument('--files', type=int, help='Limite le nombre de fichiers à traiter (pour dataset code uniquement)')
     parser.add_argument('--poll-interval', type=int, default=60, help='Intervalle en secondes entre chaque vérification de l\'état du batch')
     parser.add_argument('--batch-size', type=int, default=1000, help='Taille maximale d\'un lot de requêtes (max 50000)')
+    parser.add_argument('--no-batch', action='store_true', help='Désactiver l\'API Batch et utiliser des appels synchrones standard')
     
     args = parser.parse_args()
     
-    logger.info("=== Démarrage du processus de traitement de code Python avec API Batch ===")
+    logger.info("=== Démarrage du processus de traitement de code Python ===")
     logger.info(f"Mode test: {'Activé' if args.test else 'Désactivé'}")
+    logger.info(f"Mode API: {'Synchrone (standard)' if args.no_batch else 'Batch (50% moins cher)'}")
     logger.info(f"Chemin d'entrée: {args.input}")
     logger.info(f"Chemin de sortie: {args.output}")
     logger.info(f"Variations par solution/fichier: {args.variations}")
@@ -840,7 +954,8 @@ def main():
             output_path=args.output,
             api_key=args.api_key,
             poll_interval=args.poll_interval,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            use_batch=not args.no_batch
         )
         
         stats = processor.process_dataset(
@@ -862,8 +977,12 @@ def main():
             logger.info(f"  - Fichiers traités: {stats['files_processed']}")
             logger.info(f"  - Variations générées: {stats['variations_generated']}")
         
-        logger.info(f"  - Batches soumis: {stats['batches_submitted']}")
-        logger.info(f"  - Batches terminés: {stats['batches_completed']}")
+        if not args.no_batch:
+            logger.info(f"  - Batches soumis: {stats['batches_submitted']}")
+            logger.info(f"  - Batches terminés: {stats['batches_completed']}")
+        else:
+            logger.info(f"  - Appels API: {stats['api_calls']}")
+        
         logger.info(f"  - Erreurs API: {stats['api_errors']}")
         logger.info(f"  - Erreurs fichier: {stats['file_errors']}")
         
