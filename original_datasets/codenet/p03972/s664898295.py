@@ -1,0 +1,29 @@
+import sys
+input = sys.stdin.readline
+sys.setrecursionlimit(10 ** 7)
+
+W,H = map(int,input().split())
+P = [int(input()) for _ in range(W)]
+Q = [int(input()) for _ in range(H)]
+
+cost = 0
+rest_P = W
+rest_Q = H
+P.sort()
+Q.sort()
+INF = 10**10
+P.append(INF)
+Q.append(INF)
+p = 0
+q = 0
+for _ in range(W+H):
+    x,y = P[p],Q[q]
+    if x < y:
+        cost += x * (rest_Q+1)
+        p += 1
+        rest_P -= 1
+    else:
+        cost += y * (rest_P+1)
+        q += 1
+        rest_Q -= 1
+print(cost)

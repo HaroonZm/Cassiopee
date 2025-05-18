@@ -1,0 +1,14 @@
+while True:
+	n, q = map(int, raw_input().split())
+	if n == q == 0: break
+	counts = [0] * 101
+	maxd = 0
+	for i in xrange(n):
+		data = map(int, raw_input().split()[1:])
+		for d in data:
+			counts[d] += 1
+			maxd = max(maxd, counts[d])
+	if q <= maxd:
+		print counts.index(maxd)
+	else:
+		print 0

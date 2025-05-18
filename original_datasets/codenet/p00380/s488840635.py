@@ -1,0 +1,20 @@
+n = int(input())
+a_lst = list(map(int, input().split()))
+q = int(input())
+query = [tuple(map(int, input().split())) for _ in range(q)]
+comp = sorted(a_lst)
+diff = sum([a_lst[i] != comp[i] for i in range(n)])
+if diff == 0:
+  print(0)
+else:
+  for i in range(q):
+    x, y = query[i]
+    x -= 1
+    y -= 1
+    diff -= (a_lst[x] == comp[y]) + (a_lst[y] == comp[x]) - (a_lst[x] == comp[x]) - (a_lst[y] == comp[y])
+    if diff == 0:
+      print(i + 1)
+      break
+    a_lst[y], a_lst[x] = a_lst[x], a_lst[y]
+  else:
+    print(-1)

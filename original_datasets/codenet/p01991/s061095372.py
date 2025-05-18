@@ -1,0 +1,40 @@
+#=============================================================================
+# サイクル検出 AOJ2891の解答例
+#=============================================================================
+import queue
+
+N=int(input())
+Graph=[[] for _ in range(N)]
+deg=[0 for _ in range(N)]
+que=queue.Queue()
+circle=[True for _ in range(N)]
+
+for _ in range(N):
+    a,b=map(int,input().split())
+    a-=1
+    b-=1
+    Graph[a].append(b)
+    Graph[b].append(a)
+    deg[a]+=1
+    deg[b]+=1
+
+for v in range(N):
+    if deg[v]==1:
+        que.put(v)
+        circle[v]=False
+
+while not que.empty():
+    v=que.get()
+    for nv in Graph[v]:
+        deg[nv]-=1
+        if deg[nv]==1:
+            que.put(nv)
+            circle[nv]=False
+
+Q=int(input())
+for _ in range(Q):
+    a,b=map(int,input().split())
+    if circle[a-1] and circle[b-1]:
+        print(2)
+    else:
+        print(1)

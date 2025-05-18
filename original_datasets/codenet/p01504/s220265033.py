@@ -1,0 +1,59 @@
+from collections import defaultdict
+import heapq
+
+case = 1
+while True:
+    n, t, k = map(int, input().split())
+    if n == t == k == 0:
+        break
+
+    costs = [0] * 10001
+
+    # 全ての辺をまず壊して考える
+    E = defaultdict(list)
+    for i in range(n-1):
+        fr, to, c = map(int, input().split())
+        E[fr - 1].append((c, to - 1))
+        E[to - 1].append((c, fr - 1))
+        costs[c] += 1
+
+    bases = [None]*t
+    # isUnitedが負の点がなくなるようにしなければいけない
+    isUnited = [False] * n
+    for i in range(t):
+        b = int(input()) - 1
+        bases[i] = b
+        isUnited[b] = True
+
+    q = []
+    for b in bases:
+        for c, y in E[b]:
+            if not isUnited[y]:
+                # heapqで降順にするためにコストに負を掛ける
+                heapq.heappush(q, (-c, y))
+
+    while q:
+        c_minus, y = heapq.heappop(q)
+        if isUnited[y]:
+            continue
+        isUnited[y] = True
+        # -c_minus == c
+        # 壊してはいけない辺を復活させる
+        costs[-c_minus] -= 1
+
+        for nc, ny in E[y]:
+            if not isUnited[ny]:
+                heapq.heappush(q, (-nc, ny))
+
+    p = 0
+    ans = 0
+    # 壊せる辺の中でコストの低い順からk個だけとる
+    while k > 0:
+        while k > 0 and costs[p] > 0:
+            costs[p] -= 1
+            k -= 1
+            ans += p
+        p += 1
+
+    print("Case {}: {}".format(case, ans))
+    case += 1

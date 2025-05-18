@@ -1,0 +1,8 @@
+n,k=map(int,input().split())
+ans=0
+for i in range(n):
+  ans+=(n//(i+1))*max(0,i+1-k)+max(0,n%(i+1)-k+1)
+if k>0:
+  print(ans)
+else:
+  print(ans-n)

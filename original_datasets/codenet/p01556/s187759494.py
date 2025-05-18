@@ -1,0 +1,22 @@
+N = input()
+lst = []
+
+for i in range(N):
+    X, Y = map(int, raw_input().split())
+    lst.append((X, Y))
+
+if N % 2 != 0:
+    print "NA"
+    exit()
+
+ansx = lst[0][0] + lst[N / 2][0]
+ansy = lst[0][1] + lst[N / 2][1]
+
+for i in range(N / 2):
+    x = lst[i][0] + lst[i + N / 2][0]
+    y = lst[i][1] + lst[i + N / 2][1]
+    if x != ansx or y != ansy:
+        print "NA"
+        exit()
+
+print str(ansx / 2.0) + " " + str(ansy / 2.0)

@@ -1,0 +1,33 @@
+def main():
+    import sys
+    from math import sqrt
+    input = sys.stdin.readline
+
+    mod = 1000000007
+    N, K = map(int, input().split())
+    n = int(sqrt(N))
+    dp = [[0] * (2*n+1) for _ in range(K+1)]
+    dp[0][1] = 1
+
+    num = [0] * (n+1)
+    for i in range(1, n):
+        num[i] = N // i - N // (i+1)
+    num[n] = N // n - n
+
+    for i in range(K):
+        cs = dp[i][:n+1]
+        cs2 = dp[i][n+1:]
+        for j in range(1, n+1):
+            cs[j] = (cs[j] + cs[j-1])%mod
+        for j in range(1, n):
+            cs2[j] = (cs2[j] + cs2[j-1])%mod
+        for j in range(1, n+1):
+            dp[i+1][-j] = (cs[j] * num[j])%mod
+            dp[i+1][j] = (cs2[-j] + cs[n])%mod
+    ans = 0
+    for a in dp[-1]:
+        ans = (ans + a)%mod
+    print(ans)
+
+if __name__ == '__main__':
+    main()

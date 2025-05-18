@@ -1,0 +1,28 @@
+import fractions
+import functools
+
+def main():
+    n = int(input())
+    a = [int(t)for t in input().split()]
+
+    a_gcd = functools.reduce(fractions.gcd,a)
+    a = [x//a_gcd for x in a]
+    
+    a_rev = a[::-1]
+
+    lgcd = [0]
+    rgcd = [0]
+    for i in range(n):
+        l = fractions.gcd(a[i],lgcd[i])
+        r = fractions.gcd(a_rev[i],rgcd[i])
+        lgcd.append(l)
+        rgcd.append(r)
+
+    rgcd = rgcd[::-1]
+    g = [fractions.gcd(lgcd[i],rgcd[i+1]) for i in range(n)]
+    
+    print(max(g)*a_gcd)
+    
+    
+if __name__ == "__main__":
+    main()

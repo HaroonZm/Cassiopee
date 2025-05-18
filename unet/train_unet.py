@@ -8,6 +8,9 @@ import glob
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 from collections import defaultdict
+import argparse  # Ajouté pour gérer les arguments en ligne de commande
+import json  # Pour sauvegarder les métadonnées d'entraînement
+import datetime  # Pour générer des noms de fichiers uniques
 
 # Dataset pour les tuiles pré-découpées avec identification simplifiée des matrices sources
 class PreTiledCodeMatrixDataset(Dataset):
@@ -261,10 +264,55 @@ def evaluate_model(model, val_loader, device):
     
     return accuracy, aggregated_results
 
+# Générer un nom de fichier unique pour le modèle
+def generate_model_filename(batch_name, model_type, num_epochs, batch_size, accuracy=None):
+    """
+    Génère un nom de fichier unique pour le modèle.
+    
+    Args:
+        batch_name: Nom du batch utilisé pour l'entraînement
+        model_type: Type de modèle ('best', 'final')
+        num_epochs: Nombre d'époques d'entraînement
+        batch_size: Taille du batch utilisé
+        accuracy: Précision du modèle (optionnel)
+    
+    Returns:
+        Nom de fichier unique
+    """
+    # Obtenir la date et l'heure actuelles au format YYYYMMDD_HHMMSS
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Nettoyer le nom du batch pour qu'il soit utilisable dans un nom de fichier
+    batch_name = os.path.basename(batch_name)
+    batch_name = ''.join(c if c.isalnum() else '_' for c in batch_name)
+    
+    # Construire le nom de fichier
+    filename = f"unet_{batch_name}_{model_type}_e{num_epochs}_b{batch_size}"
+    
+    # Ajouter la précision si disponible
+    if accuracy is not None:
+        accuracy_str = f"{accuracy:.4f}".replace('.', '')
+        filename += f"_acc{accuracy_str}"
+    
+    # Ajouter le timestamp et l'extension
+    filename += f"_{timestamp}.pth"
+    
+    return filename
+
 # Fonction d'entraînement modifiée
-def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer, num_epochs=10, device='cuda'):
+def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer, 
+                          num_epochs=10, device='cuda', model_save_dir='.', 
+                          batch_name='default'):
     model.to(device)
     best_val_acc = 0.0
+    best_epoch = -1
+    best_model_filename = None  # Initialiser à None pour gérer le cas où aucun meilleur modèle n'est trouvé
+    
+    # Créer le dossier pour sauvegarder si nécessaire
+    os.makedirs(model_save_dir, exist_ok=True)
+    
+    # Préparer le nom de base du modèle
+    batch_size = train_loader.batch_size
     
     for epoch in range(num_epochs):
         # Mode entraînement
@@ -306,27 +354,76 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
         # Sauvegarde du meilleur modèle
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), 'best_unet_tile_detector.pth')
-            print(f"Model saved with validation accuracy: {val_acc:.4f}")
+            best_epoch = epoch + 1
+            
+            # Générer un nom de fichier unique pour le meilleur modèle
+            best_model_filename = generate_model_filename(
+                batch_name, "best", num_epochs, batch_size, val_acc
+            )
+            best_model_path = os.path.join(model_save_dir, best_model_filename)
+            
+            torch.save(model.state_dict(), best_model_path)
+            print(f"Meilleur modèle sauvegardé avec précision de validation: {val_acc:.4f}")
+            print(f"Chemin: {best_model_path}")
     
-    return model
+    # Si aucun meilleur modèle n'a été trouvé (rare, mais possible)
+    if best_model_filename is None:
+        print("Attention: Aucune amélioration de la précision pendant l'entraînement.")
+        # Créer un nom de fichier pour le modèle final qui servira aussi de meilleur modèle
+        best_model_filename = generate_model_filename(
+            batch_name, "best_final", num_epochs, batch_size, 0.0
+        )
+        best_model_path = os.path.join(model_save_dir, best_model_filename)
+        torch.save(model.state_dict(), best_model_path)
+        print(f"Modèle sauvegardé comme meilleur modèle par défaut: {best_model_path}")
+    
+    return model, best_val_acc, best_epoch, best_model_filename
 
-# Fonction principale modifiée
+# Fonction principale modifiée pour accepter les arguments en ligne de commande
 def main():
+    # Configuration de l'analyse des arguments en ligne de commande
+    parser = argparse.ArgumentParser(description="Entraînement du modèle de détection de code IA")
+    parser.add_argument('--batch_directory', type=str, default="default_batch",
+                       help="Dossier contenant les données de batch, les tuiles seront recherchées dans batch_directory/tiles")
+    parser.add_argument('--batch_size', type=int, default=16,
+                       help="Taille du batch pour l'entraînement")
+    parser.add_argument('--num_epochs', type=int, default=20,
+                       help="Nombre d'époques d'entraînement")
+    parser.add_argument('--learning_rate', type=float, default=0.001,
+                       help="Taux d'apprentissage")
+    parser.add_argument('--model_save_dir', type=str, default="models",
+                       help="Dossier où sauvegarder les modèles")
+    
+    args = parser.parse_args()
+    
     # Paramètres
-    data_folder = "tuiled_matrixes"  # Dossier contenant les tuiles pré-découpées
-    batch_size = 16
-    num_epochs = 20
-    learning_rate = 0.001
+    batch_directory = args.batch_directory
+    batch_size = args.batch_size
+    num_epochs = args.num_epochs
+    learning_rate = args.learning_rate
+    model_save_dir = args.model_save_dir
+    
+    # Extraire le nom du batch (pour les noms de fichiers)
+    batch_name = os.path.basename(batch_directory)
+    
+    # Créer le dossier pour sauvegarder les modèles s'il n'existe pas
+    os.makedirs(model_save_dir, exist_ok=True)
+    
+    # Chemin vers le dossier des tuiles
+    tiles_folder = os.path.join(batch_directory, "tiles")
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     print(f"Utilisation de: {device}")
+    print(f"Dossier batch: {batch_directory}")
+    print(f"Dossier des tuiles: {tiles_folder}")
+    print(f"Sauvegarde des modèles dans: {model_save_dir}")
     
     # Trouver toutes les tuiles
-    tile_paths = glob.glob(os.path.join(data_folder, "*.npy"))
+    tile_paths = glob.glob(os.path.join(tiles_folder, "*.npy"))
     
     if not tile_paths:
-        print(f"Aucune tuile trouvée dans {data_folder}")
+        print(f"Aucune tuile trouvée dans {tiles_folder}")
         return
         
     print(f"Trouvé {len(tile_paths)} tuiles")
@@ -371,8 +468,49 @@ def main():
     
     # Entraînement du modèle
     print(f"Début de l'entraînement...")
-    model = train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer, num_epochs, device)
+    model, best_val_acc, best_epoch, best_model_filename = train_model_with_tiles(
+        model, train_loader, val_loader, criterion, optimizer, 
+        num_epochs, device, model_save_dir, batch_name
+    )
     
+    # Sauvegarder le modèle final
+    final_model_filename = generate_model_filename(
+        batch_name, "final", num_epochs, batch_size
+    )
+    final_model_path = os.path.join(model_save_dir, final_model_filename)
+    torch.save(model.state_dict(), final_model_path)
+    print(f"Modèle final sauvegardé à: {final_model_path}")
+    
+    # Évaluer le modèle final
+    final_val_acc, _ = evaluate_model(model, val_loader, device)
+    
+  # Sauvegarder les métadonnées d'entraînement
+    metadata = {
+        'batch_directory': batch_directory,
+        'num_epochs': num_epochs,
+        'batch_size': batch_size,
+        'learning_rate': learning_rate,
+        'best_validation_accuracy': float(best_val_acc),
+        'best_epoch': best_epoch,
+        'final_validation_accuracy': float(final_val_acc),
+        'num_tiles': len(tile_paths),
+        'num_matrices': len(unique_matrix_indices),
+        'num_train_tiles': len(train_dataset),
+        'num_val_tiles': len(val_dataset),
+        'device': str(device),
+        'best_model_file': best_model_filename if best_model_filename is not None else "none",
+        'final_model_file': final_model_filename,
+        'training_date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    # Générer un nom pour le fichier de métadonnées
+    metadata_filename = f"training_metadata_{batch_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    metadata_path = os.path.join(model_save_dir, metadata_filename)
+    
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=4)
+    
+    print(f"Métadonnées d'entraînement sauvegardées à: {metadata_path}")
     print("Entraînement terminé!")
 
 # Conserver votre architecture UNet originale

@@ -1,0 +1,10 @@
+abc=[int(i) for i in input().split(" ")]
+abc=sorted(abc)
+a,b,c=abc[0],abc[1],abc[2]
+if a==b:
+    print(str(c-a))
+else:
+    if (a-b)%2==0:
+        print(str(int((b-a)/2+c-b)))
+    else:
+        print(str(int((b-a-1)/2+1+c+1-b)))

@@ -1,0 +1,7 @@
+import sys
+for line in sys.stdin:
+    v = list(map(int, line.split(",")))
+    k = [sum(v[:i]) for i,j in enumerate(v[:-1])]
+    l = v[-2]/(v[-1]+v[-2]) * k[-1]
+    n = [a-l if a-l >= 0 else 1e10 for a in k]
+    print(n.index(min(n)))

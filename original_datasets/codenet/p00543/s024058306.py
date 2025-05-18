@@ -1,0 +1,16 @@
+n,m = map(int,input().split())
+d={}
+for i in range(n):
+    d[i+1] = int(input())
+for l in range(m):
+    k = l+1
+    for j in range(n):
+        i = j+1
+        if i == n:
+            break
+        if d[i]%k > d[i+1]%k:
+            t = d[i]
+            d[i] = d[i+1]
+            d[i+1] = t
+for i in range(n):
+    print(d[i+1])

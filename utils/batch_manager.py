@@ -324,6 +324,49 @@ def command_fetch(args):
     if args.save:
         manager.save_results(args.batch_id, results, args.destination)
 
+def command_fetch_range(args):
+    """Commande pour récupérer les résultats de plusieurs batchs par rang"""
+    manager = SimpleBatchManager(args.api_key, args.output)
+    
+    # Récupérer la liste des batchs
+    batches = manager.list_batches(args.limit)
+    
+    if not batches:
+        print("Aucun batch trouvé.")
+        return
+    
+    # Vérifier que le rang est valide
+    if args.rank <= 0 or args.rank > len(batches):
+        print(f"Rang invalide. Doit être entre 1 et {len(batches)}.")
+        return
+    
+    # Parcourir les batchs jusqu'au rang spécifié
+    success_count = 0
+    for i in range(args.rank):
+        batch = batches[i]
+        batch_id = batch.id
+        
+        print(f"\nTraitement du batch {i+1}/{args.rank}: {batch_id}")
+        
+        # Vérifier si le batch est terminé
+        if batch.status != "completed" and not args.force:
+            print(f"Le batch {batch_id} n'est pas terminé (statut: {batch.status}). Ignoré.")
+            continue
+        
+        # Récupérer les résultats
+        results = manager.get_batch_results(batch_id, args.save_raw)
+        
+        if not results:
+            print(f"Aucun résultat n'a pu être récupéré pour le batch {batch_id}.")
+            continue
+        
+        # Sauvegarder les résultats
+        saved = manager.save_results(batch_id, results, args.destination)
+        if saved > 0:
+            success_count += 1
+    
+    print(f"\nOpération terminée: {success_count} batchs sauvegardés avec succès.")
+
 def main():
     """Fonction principale"""
     parser = argparse.ArgumentParser(description='Gestionnaire simple pour les batchs OpenAI')
@@ -331,7 +374,7 @@ def main():
     # Parent parser pour les arguments communs
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument('--api-key', type=str, help='Clé API OpenAI')
-    parent_parser.add_argument('--output', type=str, default='detector_dataset', help='Répertoire de base')
+    parent_parser.add_argument('--output', type=str, default='./data/batches', help='Répertoire de base')
     
     # Sous-parseurs pour les différentes commandes
     subparsers = parser.add_subparsers(dest='command', help='Commande à exécuter')
@@ -354,6 +397,15 @@ def main():
     fetch_parser.add_argument('--save-raw', action='store_true', help='Sauvegarde les résultats bruts')
     fetch_parser.add_argument('--destination', type=str, help='Répertoire de destination pour les résultats')
     fetch_parser.set_defaults(func=command_fetch)
+    
+    # Commande 'fetch-range'
+    fetch_range_parser = subparsers.add_parser('fetch-range', help='Récupère les résultats de plusieurs batchs par rang', parents=[parent_parser])
+    fetch_range_parser.add_argument('rank', type=int, help='Récupérer tous les batchs jusqu\'à ce rang (1 = plus récent)')
+    fetch_range_parser.add_argument('--limit', type=int, default=100, help='Nombre maximum de batchs à récupérer')
+    fetch_range_parser.add_argument('--force', action='store_true', help='Force la récupération même si les batchs ne sont pas terminés')
+    fetch_range_parser.add_argument('--save-raw', action='store_true', help='Sauvegarde les résultats bruts')
+    fetch_range_parser.add_argument('--destination', type=str, help='Répertoire de destination pour les résultats')
+    fetch_range_parser.set_defaults(func=command_fetch_range)
     
     args = parser.parse_args()
     

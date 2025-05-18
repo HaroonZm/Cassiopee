@@ -1,0 +1,40 @@
+import sys
+stdin = sys.stdin
+ 
+sys.setrecursionlimit(10**5)
+
+def li(): return map(int, stdin.readline().split())
+def li_(): return map(lambda x: int(x)-1, stdin.readline().split())
+def lf(): return map(float, stdin.readline().split())
+def ls(): return stdin.readline().split()
+def ns(): return stdin.readline().rstrip()
+def lc(): return list(ns())
+def ni(): return int(stdin.readline())
+def nf(): return float(stdin.readline())
+
+from math import sqrt
+
+def wc(a:int, b:int) -> int:
+    
+    if a == b:
+        return 2*a - 2
+    
+    elif abs(a-b) == 1:
+        return 2*min(a,b) - 2
+    
+    else:
+        c = int(sqrt(a*b))
+        if a*b == c*c:
+            c -= 1
+        
+        if a*b > c*(c+1):
+            return 2*c - 1
+        else:
+            return 2*c - 2
+    
+
+q = ni()
+query = [tuple(li()) for _ in range(q)]
+
+for a,b in query:
+    print(wc(a,b))

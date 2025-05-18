@@ -1,0 +1,58 @@
+import sys
+sys.setrecursionlimit(10**9)
+
+def build(t,arr,v,tl,tr):
+    if tl == tr:
+        t[v] = arr[tl]
+    else:
+        tm = (tl+tr)//2
+        build(t,arr,2*v,tl,tm)
+        build(t,arr,2*v+1,tm+1,tr)
+        t[v] = max(t[2*v],t[2*v+1])
+
+def maxQuery(t,v,tl,tr,l,r):
+    if l > r:
+        return 0
+    if l == tl and r == tr:
+        return t[v]
+    tm = (tl+tr)//2
+    return max(maxQuery(t,2*v,tl,tm,l,min(r,tm)),maxQuery(t,2*v+1,tm+1,tr,max(l,tm+1),r))
+
+def update(t,v,tl,tr,pos,new_val):
+    if tl == tr:
+        t[v] = new_val
+    else:
+        tm = (tl+tr)//2
+        if pos <= tm:
+            update(t,2*v,tl,tm,pos,new_val)
+        else:
+            update(t,2*v+1,tm+1,tr,pos,new_val)
+        t[v] = max(t[2*v],t[2*v+1])
+
+def create(n,arr):
+    t = [0]*4*n
+    build(t,arr,1,0,n-1)
+
+    return t
+    
+
+def main():
+    n = int(raw_input())
+    hts = list(map(int,raw_input().split()))
+    beauties = list(map(int,raw_input().split()))
+    flowers = {}
+    for i in range(n):
+        flowers[hts[i]] = beauties[i]
+
+    dp = [0]*n
+    t = create(n,dp)
+    for i in range(n-1,-1,-1):
+        curr = hts[i]
+        max_val = maxQuery(t,1,0,n-1,curr-1,n-1)
+        dp[curr-1] += flowers[curr]+max_val
+        update(t,1,0,n-1,curr-1,dp[curr-1])
+        #print(t)
+
+    print(max(t))
+
+main()

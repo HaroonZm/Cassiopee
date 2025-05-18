@@ -1,0 +1,19 @@
+m,n=map(int,input().split())
+a=list(map(int,input().split()))
+if m == 2:
+  ans1=0
+  for i in range(n):
+    if i % 2 != a[i] % 2:
+      ans1+=1
+  ans2=0
+  for i in range(n):
+    if i % 2 == a[i] % 2:
+      ans2+=1
+  print(min(ans1,ans2))
+else:
+  ans=0
+  for i in range(n-1):
+    if a[i] == a[i+1]:
+      a[i+1]=-1
+      ans+=1
+  print(ans)

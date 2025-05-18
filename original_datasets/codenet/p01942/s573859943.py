@@ -1,0 +1,80 @@
+class fenwick_tree_2d:
+    def __init__(self, h, w):
+        self.H = h
+        self.W = w
+        self.tree = [[0]*(w+1) for _ in range(h+1)]
+
+    def init_array(self, A):
+        for i in range(self.H):
+            for j in range(self.W):
+                self.add(i+1, j+1, A[i][j])
+
+    def add(self, i, j, x):
+        if i <= 0 or j <= 0:
+            raise IndexError
+        while i <= self.H:
+            k = j
+            while k <= self.W:
+                self.tree[i][k] += x
+                k += k & -k
+            i += i & -i
+
+    def sum_until(self, i, j):
+        if i < 0 or j < 0:
+            raise IndexError
+        s = 0
+        while i > 0:
+            k = j
+            while k > 0:
+                s += self.tree[i][k]
+                k -= k & -k
+            i -= i & -i
+        return s
+
+    def sum_acc(self, h1, h2, w1, w2):
+        """
+        0 <= h1 < h2 <= H
+        0 <= w1 < w2 <= W
+        [h1,h2) * [w1,w2) の長方形区域の値の総和を返す
+        """
+        return self.sum_until(h2, w2) - self.sum_until(h2, w1) \
+            - self.sum_until(h1, w2) + self.sum_until(h1, w1)
+
+def main():
+    import sys
+    input = sys.stdin.buffer.readline
+    from collections import deque
+    H, W, T, Q = (int(i) for i in input().split())
+    taikaki_set = fenwick_tree_2d(H, W)
+    taikaki_baked = fenwick_tree_2d(H, W)
+
+    Query_t = deque([])
+    Query_h = deque([])
+    Query_w = deque([])
+    for _ in range(Q):
+        t, c, *A = (int(i) for i in input().split())
+        while Query_t and Query_t[0] <= t:
+            Query_t.popleft()
+            th = Query_h.popleft()
+            tw = Query_w.popleft()
+            taikaki_set.add(th, tw, -1)
+            taikaki_baked.add(th, tw, 1)
+        if c == 0:
+            (h, w) = A
+            taikaki_set.add(h, w, 1)
+            Query_t.append(t+T)
+            Query_h.append(h)
+            Query_w.append(w)
+        elif c == 1:
+            (h, w) = A
+            cur = taikaki_baked.sum_acc(h-1, h, w-1, w)
+            if 0 < cur:
+                taikaki_baked.add(h, w, -1)
+        else:
+            (h1, w1, h2, w2) = A
+            baked = taikaki_baked.sum_acc(h1-1, h2, w1-1, w2)
+            t_set = taikaki_set.sum_acc(h1-1, h2, w1-1, w2)
+            print(baked, t_set)
+
+if __name__ == '__main__':
+    main()

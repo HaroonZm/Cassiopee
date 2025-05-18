@@ -1,0 +1,29 @@
+import heapq
+while True:
+  n,m,l=map(int,raw_input().split())
+  if n==0: break
+  v={}
+  for i in xrange(n):
+    v[i] = []                                                                                                                                    # count attacked
+  cost=[[10**9]*(l+1) for _ in xrange(n)]
+  cost[0][l] = 0
+  for _ in xrange(m):
+    a,b,d,e=map(int,raw_input().split())
+    a-=1
+    b-=1
+    v[a].append((b,d,e))
+    v[b].append((a,d,e))
+  q=[]
+  heapq.heappush(q,(0,l))
+  while len(q)>0:
+    t = heapq.heappop(q)
+    for x in v[t[0]]:
+      # hit
+      if cost[x[0]][t[1]] > cost[t[0]][t[1]]+x[2]:
+        cost[x[0]][t[1]] = cost[t[0]][t[1]]+x[2]
+        q.append((x[0], t[1]))
+      # guard
+      if t[1]-x[1]>=0 and cost[x[0]][t[1]-x[1]] > cost[t[0]][t[1]]:
+        cost[x[0]][t[1]-x[1]] = cost[t[0]][t[1]]
+        q.append((x[0], t[1]-x[1]))
+  print min(cost[n-1])

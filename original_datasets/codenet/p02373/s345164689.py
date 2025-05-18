@@ -1,0 +1,52 @@
+from bisect import bisect_right as br
+import sys
+sys.setrecursionlimit(100000)
+n = int(input())
+parent = [[None] * 20 for _ in range(n)]
+for i in range(n):
+  clst = list(map(int, input().split()))[1:]
+  for c in clst:
+    parent[c][0] = i
+
+for i in range(1, 20):
+  for j in range(n):
+    if parent[j][i - 1] != None:
+      parent[j][i] = parent[parent[j][i - 1]][i - 1]
+
+height = [None for _ in range(n)]
+height[0] = 0
+
+def make_height(x):
+  if height[x] != None:return
+  if height[parent[x][0]] != None:
+    make_height(parent[x][0])
+  height[x] = height[parent[x][0]] + 1
+
+for i in range(n):
+  make_height(i)
+
+bins = [2 ** i for i in range(20)]
+
+def retro(p, num):
+  if num == 0:return p
+  ind = br(bins, num) - 1
+  return retro(parent[p][ind], num - bins[ind])
+
+def _lca(u, v):
+  if u == v:
+    return u
+  for i in range(1, 20):
+    if parent[u][i] == parent[v][i]:
+      return _lca(parent[u][i - 1], parent[v][i - 1])
+
+def lca(u, v):
+  if height[u] < height[v]:
+    v = retro(v, height[v] - height[u])
+  if height[u] > height[v]:
+    u = retro(u, height[u] - height[v])
+  return _lca(u, v)
+
+q = int(input())
+for _ in range(q):
+  u, v = map(int, input().split())
+  print(lca(u, v))

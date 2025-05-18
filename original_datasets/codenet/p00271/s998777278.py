@@ -1,0 +1,1 @@
+for a, b in [list(map(int, input().split())) for _ in range(7)]: print(a-b)

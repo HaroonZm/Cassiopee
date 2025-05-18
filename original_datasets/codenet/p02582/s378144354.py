@@ -1,0 +1,13 @@
+s = input()
+ans = 0
+tmp = 0
+for i in range(3):
+    if s[i] == "R":
+        tmp += 1
+    else:
+        ans = max(ans, tmp)
+        tmp = 0
+else:
+    ans = max(ans, tmp)
+
+print(ans)

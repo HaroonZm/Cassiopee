@@ -1,0 +1,19 @@
+n = int(input())
+a = list(map(int, input().split()))
+
+color = [0] * 8
+cnt = 0
+for val in a:
+    for i in range(8):
+        if 400 * i <= val < 400 * (i + 1):
+            color[i] = 1
+    if val >= 3200:
+            cnt += 1
+
+if all([c == 0 for c in color]):
+    s = 1
+else:
+    s = sum(color)
+l = sum(color) + cnt
+
+print(s, l)

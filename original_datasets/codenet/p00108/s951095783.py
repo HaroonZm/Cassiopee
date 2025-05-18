@@ -1,0 +1,10 @@
+while 1:
+ n=int(input())
+ if n==0:break
+ s=list(map(int,input().split()))
+ c=0
+ while 1:
+  t=s;s=[t.count(e)for e in t]
+  if t==s:break
+  c+=1
+ print(c);print(*s)

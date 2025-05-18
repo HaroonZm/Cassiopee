@@ -1,0 +1,36 @@
+encode = ["00000", "00001", "00010", "00011", "00100", "00101", "00110", "00111",
+          "01000", "01001", "01010", "01011", "01100", "01101", "01110", "01111",
+          "10000", "10001", "10010", "10011", "10100", "10101", "10110", "10111",
+          "11000", "11001", "11010", "11011", "11100", "11101", "11110", "11111"]
+alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ .,-'?"
+alphabet = list(alphabet)
+
+decode = ["101", "000000", "000011", "10010001", "010001", "000001", "100101", "10011010",
+          "0101", "0001", "110", "01001", "10011011", "010000", "0111", "10011000",
+          "0110", "00100", "10011001", "10011110", "00101", "111", "10011111", "1000",
+          "00110", "00111", "10011100", "10011101", "000010", "10010010", "10010011", "10010000"]
+alphabet2 = " ',-.?ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+alphabet2 = list(alphabet2)
+
+while 1:
+    try:
+        sentence = list(input())
+    except EOFError:
+        break
+
+    list1 = []
+    for sen in sentence:
+        list1.append(encode[alphabet.index(sen)])
+    sentence1 = ''.join(l for l in list1)
+    sentence1 = list(sentence1)
+
+    tmp = ""
+    list2 = []
+    while sentence1 != []:
+        tmp += sentence1.pop(0)
+        if tmp in decode:
+            num = decode.index(tmp)
+            list2.append(alphabet2[num])
+            tmp = ""
+
+    print(''.join(l for l in list2))

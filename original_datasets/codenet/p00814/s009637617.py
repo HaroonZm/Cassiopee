@@ -1,0 +1,112 @@
+class Tree:
+    def __init__(self, N):
+        self.N = N
+        self.arr = [ [ None for _ in range(N) ] for _ in range(N) ]
+
+    def duplicate(self):
+        newTree = Tree(self.N)
+        for i in range(N):
+            row = self.arr[i]
+            newTree.arr[i] = row[:]
+        return newTree
+
+    def setVal(self, row, col, val):
+        self.arr[row][col] = val
+
+    def setGroup(self, grp, val):
+        for cell in grp:
+            self.arr[cell[0]][cell[1]] = val
+
+    def getCellPoints(self, row, col, C):
+        val = self.arr[row][col]
+        if val == 0 or val == -1:
+            return 0
+
+        grp = set()
+        self.getGroup(row, col, val, grp)
+
+        isSafe = False
+        for cell in grp:
+            if self.hasZeroNeighbor(cell[0], cell[1]):
+                isSafe = True
+                break
+
+        self.setGroup(grp, -1)
+
+        if isSafe:
+            return 0
+        
+        if val == C:
+            return len(grp) * -1
+        
+        else:
+            return len(grp)
+
+    def calcCellPoints(self, row, col, C):
+        neighbors = self.getNeighbors(row, col)
+
+        # print("\nConsidering placing stone in", (row, col), "...")
+        # print("These are the neighbors:")
+        # for x in neighbors:
+        #     print(x)
+
+        points = self.getCellPoints(row, col, C)
+
+        for nb in neighbors:
+            points += self.getCellPoints(nb[0], nb[1], C)
+
+        return points
+
+    def getNeighbors(self, row, col):
+        neighbors = []
+        if row < self.N - 1:
+            neighbors.append( (row + 1, col) )
+            neighbors.append( (row + 1, col + 1) )
+        if col <= row - 1:
+            neighbors.append( (row, col + 1) )
+            neighbors.append( (row - 1, col) )
+        if col > 0:
+            neighbors.append( (row, col - 1) )
+            neighbors.append( (row - 1, col - 1) )
+        return neighbors
+
+    def hasZeroNeighbor(self, row, col):
+        neighbors = self.getNeighbors(row, col)
+        for nb in neighbors:
+            if self.arr[nb[0]][nb[1]] == 0:
+                return True
+        return False
+
+    def getGroup(self, row, col, v, groupCells):
+        if (row, col) in groupCells:
+            return
+        if self.arr[row][col] == v:
+            groupCells.add((row, col))
+            neighbors = self.getNeighbors(row, col)
+            for nb in neighbors:
+                self.getGroup(nb[0], nb[1], v, groupCells)
+
+if __name__ == '__main__':
+    while True:
+        N, C = list(map(int, input().strip().split()))
+        if N == 0 and C == 0:
+            break
+
+        tree = Tree(N)
+        emptySpots = []
+
+        for i in range(N):
+            arr = [ int(x) for x in list(filter(lambda x: x != '', \
+                input().strip().split(' '))) ]
+            for j in range(len(arr)):
+                tree.setVal(i, j, arr[j])
+                if arr[j] == 0:
+                    emptySpots.append( (i, j) )
+
+        maxPoints = -999999999
+        for spot in emptySpots:
+            newTree = tree.duplicate()
+            newTree.setVal(spot[0], spot[1], C)
+            maxPoints = max(maxPoints, newTree.calcCellPoints(spot[0], spot[1], C))
+        
+        print(maxPoints)

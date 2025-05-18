@@ -1,0 +1,32 @@
+# Your code here!
+
+def iter_subset(_a): #aの部分集合を走る
+    _bit = _a
+    yield _bit
+    while 1:
+        _bit = (_bit-1) & _a 
+        yield _bit
+        if not _bit: break
+
+n=int(input())
+A= [[int(i) for i in input().split()] for j in range(n)]
+
+total = 1<<n
+gscore = [0]*total
+dp = [0]*(total)
+
+for i in range(n):
+    for k in range(1<<(i)):
+        gscore[k^(1<<i)] += gscore[k]
+        for j,c in enumerate(A[i]):
+            if (1<<j)&k:
+                gscore[k^(1<<i)] += c  
+
+        c = -(1<<50)
+        for l in iter_subset(k):
+            c = max(c, gscore[l^(1<<i)] + dp[k^l])
+        dp[k^(1<<i)] = c
+        
+#print(gscore)        
+#print(dp)        
+print(dp[-1])

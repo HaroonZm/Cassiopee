@@ -1,0 +1,11 @@
+total_count, total_legs = map(int, input().split())
+isYes = 'false'
+
+for i in range(total_count+1):
+  test = 2*i+4*(total_count-i)
+  if total_legs == test:
+    isYes = 'true'
+    print("Yes")
+
+if isYes=='false':
+  print("No")

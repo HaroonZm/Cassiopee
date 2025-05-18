@@ -1,0 +1,17 @@
+A = input()
+n = len(A)
+ans = ''
+for i in range(2**(n-1)):
+    tmp = ''
+    for j in range(n-1):
+        tmp += A[j]
+        if i & (1 << j):
+            tmp += '+'
+        else:
+            tmp += '-'
+    tmp += A[-1]
+    if eval(tmp) == 7:
+        ans = tmp
+        break
+
+print(tmp + '=7')

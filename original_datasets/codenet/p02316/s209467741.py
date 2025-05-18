@@ -1,0 +1,20 @@
+import sys
+
+if __name__ == "__main__":
+    N, W = map(lambda x: int(x), input().split())
+    items = [(0, 0)] * N
+    for i in range(N):
+        v, w = map(lambda x: int(x), input().split())
+        items[i] = (v, w)
+    table = [-sys.maxsize] * (W + 1)
+    table[0] = 0
+
+    for weight in range(W):
+        for idx in range(N):
+            if (-sys.maxsize == table[weight]):
+                continue
+            if (weight + items[idx][1] <= W):
+                table[weight + items[idx][1]] = max(
+                    table[weight + items[idx][1]], table[weight] + items[idx][0])
+
+    print(max(table))

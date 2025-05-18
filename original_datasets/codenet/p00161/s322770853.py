@@ -1,0 +1,13 @@
+while True:
+    num = int(input())
+    if num == 0:
+        break
+    L = []
+    for i in range(num):
+        id, m1, s1, m2, s2, m3, s3, m4, s4 = [int(x) for x in input().split()]
+        t = (m1 + m2 + m3 + m4) *60 + s1 + s2 + s3 + s4
+        L.append([t, id])
+    L.sort()
+    print(L[0][1])
+    print(L[1][1])
+    print(L[-2][1])

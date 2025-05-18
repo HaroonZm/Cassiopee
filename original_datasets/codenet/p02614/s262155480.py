@@ -1,0 +1,17 @@
+from itertools import product
+
+H, W, K = map(int, input().split())
+grid = [input() for _ in range(H)]
+
+ans = 0
+for row in product([0, 1], repeat=H):
+    for col in product([0, 1], repeat=W):
+        cnt = 0
+        for i in range(H):
+            for j in range(W):
+                if row[i] == 0 and col[j] == 0 and grid[i][j] == '#':
+                    cnt += 1
+        if cnt == K:
+            ans += 1
+
+print(ans)

@@ -1,0 +1,23 @@
+from bisect import bisect_left as bl
+
+def main():
+  n, c = map(int, input().split())
+  ranking = [(0, i) for i in range(n)]
+  points = [0 for _ in range(n)]
+  for _ in range(c):
+    com = input().split()
+    if com[0] == "1":
+      m = int(com[1]) - 1
+      print(ranking[m][-1] + 1, -ranking[m][0])
+    else:
+      t, p = map(int, com[1:])
+      t -= 1
+      point = points[t]
+      index = bl(ranking, (point, t))
+      ranking.pop(index)
+      new_point = point - p
+      new_index = bl(ranking, (new_point, t))
+      ranking.insert(new_index, (new_point, t))
+      points[t] = new_point
+
+main()

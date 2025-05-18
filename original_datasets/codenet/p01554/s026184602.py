@@ -1,0 +1,12 @@
+s={input() for _ in range(int(input()))}
+k=False
+t=[input() for _ in range(int(input()))]
+for i in t:
+  if i in s:
+    k=not k
+    if k:
+      print("Opened by",i)
+    else:
+      print("Closed by",i)
+  else:
+    print("Unknown",i)
