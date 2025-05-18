@@ -353,17 +353,8 @@ class BatchManagerTab(QWidget):
         fetch_layout = QHBoxLayout()
         self.fetch_button = QPushButton("Récupérer les résultats")
         self.fetch_button.clicked.connect(self.fetch_batch)
-        self.force_checkbox = QCheckBox("Forcer")
-        self.force_checkbox.setToolTip("Force la récupération même si le batch n'est pas terminé")
-        self.save_checkbox = QCheckBox("Sauvegarder")
-        self.save_checkbox.setToolTip("Sauvegarde les résultats dans des fichiers")
-        self.save_raw_checkbox = QCheckBox("Sauvegarder brut (JSONL)")
-        self.save_raw_checkbox.setToolTip("Sauvegarde les résultats bruts au format JSONL")
         
         fetch_layout.addWidget(self.fetch_button)
-        fetch_layout.addWidget(self.force_checkbox)
-        fetch_layout.addWidget(self.save_checkbox)
-        fetch_layout.addWidget(self.save_raw_checkbox)
         
         # Commande "fetch-range"
         range_layout = QHBoxLayout()
@@ -535,15 +526,8 @@ class BatchManagerTab(QWidget):
             batch_id = item.text()
             cmd = ['python', 'utils/batch_manager.py', 'fetch', batch_id]
             
-            # Ajouter les options selon le guide
-            if self.force_checkbox.isChecked():
-                cmd.append('--force')
-            
-            if self.save_checkbox.isChecked():
-                cmd.append('--save')
-            
-            if self.save_raw_checkbox.isChecked():
-                cmd.append('--save-raw')
+            # Toujours ajouter l'option --save
+            cmd.append('--save')
             
             if self.destination_path.text():
                 cmd.extend(['--destination', self.destination_path.text()])
@@ -570,11 +554,8 @@ class BatchManagerTab(QWidget):
         if self.batch_limit.value() > 0:
             cmd.extend(['--limit', str(self.batch_limit.value())])
         
-        if self.force_checkbox.isChecked():
-            cmd.append('--force')
-        
-        if self.save_raw_checkbox.isChecked():
-            cmd.append('--save-raw')
+        # Toujours ajouter l'option --save
+        cmd.append('--save')
         
         if self.destination_path.text():
             cmd.extend(['--destination', self.destination_path.text()])
@@ -602,7 +583,6 @@ class BatchManagerTab(QWidget):
                 self.console.append(f"Résultats sauvegardés dans: {self.destination_path.text()}")
         else:
             self.console.append(f"Erreur lors de la récupération des batches: {message}")
-
 class BatchCompletionTab(QWidget):
     """Onglet pour la complétion des batches"""
     
@@ -797,13 +777,13 @@ class MatrixGenerationTab(QWidget):
         token_layout = QHBoxLayout()
         token_layout.addWidget(QLabel("Modèle de tokenisation:"))
         self.token_model = QComboBox()
-        self.token_model.addItems(["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "claude-3-opus"])
+        self.token_model.addItems(["gpt-4o-mini", "gpt-4o", "gpt-4.1", "gpt-4.1-mini"])
         token_layout.addWidget(self.token_model)
         
         pred_layout = QHBoxLayout()
         pred_layout.addWidget(QLabel("Modèle de prédiction:"))
         self.pred_model = QComboBox()
-        self.pred_model.addItems(["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "claude-3-opus"])
+        self.pred_model.addItems(["gpt-4o-mini", "gpt-4o", "gpt-4.1", "gpt-4.1-mini"])
         pred_layout.addWidget(self.pred_model)
         
         models_layout.addLayout(token_layout)
