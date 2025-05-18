@@ -1,6 +1,0 @@
-s=list(map(str,input().split()))
-s.sort(reverse = True)
-a=str(s[0])+str(s[1])
-c=int(a)
-b=int(s[2])
-print(c+b)

@@ -1,6 +1,0 @@
-n = input()
-set_n = set(raw_input().split())
-q = input()
-set_q = set(raw_input().split())
-answer = (set_n & set_q)
-print len(answer)

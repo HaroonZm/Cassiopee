@@ -1,5 +1,0 @@
-import datetime
-while 1:
-    y1,m1,d1,y2,m2,d2=map(int,input().split())
-    if y1==-1:break
-    print((datetime.datetime(y2,m2,d2)-datetime.datetime(y1,m1,d1)).days)

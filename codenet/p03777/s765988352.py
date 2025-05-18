@@ -1,1 +1,0 @@
-s=input();print('DH'[s==s[::-1]])

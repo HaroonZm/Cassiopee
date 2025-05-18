@@ -1,1 +1,0 @@
-h,w,x,y=map(int,input().split());print(["Yes","No"][h*w%2*(x+y)%2])

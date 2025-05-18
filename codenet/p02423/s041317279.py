@@ -1,5 +1,0 @@
-x = int(input())
-print( format(x, "032b") )
-print( format( ~x & 0b11111111111111111111111111111111, "032b") )
-print( format( x<<1, "032b")[-32:] )
-print( format( x>>1, "032b") )

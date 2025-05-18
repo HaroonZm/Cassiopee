@@ -1,9 +1,0 @@
-N = int(input())
-A = 0; p = 0
-ans = 0
-for i in range(N):
-    x, s = map(int, input().split())
-    A = max(0, A - (x - p)) + s
-    ans = max(ans, A)
-    p = x
-print(ans)

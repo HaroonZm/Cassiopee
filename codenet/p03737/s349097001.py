@@ -1,1 +1,0 @@
-print("".join([chr(ord(s[0])-32)for s in input().split()]))

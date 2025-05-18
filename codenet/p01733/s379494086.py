@@ -1,9 +1,0 @@
-a={};b=0
-for _ in [0]*int(input()):
-    x,y,w=map(int,input().split())
-    for i in range(2):
-        for j in range(2):
-            if (x+i,y+j) not in a:a[(x+i,y+j)]=0
-            a[(x+i,y+j)]+=w
-            b=max(b,a[(x+i,y+j)])
-print(str(b)+' / 1')

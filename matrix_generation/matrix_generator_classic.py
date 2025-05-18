@@ -185,9 +185,8 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
 
 def construire_matrice_logprob(tokens_reference, resultats_analyse, top_k=10):
     """
-    Construit une matrice 244×244 de log probabilités,
+    Construit une matrice de log probabilités avec la taille dynamique,
     en padding avec 100 et anomalies à -50.
-    Lève une erreur si les dimensions dynamiques dépassent 244×244.
     """
     # 1) Reconstituer le texte complet et découper en lignes
     texte_complet = ''.join(tokens_reference)
@@ -220,23 +219,16 @@ def construire_matrice_logprob(tokens_reference, resultats_analyse, top_k=10):
     n_lignes_dyn   = len(lignes_texte)
     max_tokens_dyn = max(tokens_par_ligne) if tokens_par_ligne else 0
 
-    # 4) Vérifier la limite 244×244
-    if n_lignes_dyn > 244 or max_tokens_dyn > 244:
-        raise ValueError(
-            f"Dimensions dynamiques du code ({n_lignes_dyn} lignes × "
-            f"{max_tokens_dyn} tokens par ligne) dépassent la limite 244×244."
-        )
+    # 4) Utiliser les dimensions dynamiques directement (sans forcer à 244x244)
+    n_lignes, max_tokens = n_lignes_dyn, max_tokens_dyn
+    print(f"Construction d'une matrice avec dimensions dynamiques : {n_lignes} lignes × {max_tokens} colonnes (padding=100)")
 
-    # 5) Forcer la taille fixe
-    n_lignes, max_tokens = 244, 244
-    print(f"Construction d'une matrice FIXE : {n_lignes} lignes × {max_tokens} colonnes (padding=100)")
-
-    # 6) Initialiser la matrice de padding
+    # 5) Initialiser la matrice de padding avec les dimensions dynamiques
     matrice = np.full((n_lignes, max_tokens), 100.0)
 
-    # 7) Remplir la matrice avec log-probabilités ou valeurs spéciales
+    # 6) Remplir la matrice avec log-probabilités ou valeurs spéciales
     for idx_token, (i, j) in enumerate(position_tokens_dans_matrice):
-        # Ignorer toute position hors de la matrice fixe
+        # Ignorer toute position hors de la matrice
         if i >= n_lignes or j >= max_tokens:
             continue
 
@@ -274,12 +266,10 @@ def construire_matrice_logprob(tokens_reference, resultats_analyse, top_k=10):
 
         matrice[i, j] = val_logprob
 
-    # 8) Retourner la matrice fixe et la structure complète
+    # 7) Retourner la matrice et la structure complète
     structure_tokens = {
-        "fixed_lignes": n_lignes,
-        "fixed_max_tokens": max_tokens,
-        "dyn_lignes": n_lignes_dyn,
-        "dyn_max_tokens": max_tokens_dyn,
+        "lignes": n_lignes,
+        "max_tokens": max_tokens,
         "tokens_par_ligne": tokens_par_ligne,
         "position_tokens": position_tokens_dans_matrice
     }
@@ -385,8 +375,7 @@ def sauvegarder_resultats(resultats_analyse, script, matrice, structure_tokens, 
         # Ajouter des informations sur la matrice 2D
         f.write("INFORMATIONS SUR LA MATRICE 2D DE LOG PROBABILITÉS:\n")
         f.write("-"*80 + "\n")
-        f.write(f"Dimensions fixes de la matrice: {structure_tokens['fixed_lignes']} lignes x {structure_tokens['fixed_max_tokens']} tokens max\n")
-        f.write(f"Dimensions dynamiques: {structure_tokens['dyn_lignes']} lignes x {structure_tokens['dyn_max_tokens']} tokens max\n")
+        f.write(f"Dimensions de la matrice: {structure_tokens['lignes']} lignes x {structure_tokens['max_tokens']} tokens max\n")
         f.write(f"Nombre de tokens par ligne: {structure_tokens['tokens_par_ligne']}\n")
         f.write("Convention de valeurs:\n")
         f.write("  - Log probabilité normale: Valeur réelle (typiquement entre -1 et -20)\n")
@@ -595,9 +584,6 @@ def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction
     return matrice, structure_tokens
 
 if __name__ == "__main__":
-    # Répertoires racine
-    projet_racine = Path(__file__).resolve().parent.parent
-
     # CLI
     parser = argparse.ArgumentParser(
         description="Analyse des prédictions token par token pour un ou plusieurs scripts.")
@@ -613,8 +599,14 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument(
-        "-d", "--directory",
-        help="Dossier contenant les scripts à analyser (par défaut: data/raw_scripts/)",
+        "-d", "--directory", "--input",
+        help="Dossier contenant les scripts à analyser",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "-o", "--output",
+        help="Dossier où sauvegarder les résultats",
         type=str,
         default=None,
     )
@@ -622,45 +614,65 @@ if __name__ == "__main__":
 
     # Détermination du dossier d'entrée
     if args.directory:
-        raw_dir = Path(args.directory)
-        if not raw_dir.exists() or not raw_dir.is_dir():
-            parser.error(f"Dossier introuvable ou invalide: {raw_dir}")
+        input_dir = Path(args.directory)
+        if not input_dir.exists() or not input_dir.is_dir():
+            parser.error(f"Dossier d'entrée introuvable ou invalide: {input_dir}")
     else:
-        raw_dir = projet_racine / "data" / "raw_scripts"
+        # Dossier par défaut
+        projet_racine = Path(__file__).resolve().parent.parent
+        input_dir = projet_racine / "data" / "raw_scripts"
+        if not input_dir.exists():
+            input_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Dossier d'entrée créé: {input_dir}")
+
+    # Détermination du dossier de sortie
+    if args.output:
+        output_dir = Path(args.output)
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Dossier de sortie créé: {output_dir}")
+    else:
+        # Dossier par défaut
+        projet_racine = Path(__file__).resolve().parent.parent
+        output_dir = projet_racine / "data" / "resultats"
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Dossier de sortie créé: {output_dir}")
+
+    # Créer les sous-dossiers dans le dossier de sortie
+    matrix_dir = output_dir / "matrices"
+    results_dir = output_dir / "rapports"
+    
+    matrix_dir.mkdir(exist_ok=True)
+    results_dir.mkdir(exist_ok=True)
+    
+    print(f"Dossier d'entrée: {input_dir}")
+    print(f"Dossier de sortie: {output_dir}")
+    print(f"Dossier des matrices: {matrix_dir}")
+    print(f"Dossier des rapports: {results_dir}")
 
     # Détermination des fichiers à traiter
-    if args.all:
-        fichiers = sorted(raw_dir.glob("*.py"))
-        if not fichiers:
-            parser.error(f"Aucun .py trouvé dans {raw_dir}")
-    else:
-        nom = args.file or "script.py"
-        chemin = raw_dir / nom
+    if args.file:
+        # Si un fichier spécifique est demandé, on ne traite que celui-là
+        nom = args.file
+        chemin = input_dir / nom
         if not chemin.exists():
             parser.error(f"Fichier introuvable : {chemin}")
         fichiers = [chemin]
+    else:
+        # Par défaut ou avec --all, on traite tous les fichiers Python du dossier
+        fichiers = sorted(input_dir.glob("*.py"))
+        if not fichiers:
+            parser.error(f"Aucun fichier Python (.py) trouvé dans {input_dir}")
+        print(f"Traitement de {len(fichiers)} fichiers Python trouvés dans {input_dir}")
 
     # Boucle d'analyse
     for fpath in fichiers:
         stem = fpath.stem  # nom sans extension, ex: "gen_example"
 
-        # 1) Choix du dossier de sortie selon le préfixe
-        if stem.startswith(("gen", "var")):
-            base_out = projet_racine / "data" / "ia"
-        else:
-            base_out = projet_racine / "data" / "nia"
-
-        matrix_dir  = base_out / "matrice"
-        results_dir = base_out / "resultats"
-
-        # Création des dossiers si nécessaire
-        matrix_dir.mkdir(parents=True, exist_ok=True)
-        results_dir.mkdir(parents=True, exist_ok=True)
-
         print(f"\n--- Analyse de {fpath.name} ---")
-        print(f"→ Résultats dans : {base_out}")
 
-        # 2) Chargement et exécution de l'analyse
+        # Chargement et exécution de l'analyse
         script = fpath.read_text(encoding="utf-8")
         resultats_analyse, tokens_reference = analyser_predictions_token_par_token(
             script,
@@ -669,8 +681,8 @@ if __name__ == "__main__":
         )
         matrice, structure = construire_matrice_logprob(tokens_reference, resultats_analyse)
 
-        # 3) Sauvegardes
-        matrix_path = matrix_dir  / f"matrix_{stem}.npy"
+        # Sauvegardes
+        matrix_path = matrix_dir / f"matrix_{stem}.npy"
         result_path = results_dir / f"result_{stem}.txt"
 
         sauvegarder_matrice_numpy(matrice, nom_fichier=str(matrix_path))

@@ -1,1 +1,0 @@
-s,t=map(int,input().split());input();print(s^t^int(input()))

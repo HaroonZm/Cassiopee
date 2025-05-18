@@ -1,1 +1,0 @@
-print(1 if sum((i * j for i , j in zip((1, 5, 10, 50, 100, 500), map(int, input().split())))) >= 1000 else 0)

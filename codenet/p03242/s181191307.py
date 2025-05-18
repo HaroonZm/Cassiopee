@@ -1,5 +1,0 @@
-Str = input()
-Str = Str.replace('1',' ')
-Str = Str.replace('9','1')
-Str = Str.replace(' ','9')
-print(Str)

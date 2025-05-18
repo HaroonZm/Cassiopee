@@ -1,1 +1,0 @@
-n=input();print-(n<3)or"\n".join(" ".join(`1+(i+(j^(n>=i*2and n%2<1and j<n-2)))%n`for j in range(n-1))for i in range(1,n+1))

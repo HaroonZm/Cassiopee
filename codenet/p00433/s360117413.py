@@ -1,1 +1,0 @@
-print max([sum(map(int, raw_input().split())) for i in xrange(2)])

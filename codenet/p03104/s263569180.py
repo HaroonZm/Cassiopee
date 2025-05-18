@@ -1,9 +1,0 @@
-def get(A):
-    return [A, 1, 1 ^ A, 0][A % 4]
-
-def inpl():
-    return list(map(int, input().split()))
-
-A, B = inpl()
-
-print(get(A - 1) ^ get(B))
