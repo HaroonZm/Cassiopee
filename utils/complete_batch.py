@@ -69,13 +69,27 @@ def main():
     # Traitement de chaque identifiant de sample
     total_copied = 0
     for sample_id in sample_ids:
-        # Construction du chemin vers le sous-dossier dans le dataset
-        sample_path = os.path.join(dataset_path, sample_id)
-       
-        # Vérification de l'existence du sous-dossier
-        if not os.path.isdir(sample_path):
-            print(f"Avertissement: Le sous-dossier '{sample_id}' n'a pas été trouvé dans le dataset")
-            continue
+        if args.codenet:
+            # Logique originale pour CodeNet
+            sample_path = os.path.join(dataset_path, sample_id)
+            
+            # Vérification de l'existence du sous-dossier
+            if not os.path.isdir(sample_path):
+                print(f"Avertissement: Le sous-dossier '{sample_id}' n'a pas été trouvé dans le dataset")
+                continue
+        else:  # args.thestack
+            # Nouvelle logique pour The Stack: chercher le premier sous-dossier qui contient l'identifiant
+            found = False
+            for subdir in os.listdir(dataset_path):
+                if sample_id in subdir:
+                    sample_path = os.path.join(dataset_path, subdir)
+                    found = True
+                    print(f"Trouvé: sous-dossier '{subdir}' pour l'identifiant '{sample_id}'")
+                    break
+            
+            if not found:
+                print(f"Avertissement: Aucun sous-dossier contenant '{sample_id}' n'a été trouvé dans le dataset")
+                continue
        
         print(f"Traitement du sample: {sample_id}")
        
