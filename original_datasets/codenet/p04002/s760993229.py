@@ -1,0 +1,33 @@
+import sys
+input = sys.stdin.readline
+W, H, N = map(int, input().split())
+vs = set()
+for _ in range(N):
+    a, b = map(int, input().split())
+    vs.add((a-1,b-1))
+
+R = [0] * 10
+vvs = set()
+for a, b in vs:
+    for i in range(3):
+        for j in range(3):
+            x, y = a+i-2, b+j-2
+            if x < 0 or W-3 < x or y < 0 or H-3 < y:
+                continue
+            if (x, y) in vvs:
+#                print(x, y, a, b)
+                continue
+            c = 0
+#            print(x, y, a, b)
+            for k in range(3):
+                for l in range(3):
+#                    print(x+k, y+l)
+                    if (x+k, y+l) in vs:
+                        c += 1
+#            print(c, x, y)
+            R[c] += 1
+            vvs.add((x, y))
+
+R[0] = (H-2)*(W-2)-sum(R)
+for i in range(10):
+    print(R[i])

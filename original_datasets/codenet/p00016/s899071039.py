@@ -1,0 +1,18 @@
+import math
+
+def main():
+    p = [0, 0]
+    x = math.radians(90)
+    while True:
+        d, angle = map(int, input().split(","))
+        if d == 0 and angle == 0:
+            break
+        p[0] += math.cos(x) * d
+        p[1] += math.sin(x) * d
+        x -= math.radians(angle)
+    for i in (0,1):
+        p[i] = int(p[i])
+    print(*p, sep="\n")
+
+if __name__ == "__main__":
+    main()

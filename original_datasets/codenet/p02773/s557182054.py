@@ -1,0 +1,22 @@
+n = int(input())
+d = {}
+for i in range(n):
+    s = str(input())
+    if s not in d:
+        d[s] = 1
+    else:
+        d[s] += 1
+
+#d_ = sorted(d.items(), key=lambda x:x[1], reverse=True)
+#print(d_)
+
+l_ = []
+max_ = max(d.values())
+#print(max_)
+for k, v in d.items():
+    if v == max_:
+        l_.append(k)
+
+l_.sort()
+for i in range(len(l_)):
+    print(l_[i])

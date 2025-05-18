@@ -1,0 +1,24 @@
+A = [1, 3, 5, 7, 8, 10, 12]
+B = [4, 6, 9, 11]
+C = [2]
+
+x, y = map(int, raw_input().split())
+
+if x in A:
+    g_x = "A"
+elif x in B:
+    g_x = "B"
+else:
+    g_x = "C"
+
+if y in A:
+    g_y = "A"
+elif y in B:
+    g_y = "B"
+else:
+    g_y = "C"
+
+if g_x == g_y:
+    print "Yes"
+else:
+    print "No"

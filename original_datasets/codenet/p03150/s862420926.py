@@ -1,0 +1,8 @@
+s = input()
+k = 'keyence'
+r = 'NO'
+for i in range(len(k)):
+    if s[:i] + s[-7+i:] == k:
+        r = 'YES'
+        break
+print(r)

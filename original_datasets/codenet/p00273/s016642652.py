@@ -1,0 +1,18 @@
+N = int(input())
+for i in range(N):
+    x, y, b, p = map(int, input().split())
+    if b >= 5 and p >= 2:
+        print(int((x*b + y*p) * 0.8))
+    else:
+        regular_price = x*b + y*p
+        if b < 5:
+            b = 5
+        
+        if p < 2:
+            p = 2
+
+        discount = int((x*b + y*p) * 0.8)
+        if regular_price <= discount:
+            print(regular_price)
+        else:
+            print(discount)

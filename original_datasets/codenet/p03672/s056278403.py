@@ -1,0 +1,18 @@
+#abc067 b
+s=input()
+
+def func(mid):
+    flag=True
+    for i in range(mid):
+        if s[i]!=s[mid+i]:
+            flag=False
+    return flag
+
+for i in range(len(s)-1,1,-1):
+    if i%2==1:
+        continue
+    else:
+        mid=i//2
+        if func(mid):
+            print(i)
+            break

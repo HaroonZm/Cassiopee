@@ -1,0 +1,20 @@
+import sys
+
+p = [True] * (55000)
+p[0] = p[1] = False
+for i in range(2, 55000):
+    if p[i]:
+        for j in range(i * 2, 55000, i):
+            p[j] = False
+
+for s in sys.stdin.read().rstrip().split('\n'):
+    n = int(s)
+    for i in range(n-1, 0, -1):
+        if p[i]:
+            m1 = i
+            break
+    for i in range(n+1, len(p)):
+        if p[i]:
+            m2 = i
+            break
+    print m1, m2

@@ -1,0 +1,9 @@
+N=int(input())
+a=list(map(int,input().split()))
+a.sort(reverse=True)
+ans=0
+before=a[0]
+for i in a[1:]:
+    ans+=before-i
+    before=i
+print(ans)

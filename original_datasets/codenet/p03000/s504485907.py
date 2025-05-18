@@ -1,0 +1,18 @@
+N,X = map(int, input().split())
+L_list = [int(e) for e in input().split()]
+
+#1 回目は 座標 D1=0, 
+#i 回目は 座標 Di=Di−1+Li−1(2≤i≤N+1) で跳ねます。
+ans = 1
+Before_Di = 0
+
+for i in range(N):
+  Di = Before_Di + L_list[i]
+  #print(Di)
+  if Di<=X:
+    ans+=1
+    Before_Di = Di
+  else:
+    break
+    
+print(ans)

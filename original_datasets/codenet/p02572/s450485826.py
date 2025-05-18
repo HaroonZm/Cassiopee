@@ -1,0 +1,21 @@
+import itertools   # accumulate, compress, permutations(nPr), combinations(nCr)
+# import bisect      # bisect_left(insert位置), bisect_right(slice用)
+# import math        # factorical（階乗) # hypot(距離)
+# import heapq
+# from fractions import gcd # >=Python3.5 # lcm（最小公倍数） = (a*b)//gcd(a,b)
+# from fractions import Fraction
+# from math import gcd # <Python3.5
+# --------------------------------------------------------------
+
+n = int(input())
+a = list(map(int,input().split()))
+MOD = 10**9+7
+
+lis = list(itertools.accumulate(a))
+
+total = 0
+
+for i in range(n-1):
+    total += (a[i] * (lis[n-1]-lis[i])) % MOD
+
+print(total % MOD)

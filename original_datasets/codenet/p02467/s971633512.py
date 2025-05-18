@@ -1,0 +1,16 @@
+n = int(input())
+
+print(str(n)+': ',end="")
+
+ans=[]
+
+i = 2
+while i*i  <= n:
+    while n % i == 0:
+        n //= i
+        ans.append(i)
+    i += 1
+if n != 1:
+    ans.append(n)
+
+print(*ans)

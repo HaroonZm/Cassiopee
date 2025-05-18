@@ -1,0 +1,7 @@
+import math
+a, b, c = map(float, raw_input().split())
+c = (c * math.pi) / 180.0
+
+print "%f" %(a * b * math.sin(c) / 2.0)
+print "%f" %(a + b + math.sqrt(a ** 2 + b ** 2 - 2 * a * b * math.cos(c)))
+print "%f" %((b * math.sin(c)))

@@ -1,0 +1,13 @@
+n,x=map(int,input().split())
+a=list(map(int,input().split()))
+a.sort()
+ans=0
+s=0
+for i in range(n):
+  if s+a[i]<=x:
+    ans+=1
+  s+=a[i]
+if s<x:
+  print(ans-1)
+else:
+  print(ans)

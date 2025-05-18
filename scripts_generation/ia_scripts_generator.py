@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Script flexible pour le traitement de datasets de code Python avec l'API OpenAI.
-Prend en charge deux types de datasets et deux modes d'API (Batch avec 50% d'économie, ou synchrone standard).
+Prend en charge deux types de datasets (CodeNet et The Stack) et deux modes d'API 
+(Batch avec 50% d'économie, ou synchrone standard).
 """
 
 import os
@@ -191,17 +192,17 @@ class FlexibleBatchProcessor:
         
         Returns:
             str: "codenet" pour le format CodeNet traditionnel avec énoncés,
-                 "code_only" pour un dataset contenant uniquement des fichiers Python
+                 "the_stack" pour un dataset contenant uniquement des fichiers Python
         """
         # Vérifier s'il y a des fichiers prompt.txt (format CodeNet)
         prompt_files = list(self.input_path.glob("**/prompt.txt"))
         if prompt_files:
             return "codenet"
         
-        # Vérifier s'il y a des fichiers .py (format code uniquement)
+        # Vérifier s'il y a des fichiers .py (format The Stack)
         python_files = list(self.input_path.glob("**/*.py"))
         if python_files:
-            return "code_only"
+            return "the_stack"
         
         # Si aucun des deux formats n'est détecté, lever une exception
         raise ValueError(f"Impossible de détecter le type de dataset dans {self.input_path}. Aucun fichier prompt.txt ou .py trouvé.")
@@ -516,7 +517,13 @@ class FlexibleBatchProcessor:
         results = {}
         total = len(requests)
         
-        logger.info(f"Traitement synchrone de {total} requêtes...")
+        # Créer un ID de batch synchrone unique
+        sync_batch_id = f"sync_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        logger.info(f"Traitement synchrone de {total} requêtes avec ID: {sync_batch_id}...")
+        
+        # Créer un dossier spécial pour ce batch synchrone
+        sync_batch_dir = self.output_path / f"batch_{sync_batch_id}"
+        self.create_directories(sync_batch_dir)
         
         for i, request in enumerate(requests):
             try:
@@ -555,9 +562,27 @@ class FlexibleBatchProcessor:
         
         logger.info(f"Traitement synchrone terminé: {len(results)}/{total} requêtes traitées avec succès")
         
-        # Sauvegarder les résultats
+        # Sauvegarder les informations du batch synchrone
+        sync_batch_info = {
+            "sync_batch_id": sync_batch_id,
+            "total_requests": total,
+            "successful_requests": len(results),
+            "created_at": time.time(),
+            "custom_ids": [req.custom_id for req in requests]
+        }
+        
+        batch_file = self.metadata_dir / f"batch_{sync_batch_id}.json"
+        with open(batch_file, 'w') as f:
+            json.dump(sync_batch_info, f, indent=2)
+            
+        # Sauvegarder les détails des requêtes
         requests_map = {req.custom_id: req.metadata for req in requests}
-        self.save_results_to_files("synchronous", results, requests_map)
+        requests_file = self.metadata_dir / f"requests_{sync_batch_id}.json"
+        with open(requests_file, 'w') as f:
+            json.dump(requests_map, f, indent=2)
+        
+        # Sauvegarder les résultats
+        self.save_results_to_files(sync_batch_id, results, requests_map)
         
         return results
     
@@ -574,6 +599,10 @@ class FlexibleBatchProcessor:
             int: Nombre de résultats traités avec succès
         """
         processed_count = 0
+        
+        # Créer un dossier spécial pour ce batch (pour le mode synchrone aussi)
+        batch_output_dir = self.output_path / f"batch_{batch_id}"
+        self.create_directories(batch_output_dir)
         
         for custom_id, code in results.items():
             # Récupérer les métadonnées de la requête
@@ -601,26 +630,18 @@ class FlexibleBatchProcessor:
                 input_path = Path(file_path)
                 
                 # Construire solution_id en incluant les sous-dossiers si présents
-                filename = input_path.name
+                filename = input_path.stem  # Utiliser stem au lieu de name pour éviter .py dans le nom
                 if subdirs:
                     solution_id = f"{subdirs}_{filename}"
                 else:
                     solution_id = filename
                 
-                output_dir = self.output_path / problem_id / f"original_{solution_id}"
-                output_file = output_dir / f"ai_{variation_key}.py"
+                # Modification ici pour être cohérent avec le mode batch
+                # Avant: "{problem_id}_var_{solution_id}_{variation_key}.py"
+                # Après: "var_{problem_id}_{solution_id}_{variation_key}.py"
+                output_file = batch_output_dir / f"var_{problem_id}_{solution_id}_{variation_key}.py"
                 
-                # Créer le répertoire de sortie
-                self.create_directories(output_dir)
-                
-                # Sauvegarder l'original si ce n'est pas déjà fait
-                original_file = output_dir / "original.py"
-                if not original_file.exists() and input_path.exists():
-                    original_code = self.read_file(input_path)
-                    if original_code:
-                        self.write_file(original_file, original_code)
-                
-                # Sauvegarder le résultat
+                # Sauvegarder le résultat dans le dossier batch
                 if self.write_file(output_file, code):
                     # Ajouter les métadonnées
                     result_metadata = {
@@ -638,6 +659,22 @@ class FlexibleBatchProcessor:
                     
                     processed_count += 1
                     self.stats["variations_generated"] += 1
+                
+                # Également sauvegarder dans la structure originale si ce n'est pas un batch synchrone
+                if not batch_id.startswith("sync_"):
+                    original_output_dir = self.output_path / problem_id / f"original_{solution_id}"
+                    self.create_directories(original_output_dir)
+                    
+                    # Sauvegarder l'original si ce n'est pas déjà fait
+                    original_file = original_output_dir / "original.py"
+                    if not original_file.exists() and input_path.exists():
+                        original_code = self.read_file(input_path)
+                        if original_code:
+                            self.write_file(original_file, original_code)
+                    
+                    # Sauvegarder également dans la structure originale
+                    original_variation_file = original_output_dir / f"ai_{variation_key}.py"
+                    self.write_file(original_variation_file, code)
             
             elif req_type == "generation" and self.dataset_type == "codenet":
                 # Traiter les générations depuis zéro (uniquement pour CodeNet)
@@ -648,12 +685,12 @@ class FlexibleBatchProcessor:
                     logger.warning(f"Métadonnées incomplètes pour {custom_id}")
                     continue
                 
-                # Créer le répertoire de sortie
-                output_dir = self.output_path / problem_id / "from_scratch"
-                self.create_directories(output_dir)
+                # Modification ici pour être cohérent avec le mode batch
+                # Avant: "{problem_id}_gen_{template_key}.py"
+                # Après: "gen_{problem_id}_{template_key}.py"
+                output_file = batch_output_dir / f"gen_{problem_id}_{template_key}.py"
                 
-                # Sauvegarder le résultat
-                output_file = output_dir / f"ai_generated_{template_key}.py"
+                # Sauvegarder le résultat dans le dossier batch
                 if self.write_file(output_file, code):
                     # Ajouter les métadonnées
                     result_metadata = {
@@ -669,6 +706,15 @@ class FlexibleBatchProcessor:
                     
                     processed_count += 1
                     self.stats["solutions_from_scratch"] += 1
+                
+                # Également sauvegarder dans la structure originale si ce n'est pas un batch synchrone
+                if not batch_id.startswith("sync_"):
+                    original_output_dir = self.output_path / problem_id / "from_scratch"
+                    self.create_directories(original_output_dir)
+                    
+                    # Sauvegarder également dans la structure originale
+                    original_gen_file = original_output_dir / f"ai_generated_{template_key}.py"
+                    self.write_file(original_gen_file, code)
         
         logger.info(f"Sauvegarde terminée pour le batch {batch_id}: {processed_count}/{len(results)} résultats traités")
         return processed_count
@@ -769,9 +815,17 @@ class FlexibleBatchProcessor:
         
         return all_requests
     
-    def collect_code_only_requests(self, files, variation_limit=3, test_mode=False):
+    def collect_the_stack_requests(self, files, variation_limit=3, test_mode=False):
         """
-        Collecte les requêtes pour le dataset contenant uniquement des fichiers Python.
+        Collecte les requêtes pour le dataset The Stack contenant uniquement des fichiers Python.
+        
+        Args:
+            files (list): Liste des fichiers Python à traiter
+            variation_limit (int): Nombre maximum de variations par fichier
+            test_mode (bool): Indique si le script est en mode test
+            
+        Returns:
+            list: Liste de BatchRequestItem
         """
         all_requests = []
         
@@ -833,7 +887,7 @@ class FlexibleBatchProcessor:
         
         return all_requests
     
-    def process_dataset(self, variation_limit=3, generation_limit=2, test_mode=False, problem_limit=None, file_limit=None):
+    def process_dataset(self, variation_limit=3, generation_limit=2, test_mode=False, folder_limit=None, stop_after_submit=True):
         """
         Traite l'ensemble du dataset.
         
@@ -841,8 +895,8 @@ class FlexibleBatchProcessor:
             variation_limit (int): Nombre maximum de variations par solution/fichier
             generation_limit (int): Nombre maximum de solutions générées par problème (uniquement pour CodeNet)
             test_mode (bool): Indique si le script est en mode test
-            problem_limit (int, optional): Limite le nombre de problèmes à traiter (pour CodeNet)
-            file_limit (int, optional): Limite le nombre de fichiers à traiter (pour dataset code uniquement)
+            folder_limit (int, optional): Limite le nombre de sous-dossiers à traiter (pour les deux types de datasets)
+            stop_after_submit (bool): S'arrêter après la soumission des batchs sans attendre leur complétion
             
         Returns:
             dict: Statistiques de traitement
@@ -852,34 +906,41 @@ class FlexibleBatchProcessor:
         
         all_requests = []
         
+        # Obtenir tous les sous-dossiers de premier niveau
+        subfolders = [d for d in self.input_path.iterdir() if d.is_dir()]
+        subfolders.sort()
+        
+        logger.info(f"Nombre total de sous-dossiers dans le dataset: {len(subfolders)}")
+        
+        # En mode test, limiter drastiquement
+        if test_mode:
+            if len(subfolders) > 0:
+                subfolders = subfolders[:1]  # Un seul sous-dossier en mode test
+            variation_limit = min(variation_limit, 2)
+            generation_limit = min(generation_limit, 2)
+        
+        # Limiter le nombre de sous-dossiers si demandé
+        if folder_limit and len(subfolders) > folder_limit:
+            logger.info(f"Limitation à {folder_limit} sous-dossiers sur {len(subfolders)}")
+            subfolders = subfolders[:folder_limit]
+        
         # Traiter le dataset selon son type
         if self.dataset_type == "codenet":
-            # Format CodeNet: problème/solution
-            problems = [d.name for d in self.input_path.iterdir() 
-                      if d.is_dir() and d.name.startswith('p')]
-            problems.sort()
-            
-            # En mode test, ne traiter que le premier problème
-            if test_mode and len(problems) > 0:
-                problems = [problems[0]]
-            
-            # Limiter le nombre de problèmes si demandé
-            if problem_limit and len(problems) > problem_limit:
-                problems = problems[:problem_limit]
-            
-            logger.info(f"Collecte des requêtes pour {len(problems)} problèmes au format CodeNet...")
-            all_requests = self.collect_codenet_requests(problems, variation_limit, generation_limit, test_mode)
-            
+            logger.info(f"Collecte des requêtes pour {len(subfolders)} problèmes au format CodeNet...")
+            # Pour CodeNet, les sous-dossiers sont des problèmes
+            all_requests = self.collect_codenet_requests([f.name for f in subfolders], variation_limit, generation_limit, test_mode)
         else:
-            # Format code uniquement: fichiers Python
-            python_files = list(self.input_path.glob("**/*.py"))
-            
-            # Limiter le nombre de fichiers si demandé
-            if file_limit and len(python_files) > file_limit:
-                python_files = python_files[:file_limit]
-            
-            logger.info(f"Collecte des requêtes pour {len(python_files)} fichiers Python...")
-            all_requests = self.collect_code_only_requests(python_files, variation_limit, test_mode)
+            logger.info(f"Collecte des requêtes pour {len(subfolders)} sous-dossiers depuis The Stack...")
+            # Pour The Stack, nous allons collecter les fichiers par sous-dossier
+            all_requests = []
+            for subfolder in subfolders:
+                # Trouver tous les fichiers Python dans ce sous-dossier
+                python_files = list(subfolder.glob("**/*.py"))
+                if python_files:
+                    logger.info(f"Sous-dossier {subfolder.name}: {len(python_files)} fichiers Python trouvés")
+                    # Collecter les requêtes pour ce sous-dossier
+                    subfolder_requests = self.collect_the_stack_requests(python_files, variation_limit, test_mode)
+                    all_requests.extend(subfolder_requests)
         
         logger.info(f"Collecte terminée: {len(all_requests)} requêtes à traiter")
         
@@ -894,8 +955,9 @@ class FlexibleBatchProcessor:
             logger.info(f"Mode Batch: {len(all_requests)} requêtes divisées en {len(batches)} batches")
             
             # Traiter chaque batch
+            submitted_batch_ids = []
             for i, batch_requests in enumerate(batches):
-                logger.info(f"Traitement du batch {i+1}/{len(batches)} avec {len(batch_requests)} requêtes...")
+                logger.info(f"Soumission du batch {i+1}/{len(batches)} avec {len(batch_requests)} requêtes...")
                 
                 # Soumettre le batch
                 batch_id, _ = self.submit_batch(batch_requests)
@@ -903,17 +965,27 @@ class FlexibleBatchProcessor:
                     logger.error(f"Échec de la soumission du batch {i+1}/{len(batches)}")
                     continue
                 
-                # Vérifier l'état du batch jusqu'à ce qu'il soit terminé
-                batch = self.poll_batch_status(batch_id)
-                if not batch:
-                    logger.error(f"Échec du suivi du batch {batch_id}")
-                    continue
+                logger.info(f"Batch {i+1}/{len(batches)} soumis avec succès (ID: {batch_id})")
+                submitted_batch_ids.append(batch_id)
                 
-                # Traiter les résultats du batch
-                self.process_batch_results(batch)
-                
-                # Afficher les statistiques intermédiaires
-                logger.info(f"Statistiques intermédiaires: {self.stats}")
+                # Si on doit s'arrêter après la soumission, ne pas attendre ni traiter les résultats
+                if not stop_after_submit:
+                    # Vérifier l'état du batch jusqu'à ce qu'il soit terminé
+                    batch = self.poll_batch_status(batch_id)
+                    if not batch:
+                        logger.error(f"Échec du suivi du batch {batch_id}")
+                        continue
+                    
+                    # Traiter les résultats du batch
+                    self.process_batch_results(batch)
+                    
+                    # Afficher les statistiques intermédiaires
+                    logger.info(f"Statistiques intermédiaires: {self.stats}")
+            
+            if stop_after_submit:
+                logger.info(f"Tous les batchs ont été soumis avec succès. IDs des batchs: {submitted_batch_ids}")
+                logger.info(f"Le script se termine sans attendre la complétion des batchs.")
+                logger.info(f"Pour récupérer les résultats plus tard, utilisez les IDs des batchs.")
         else:
             # Mode synchrone: traiter les requêtes une par une
             logger.info(f"Mode synchrone: traitement de {len(all_requests)} requêtes...")
@@ -926,27 +998,30 @@ class FlexibleBatchProcessor:
 def main():
     """Fonction principale"""
     parser = argparse.ArgumentParser(description='Traitement flexible de datasets de code Python avec l\'API OpenAI.')
-    parser.add_argument('--input', type=str, required=True, help='Chemin vers le dataset d\'entrée (CodeNet ou dossier de code Python)')
+    parser.add_argument('--input', type=str, required=True, help='Chemin vers le dataset d\'entrée (CodeNet ou The Stack)')
     parser.add_argument('--output', type=str, required=True, help='Chemin de sortie pour les fichiers générés')
     parser.add_argument('--test', action='store_true', help='Activer le mode test (traiter uniquement un petit échantillon)')
     parser.add_argument('--api-key', type=str, help='Clé API OpenAI (par défaut: définie dans le script ou variable d\'environnement)')
     parser.add_argument('--variations', type=int, default=3, help='Nombre de variations à générer par solution/fichier')
     parser.add_argument('--generations', type=int, default=2, help='Nombre de solutions à générer depuis zéro par problème (uniquement pour CodeNet)')
-    parser.add_argument('--problems', type=int, help='Limite le nombre de problèmes à traiter (pour CodeNet)')
-    parser.add_argument('--files', type=int, help='Limite le nombre de fichiers à traiter (pour dataset code uniquement)')
+    parser.add_argument('--folders', type=int, help='Limite le nombre de sous-dossiers à traiter (pour les deux types de datasets)')
     parser.add_argument('--poll-interval', type=int, default=60, help='Intervalle en secondes entre chaque vérification de l\'état du batch')
     parser.add_argument('--batch-size', type=int, default=1000, help='Taille maximale d\'un lot de requêtes (max 50000)')
     parser.add_argument('--no-batch', action='store_true', help='Désactiver l\'API Batch et utiliser des appels synchrones standard')
+    parser.add_argument('--wait-completion', action='store_true', help='Attendre la complétion des batchs et traiter les résultats (par défaut: s\'arrête après la soumission)')
     
     args = parser.parse_args()
     
     logger.info("=== Démarrage du processus de traitement de code Python ===")
     logger.info(f"Mode test: {'Activé' if args.test else 'Désactivé'}")
     logger.info(f"Mode API: {'Synchrone (standard)' if args.no_batch else 'Batch (50% moins cher)'}")
+    logger.info(f"Attente des résultats: {'Oui' if args.wait_completion else 'Non'}")
     logger.info(f"Chemin d'entrée: {args.input}")
     logger.info(f"Chemin de sortie: {args.output}")
     logger.info(f"Variations par solution/fichier: {args.variations}")
     logger.info(f"Générations par problème (CodeNet uniquement): {args.generations}")
+    if args.folders:
+        logger.info(f"Limitation à {args.folders} sous-dossiers")
     
     try:
         processor = FlexibleBatchProcessor(
@@ -962,8 +1037,8 @@ def main():
             variation_limit=args.variations,
             generation_limit=args.generations,
             test_mode=args.test,
-            problem_limit=args.problems,
-            file_limit=args.files
+            folder_limit=args.folders,
+            stop_after_submit=not args.wait_completion
         )
         
         logger.info("=== Processus terminé ===")
@@ -979,7 +1054,8 @@ def main():
         
         if not args.no_batch:
             logger.info(f"  - Batches soumis: {stats['batches_submitted']}")
-            logger.info(f"  - Batches terminés: {stats['batches_completed']}")
+            if args.wait_completion:
+                logger.info(f"  - Batches terminés: {stats['batches_completed']}")
         else:
             logger.info(f"  - Appels API: {stats['api_calls']}")
         

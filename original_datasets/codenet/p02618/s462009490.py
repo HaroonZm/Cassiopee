@@ -1,0 +1,22 @@
+d = int(input()) #日にちは-1indexで
+c = list(map(int, input().split()))
+csum = 0
+for i in range(26):
+    csum += c[i]
+s = [ [] for _ in range(d)]
+for i in range(d):
+    s[i] = list(map(int, input().split()))
+t = [0 for _ in range(d)]
+lastDI = [-1 for _ in range(26)]
+for i in range(d):
+    maxp = -1001002003
+    for j in range(26):
+        tmp = s[i][j]
+        for k in range(26):
+            if (j != k):
+                tmp -= c[k]*(i-lastDI[k])
+        if (tmp > maxp):
+            maxp = tmp
+            t[i] = j
+    lastDI[t[i]] = i
+    print(t[i]+1)

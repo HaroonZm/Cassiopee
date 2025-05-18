@@ -1,0 +1,122 @@
+import sys
+import numpy as np
+from numba import njit
+
+read = sys.stdin.buffer.read
+readline = sys.stdin.buffer.readline
+readlines = sys.stdin.buffer.readlines
+
+INF = 10**9 + 1
+
+N, M = map(int, readline().split())
+data = np.array(read().split(), np.int64)
+A = data[::3]
+B = data[1::3]
+C = data[2::3]
+
+D = A[N:]
+E = B[N:]
+F = C[N:]
+A = A[:N]
+B = B[:N]
+C = C[:N]
+
+X = np.unique(np.concatenate([A, B, D, [0, -INF, INF]]))
+Y = np.unique(np.concatenate([C, E, F, [0, -INF, INF]]))
+DX = X[1:] - X[:-1]
+DY = Y[1:] - Y[:-1]
+
+A = np.searchsorted(X, A)
+B = np.searchsorted(X, B)
+C = np.searchsorted(Y, C)
+D = np.searchsorted(X, D)
+E = np.searchsorted(Y, E)
+F = np.searchsorted(Y, F)
+
+H, W = len(X), len(Y)
+N = H * W
+
+@njit
+def set_ng(A, B, C, D, E, F):
+    p = 0
+    head = np.full(N, -1, np.int32)
+    ng = np.empty(4 * N, np.int32)
+    nxt = np.empty(4 * N, np.int32)
+
+    def add(v, w):
+        nonlocal p
+        nxt[p] = head[v]
+        head[v] = p
+        ng[p] = w
+        p += 1
+
+    for i in range(len(A)):
+        a, b, c = A[i], B[i], C[i]
+        for x in range(a, b):
+            v = x * W + c
+            add(v, v - 1)
+            add(v - 1, v)
+    for i in range(len(D)):
+        d, e, f = D[i], E[i], F[i]
+        for y in range(e, f):
+            v = d * W + y
+            add(v, v - W)
+            add(v - W, v)
+    return head, ng[:p], nxt[:p]
+
+head, ng, nxt = set_ng(A, B, C, D, E, F)
+
+@njit
+def next_w(head, ng, nxt, v):
+    p = head[v]
+    V = [v - W, v + W, v - 1, v + 1]
+    while p != -1:
+        if ng[p] in V:
+            V.remove(ng[p])
+        p = nxt[p]
+    return V
+
+x0, y0 = np.searchsorted(X, 0), np.searchsorted(Y, 0)
+v0 = x0 * W + y0
+
+@njit
+def solve():
+    visited = np.zeros(N, np.bool_)
+    visited[v0] = 1
+    stack = np.empty(N, np.int32)
+    p = 0
+    ret = 0
+
+    def area(x):
+        x, y = divmod(x, W)
+        return DX[x] * DY[y]
+
+    def push(x):
+        nonlocal p, ret
+        stack[p] = x
+        visited[x] = 1
+        ret += area(x)
+        p += 1
+
+    def pop():
+        nonlocal p
+        p -= 1
+        return stack[p]
+
+    push(v0)
+    while p:
+        v = pop()
+        for w in next_w(head, ng, nxt, v):
+            if visited[w]:
+                continue
+            x, y = divmod(w, W)
+            if x == 0 or x == H - 1 or y == 0 or y == W - 1:
+                return 0
+            push(w)
+    return ret
+
+x = solve()
+if x == 0:
+    print('INF')
+else:
+    print(x)

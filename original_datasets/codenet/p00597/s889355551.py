@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+
+from collections import deque
+import itertools as it
+import sys
+import math
+
+sys.setrecursionlimit(10000000)
+
+for line in sys.stdin:
+    n = int(line)
+    ans = 1
+    for i in range(n / 2 - 1):
+        ans = ans * 3 + 1
+    if n == 1:
+        ans = 1
+    elif n % 2 == 1:
+        ans = ans * 4 + 1
+    else:
+        ans = ans * 2
+    print ans

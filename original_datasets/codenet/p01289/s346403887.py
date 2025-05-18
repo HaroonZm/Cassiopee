@@ -1,0 +1,75 @@
+from heapq import heappush, heappop
+import sys
+readline = sys.stdin.readline
+write = sys.stdout.write
+
+def solve():
+    N, s, t = map(int, readline().split())
+    if N == 0:
+        return False
+    *Q, = map(int, readline().split())
+    G = [[] for i in range(N)]
+    for v in range(N):
+        *A, = map(int, readline().split())
+        for w, a in enumerate(A):
+            if not a:
+                continue
+            G[v].append((w, a))
+    INF = 10**9
+    que = [(0, t-1)]
+    dist = [INF]*N
+    dist[t-1] = 0
+
+    while que:
+        cost, v = heappop(que)
+        if dist[v] < cost:
+            continue
+        for w, d in G[v]:
+            if cost + d < dist[w]:
+                dist[w] = cost + d
+                heappush(que, (cost + d, w))
+
+    if dist[s-1] == INF:
+        write("impossible\n")
+        return
+
+    G0 = [[] for i in range(N)]
+    for v in range(N):
+        if v == t-1:
+            continue
+        if Q[v]:
+            cost = dist[v]
+            for w, d in G[v]:
+                if cost != dist[w] + d:
+                    continue
+                G0[v].append((w, d))
+        else:
+            G0[v] = G[v]
+
+    MT = [[0]*(N+1) for i in range(N)]
+    for v in range(N):
+        Mv = MT[v]
+        Mv[v] = 1
+        r = 0
+        g = len(G0[v])
+        for w, d in G0[v]:
+            Mv[w] -= 1 / g
+            r += d / g
+        Mv[N] = r
+
+    for i in range(N):
+        Mi = MT[i]
+        v = Mi[i]
+        for j in range(N+1):
+            Mi[j] /= v
+        for k in range(N):
+            Mk = MT[k]
+            e = Mk[i]
+            if e == 0 or i == k:
+                continue
+            for j in range(N+1):
+                Mk[j] -= e * Mi[j]
+    write("%.16f\n" % MT[s-1][N])
+    return True
+while solve():
+    ...

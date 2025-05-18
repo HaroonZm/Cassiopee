@@ -1,0 +1,22 @@
+from collections import deque
+H,W,N=map(int,input().split())
+e='X'*(W+2)
+M=e+''.join('X'+input()+'X'for _ in[0]*H)+e
+m=(1,-1,W+2,-W-2)
+def f(s,g):
+ p,t=s,0
+ q=deque()
+ b=[1]*len(M);b[s]=0
+ while 1:
+  for d in m:
+   n=p+d
+   if'X'!=M[n]and b[n]:
+    if M[n]==g:return(n,t+1)
+    b[n]=0;q.append([n,t+1])
+  p,t=q.popleft()
+s=M.find('S')
+a=0
+for i in range(1,N+1):
+ s,t=f(s,str(i))
+ a+=t
+print(a)

@@ -1,0 +1,26 @@
+def main():
+    s=input()
+    t=input()
+    n=len(s)
+    m=len(t)
+    memo=[[n+m for _ in [0]*(m+1)] for _ in [0]*(n+1)]
+    memo[0][0]=0
+    
+    for i in range(n+m):
+        for j in range(i+1):
+            k=i-j
+            if 0<=j<n and 0<=k<m:
+                if s[j]==t[k]:
+                    memo[j+1][k+1]=min(memo[j+1][k+1],memo[j][k])
+                else:
+                    memo[j+1][k]=min(memo[j+1][k],memo[j][k]+1)
+                    memo[j][k+1]=min(memo[j][k+1],memo[j][k]+1)
+                    memo[j+1][k+1]=min(memo[j+1][k+1],memo[j][k]+1)
+            elif j==n:
+                memo[j][k+1]=min(memo[j][k+1],memo[j][k]+1)
+            elif k==m:
+                memo[j+1][k]=min(memo[j+1][k],memo[j][k]+1)
+    print(memo[n][m])
+                
+if __name__ == '__main__':
+    main()

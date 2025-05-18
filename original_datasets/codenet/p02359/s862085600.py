@@ -1,0 +1,10 @@
+n,t = map(int, input().split(" "))
+num = [0 for i in range(t)]
+for i in range(n):
+    l,r = map(int, input().split(" "))
+    num[l] += 1
+    if r < t:
+        num[r] -= 1
+for i in range(1,t):
+    num[i] += num[i-1]
+print(max(num))

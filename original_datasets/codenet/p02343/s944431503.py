@@ -1,0 +1,34 @@
+'''
+所要時間は、分位であった。
+'''
+
+# ライブラリのインポート
+#import re #正規表現
+import sys
+#import heapq
+#import bisect
+#import collections
+#import math
+
+def main():
+    n, q = map(int, input().split())
+    P = [i for i in range(n)]
+    for line in sys.stdin:
+        order = line.strip("\n").split()
+        x,y = map(int, order[1:])
+        if x > y: x, y = y, x
+        while(1):
+            x = P[x]
+            if x == P[x]: break
+        while(1):
+            y = P[y]
+            if y == P[y]: break
+        if order[0] == "0": #unite
+            P[x] = P[y] 
+        elif order[0] == "1": #same
+            print(1) if y == x else print(0)
+    
+
+    
+if __name__ == '__main__':
+    main()

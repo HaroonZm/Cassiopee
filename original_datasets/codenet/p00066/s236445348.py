@@ -1,0 +1,19 @@
+while True:
+    try:
+        a = raw_input()
+        if a[::4] == "ooo" or a[2:8:2] == "ooo":
+            print "o"
+        elif a[::4] == "xxx" or a[2:8:2] == "xxx":
+            print "x"
+        else:
+            for i in range(3):
+                if a[3*i:3*(i+1)] == "ooo" or a[i::3] == "ooo":
+                    print "o"
+                    break
+                elif a[3*i:3*(i+1)] == "xxx" or a[i::3] == "xxx":
+                    print "x"
+                    break
+                elif i == 2:
+                    print "d"
+    except:
+        break

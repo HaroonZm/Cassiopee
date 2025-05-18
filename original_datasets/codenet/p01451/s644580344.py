@@ -1,0 +1,58 @@
+from heapq import heappush, heappop
+from math import sqrt
+import sys
+readline = sys.stdin.buffer.readline
+write = sys.stdout.write
+N, M = map(int, readline().split())
+PS = [list(map(int, readline().split())) for i in range(N)]
+QS = [list(map(int, readline().split())) for i in range(M)]
+
+def dot3(O, A, B):
+    ox, oy = O; ax, ay = A; bx, by = B
+    return (ax - ox) * (bx - ox) + (ay - oy) * (by - oy)
+def cross3(O, A, B):
+    ox, oy = O; ax, ay = A; bx, by = B
+    return (ax - ox) * (by - oy) - (bx - ox) * (ay - oy)
+def dist2(A, B):
+    ax, ay = A; bx, by = B
+    return (ax - bx) ** 2 + (ay - by) ** 2
+def is_intersection(P0, P1, Q0, Q1):
+    C0 = cross3(P0, P1, Q0)
+    C1 = cross3(P0, P1, Q1)
+    D0 = cross3(Q0, Q1, P0)
+    D1 = cross3(Q0, Q1, P1)
+    if C0 == C1 == 0:
+        E0 = dot3(P0, P1, Q0)
+        E1 = dot3(P0, P1, Q1)
+        if not E0 < E1:
+            E0, E1 = E1, E0
+        return E0 <= dist2(P0, P1) and 0 <= E1
+    return C0 * C1 <= 0 and D0 * D1 <= 0
+
+def solve(N, PS, q0, q1):
+    yield 10**18
+    p0 = PS[0]; p1 = PS[1]
+    if not is_intersection(p0, p1, q0, q1):
+        yield sqrt(dist2(p0, p1))
+        return
+    V0 = [i for i in range(2, N) if not is_intersection(p0, PS[i], q0, q1)]
+    V1 = [i for i in range(2, N) if not is_intersection(p1, PS[i], q0, q1)]
+    D0 = [sqrt(dist2(p0, p)) for p in PS]
+    D1 = [sqrt(dist2(p1, p)) for p in PS]
+    for v0 in V0:
+        for v1 in V1:
+            if v0 != v1:
+                if is_intersection(PS[v0], PS[v1], q0, q1):
+                    continue
+                yield D0[v0] + D1[v1] + sqrt(dist2(PS[v0], PS[v1]))
+            else:
+                yield D0[v0] + D1[v1]
+
+ans = min(
+        sqrt(dist2(QS[0], QS[1])) + min(solve(N, PS, QS[0], QS[1])),
+        sqrt(dist2(PS[0], PS[1])) + min(solve(M, QS, PS[0], PS[1]))
+        )
+if ans < 10**9:
+    write("%.16f\n" % ans)
+else:
+    write("-1\n")

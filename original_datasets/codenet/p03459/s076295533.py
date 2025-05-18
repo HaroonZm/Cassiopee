@@ -1,0 +1,31 @@
+N = int(input())
+t = []
+pos = []
+pos.append((0, 0))
+t.append(0)
+for i in range(N):
+    t_i, x_i, y_i = map(int, input().split())
+    t.append(t_i)
+    pos.append((x_i, y_i))
+
+def isReachable(cur, dst, t):
+    dist = abs(cur[0] - dst[0]) + abs(cur[1] - dst[1])
+    if dist > t:
+        return False
+    if dist % 2 != t % 2:
+        return False
+    return True
+
+reachable = True
+for i in range(1, N + 1):
+    cur = (pos[i - 1][0], pos[i - 1][1])
+    dst = (pos[i][0], pos[i][1])
+    t_i = t[i] - t[i - 1]
+    if not isReachable(cur, dst, t_i):
+        reachable = False
+        break
+
+if reachable:
+    print('Yes')
+else:
+    print('No')

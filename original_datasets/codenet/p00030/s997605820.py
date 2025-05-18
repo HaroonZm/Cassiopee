@@ -1,0 +1,21 @@
+import sys
+sys.setrecursionlimit(10000)
+
+def solve(i,wa,use):
+    global ct,s,n
+    if wa==s and use==n:
+        ct+=1
+        return
+    if use>n or i==10 or wa>s:
+        return
+    solve(i+1,wa,use)
+    solve(i+1,wa+i,use+1)
+
+while 1:
+    n,s=map(int,raw_input().split())
+    if n==0 and s==0:
+        break
+    ct=0
+    wa=0
+    solve(0,0,0)
+    print ct

@@ -1,0 +1,36 @@
+from collections import Counter
+h, w = [int(item) for item in input().split()]
+cnt = Counter()
+for i in range(h):
+    cnt.update(input().rstrip())
+odds = 0
+two_mod4 = 0
+for key in cnt.keys():
+    if cnt[key] % 2 == 1:
+        odds += 1
+        if cnt[key] - 1 % 4 == 2:
+            two_mod4 += 1
+    else:
+        if cnt[key] % 4 == 2:
+            two_mod4 += 1
+
+if w % 2 == 0 and h % 2 == 0:
+    if odds > 0 or two_mod4 > 0:
+        print("No")
+    else:
+        print("Yes")
+elif w % 2 == 0:
+    if odds > 0 or two_mod4 > w // 2:
+        print("No")
+    else:
+        print("Yes")
+elif h % 2 == 0:
+    if odds > 0 or two_mod4 > h // 2:
+        print("No")
+    else:
+        print("Yes")
+else:
+    if odds > 1 or two_mod4 > (h - 1) // 2 + (w - 1) // 2:
+        print("No")
+    else:
+        print("Yes")

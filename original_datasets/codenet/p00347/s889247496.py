@@ -1,0 +1,31 @@
+import sys
+sys.setrecursionlimit(10**7)
+w, h = map(int, input().split())
+S = [list(map(int, input().split())) for i in range(h)]
+SW = [[0]*w for i in range(h)]
+SH = [[0]*w for i in range(h)]
+for i in range(h):
+    cnt = 0
+    for j in range(w-1, -1, -1):
+        cnt += S[i][j]
+        SW[i][j] = cnt
+for j in range(w):
+    cnt = 0
+    for i in range(h-1, -1, -1):
+        cnt += S[i][j]
+        SH[i][j] = cnt
+memo = {}
+def dfs(x, y):
+    if (x, y) in memo:
+        return memo[x, y]
+    if x == w or y == h:
+        return 0
+    if (x+y) % 2 == 0:
+        # first
+        res = max(dfs(x+1, y) - SH[y][x], dfs(x, y+1) + SW[y][x])
+    else:
+        # second
+        res = min(dfs(x+1, y) - SH[y][x], dfs(x, y+1) + SW[y][x])
+    memo[x, y] = res
+    return res
+print(abs(dfs(0, 0)))

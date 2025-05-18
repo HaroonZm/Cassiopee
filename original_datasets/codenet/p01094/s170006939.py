@@ -1,0 +1,26 @@
+import collections
+
+while 1:
+    n = int(input())
+    if n == 0:
+        break
+
+    data = list(input().split())
+    vote = [0] * 26
+    alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    alpha = list(alpha)
+
+    for i, v in enumerate(data):
+        num = alpha.index(v)
+        vote[num] += 1
+        tmp = zip(vote, alpha)
+        tmp = sorted(tmp, key=lambda x: -x[0])
+        vote, alpha = zip(*tmp)
+        vote = list(vote)
+        alpha = list(alpha)
+
+        if vote[0] > (n-i-1) + vote[1]:
+            print(alpha[0], i+1)
+            break
+    else:
+        print("TIE")

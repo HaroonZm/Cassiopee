@@ -1,0 +1,12 @@
+n=int(input())
+l=[]
+for _ in [0]*n:
+    a,b=map(int,input().split())
+    l.extend([(a,1),(b+1,-1)])
+l.sort()
+c = 0
+a = 0
+for _,v in l:
+    c+=v
+    a=max(a,c)
+print(a)

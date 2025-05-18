@@ -1,0 +1,17 @@
+while True :
+    n = int(input())
+    if n == 0 :
+        break
+    
+    ice = list([0] * 10)
+    for i in range(n) :
+        ice[int(input())] += 1
+    
+
+    for i in range(10) :
+        if ice[i] > 0 :
+            for j in range(ice[i]) :
+                print("*", sep="", end="")
+            print()
+        else :
+            print("-")

@@ -1,0 +1,35 @@
+N = int(input())
+V = list(map(int, input().split()))
+#N = len(V)
+
+v1, v2 = {}, {}
+
+for v in V[::2]:
+	if not v in v1:
+		v1[v] = 1
+	else:
+		v1[v] += 1
+
+for v in V[1::2]:
+	if not v in v2:
+		v2[v] = 1
+	else:
+		v2[v] += 1
+
+a1 = sorted(v1, key=lambda x:-v1[x])
+a2 = sorted(v2, key=lambda x:-v2[x])
+
+#print(v1, v2)
+#print(a1, a2)
+
+r = []
+for k1 in a1[:2]:
+	for k2 in a2[:2]:
+		if k1 != k2:
+			r += [N - v1[k1] - v2[k2]]
+
+if not r:
+	r += [N // 2]
+
+#print(r)
+print(min(r))
