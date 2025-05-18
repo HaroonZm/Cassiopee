@@ -1,7 +1,0 @@
-N,M = map(int,input().split())
-Foods = [ i for i in range(1,M+1)]
-for i in range(N):
-    L = list(map(int,input().split()))
-    A = L[1:]
-    Foods = list(set(Foods)&set(A))
-print(len(Foods))

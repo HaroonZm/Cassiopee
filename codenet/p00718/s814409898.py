@@ -1,2 +1,0 @@
-import re
-[print(re.sub(r'0.','',''.join([str(10000+sum([eval(i[0]+'0'*'ixcm'.find(i[1]))for i in['1'+i for i in''.join(re.split(r'\d\w',s))]+re.findall(r'\d\w',s)]))[i]+'1mcxi'[i]for i in range(5)]).replace('1','')))for s in[input().replace(" ","")for i in range(int(input()))]]

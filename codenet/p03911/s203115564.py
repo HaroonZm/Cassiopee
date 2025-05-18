@@ -1,1 +1,0 @@
-from scipy.sparse import*;(n,m),*d=[map(int,o.split())for o in open(0)];*w,a=zip(*[(i,j+n-1,1)for i,(_,*d)in enumerate(d)for j in d]);print("YNEOS"[1in csgraph.connected_components(csr_matrix((a,w),[n+m]*2))[1][:n]::2])

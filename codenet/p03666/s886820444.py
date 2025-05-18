@@ -1,8 +1,0 @@
-N, A, B, C, D = map(int, input().split())
-
-E = C + D
-for i in range(N):
-  if A + (N - 1) * C - E * i <= B <= A + (N - 1) * D - E * i:
-    print("YES")
-    exit()
-print("NO")

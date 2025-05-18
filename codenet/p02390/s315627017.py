@@ -1,6 +1,0 @@
-s = int(input())
-hour = int(s / (60**2))
-next_s = int(s % (60**2))
-minut = int(next_s / 60)
-second = int(next_s % 60)
-print("{}:{}:{}".format(hour,minut,second))

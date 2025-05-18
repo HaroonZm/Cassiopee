@@ -1,6 +1,0 @@
-n, t = map(int, input().split())
-s = x = y = 0
-for i in range(n):
-    h = int(input())
-    s, x, y = s+x, h, max(h, y)
-    print(max((t-x-s)//y+2,1))

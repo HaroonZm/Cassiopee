@@ -1,1 +1,0 @@
-from numpy import*;n,a,b,*p=map(int,open(0).read().split());c=array(p);print(min(sum(c<=a),sum((a<c)&(c<=b)),sum(b<c)))

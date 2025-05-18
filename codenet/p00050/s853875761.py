@@ -1,6 +1,0 @@
-L=input()
-L=L.replace("apple","kunimatsu")
-L=L.replace("peach","apple")
-L=L.replace("kunimatsu","peach")
-
-print(L)

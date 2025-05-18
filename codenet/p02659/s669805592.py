@@ -1,6 +1,0 @@
-a,b = input().split()
-a = int(a)
-c,d = b.split('.')
-c = int(c)
-d = int(d)
-print(a*c+a*d//100)

@@ -1,1 +1,0 @@
-print("AARBCC"[1200>int(input())::2])

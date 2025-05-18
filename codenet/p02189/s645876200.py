@@ -1,5 +1,0 @@
-N = int(input())
-a = list(map(int, input().split()))
-mina = min(a)
-ans = a.index(mina)
-print(ans + 1)

@@ -1,5 +1,0 @@
-a = input()
-a=a.replace('apple','AAAAA')
-a=a.replace('peach','apple')
-a=a.replace('AAAAA','peach')
-print(a)

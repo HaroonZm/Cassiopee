@@ -1,9 +1,0 @@
-while True:
-    p=int(input())      #while文のなかで定義
-    if p==0:break       #p=pay
-    a=0                 #aを定義しておく
-    c=1000-p        #c=change
-    for i in [500,100,50,10,5,1]:
-        a+=c//i     #aにc//iを足す
-        c=c%i
-    print(a)

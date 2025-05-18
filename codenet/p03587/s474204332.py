@@ -1,1 +1,0 @@
-print(sum(int(T) for T in input()))

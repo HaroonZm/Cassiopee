@@ -1,9 +1,0 @@
-while 1:
-    L=input()
-    if L<1:break
-    a,t=0,0
-    for i in range(12):
-        k=map(int,raw_input().split())
-        t+=k[0]-k[1]
-        if L<=t:a+=1
-    print 12-a+1 if a else "NA"
