@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import traceback
 from tqdm import tqdm
 
 # Architecture UNet pour la détection de code IA
@@ -130,6 +131,22 @@ def test_single_file(model, file_path, device):
         matrix = np.load(file_path)
         matrix = preprocess_matrix(matrix)
         
+        # Vérifier la taille de la matrice
+        print(f"Taille de la matrice originale: {matrix.shape}")
+        
+        # Si la matrice est trop petite, la redimensionner
+        # La taille minimale requise dépend de l'architecture UNet
+        # Pour un modèle avec 4 couches de downsample, la taille minimale est 16x16
+        min_size = 16
+        if matrix.shape[0] < min_size or matrix.shape[1] < min_size:
+            print(f"Matrice redimensionnée de {matrix.shape} à au moins {min_size}x{min_size}")
+            # Créer une nouvelle matrice de taille minimale, remplie de zéros
+            new_matrix = np.zeros((max(min_size, matrix.shape[0]), max(min_size, matrix.shape[1])))
+            # Copier les valeurs de la matrice originale
+            new_matrix[:matrix.shape[0], :matrix.shape[1]] = matrix
+            matrix = new_matrix
+            print(f"Nouvelle taille de matrice: {matrix.shape}")
+        
         # Conversion en tenseur
         matrix_tensor = torch.tensor(matrix, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
         matrix_tensor = matrix_tensor.to(device)
@@ -170,6 +187,7 @@ def test_single_file(model, file_path, device):
         
     except Exception as e:
         print(f"Erreur lors du test de {file_path}: {e}")
+        traceback.print_exc()  # Afficher la trace complète de l'erreur
         return None
 
 def test_directory(model, test_dir, device, recursive=False):
@@ -231,23 +249,25 @@ def test_directory(model, test_dir, device, recursive=False):
     
     return results
 
-def generate_matrix_from_python(py_file, output_dir=None, token_model="gpt-4o-mini", pred_model="gpt-4o-mini"):
+def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model="gpt-4o-mini", pred_model="gpt-4o-mini", tiles_size=(16, 16)):
     """
-    Convertit un fichier Python en représentation matricielle pour l'analyse
-    en appelant matrix_generator.py en mode no-batch.
+    Convertit un fichier Python en représentation matricielle puis en tuiles pour l'analyse
+    en appelant matrix_generator.py puis matrix_tiling.py.
     
     Args:
         py_file: Chemin vers le fichier Python
-        output_dir: Répertoire de sortie pour la matrice
+        output_dir: Répertoire de sortie pour la matrice et les tuiles
         token_model: Modèle à utiliser pour la tokenisation
         pred_model: Modèle à utiliser pour la prédiction
+        tiles_size: Taille des tuiles (lignes, colonnes)
     
     Returns:
-        Chemin vers le fichier .npy contenant la matrice générée
+        Chemin vers le dossier contenant les tuiles générées
     """
     import subprocess
     import tempfile
     import time
+    import glob
     
     try:
         # Créer un répertoire temporaire si aucun n'est spécifié
@@ -256,12 +276,11 @@ def generate_matrix_from_python(py_file, output_dir=None, token_model="gpt-4o-mi
         else:
             os.makedirs(output_dir, exist_ok=True)
         
-        # Nom du fichier de sortie
+        # Nom de base du fichier
         base_name = os.path.basename(py_file).replace('.py', '')
-        matrix_file = os.path.join(output_dir, f"{base_name}.npy")
         
-        # Construire la commande pour appeler matrix_generator.py en mode no-batch
-        cmd = [
+        # 1. Générer la matrice avec matrix_generator.py
+        matrix_cmd = [
             "python", 
             "matrix_generation/matrix_generator.py",
             "--file", py_file,
@@ -271,11 +290,104 @@ def generate_matrix_from_python(py_file, output_dir=None, token_model="gpt-4o-mi
             "--output-dir", output_dir
         ]
         
-        print(f"Exécution de la commande: {' '.join(cmd)}")
+        print(f"Étape 1: Génération de la matrice...")
+        print(f"Exécution de la commande: {' '.join(matrix_cmd)}")
         
-        # Exécuter la commande
+        # Exécuter la commande pour générer la matrice
         process = subprocess.Popen(
-            cmd,
+            matrix_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+        
+        # Lire et afficher la sortie
+        matrix_path = None
+        for line in process.stdout:
+            print(line.strip())
+            # Chercher le chemin de la matrice générée dans la sortie
+            if "Matrice sauvegardée dans:" in line:
+                matrix_path = line.split("Matrice sauvegardée dans:")[1].strip()
+            elif "Matrice sauvegardée dans" in line:
+                parts = line.split("Matrice sauvegardée dans")
+                if len(parts) > 1:
+                    matrix_path = parts[1].strip()
+        
+        # Attendre la fin du processus
+        exit_code = process.wait()
+        
+        if exit_code != 0:
+            print(f"Erreur lors de la génération de la matrice, code de sortie: {exit_code}")
+            return None
+        
+        # Si nous n'avons pas trouvé le chemin dans la sortie, chercher la matrice
+        if not matrix_path:
+            # Recherche par motif de nom
+            possible_paths = [
+                os.path.join(output_dir, f"matrix_{base_name}.npy"),
+                os.path.join(output_dir, "matrixes", f"matrix_{base_name}.npy"),
+                os.path.join(output_dir, "matrices", f"matrix_{base_name}.npy")
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    matrix_path = path
+                    print(f"Matrice trouvée par motif de nom: {matrix_path}")
+                    break
+        
+        # Si nous n'avons toujours pas trouvé la matrice, chercher tous les fichiers .npy
+        if not matrix_path:
+            npy_files = []
+            for root, dirs, files in os.walk(output_dir):
+                for file in files:
+                    if file.endswith('.npy'):
+                        full_path = os.path.join(root, file)
+                        npy_files.append(full_path)
+                        print(f"Matrice potentielle trouvée: {full_path}")
+            
+            # Si un seul fichier .npy a été trouvé, supposons que c'est notre matrice
+            if len(npy_files) == 1:
+                matrix_path = npy_files[0]
+                print(f"Une seule matrice trouvée: {matrix_path}")
+            elif len(npy_files) > 1:
+                # Chercher le fichier avec le nom le plus proche
+                for npy_file in npy_files:
+                    if base_name.lower() in os.path.basename(npy_file).lower():
+                        matrix_path = npy_file
+                        print(f"Meilleure correspondance parmi plusieurs fichiers: {matrix_path}")
+                        break
+                
+                # Si nous n'avons toujours pas trouvé de correspondance, prendre le plus récent
+                if not matrix_path:
+                    matrix_path = max(npy_files, key=os.path.getmtime)
+                    print(f"Fichier le plus récent parmi plusieurs: {matrix_path}")
+        
+        if not matrix_path or not os.path.exists(matrix_path):
+            print(f"Erreur: Aucune matrice générée trouvée")
+            return None
+        
+        # 2. Convertir la matrice en tuiles avec matrix_tiling.py
+        # Créer les dossiers pour les tuiles
+        matrices_dir = os.path.dirname(matrix_path)
+        tiles_dir = os.path.join(output_dir, "tiles")
+        os.makedirs(tiles_dir, exist_ok=True)
+        
+        tiling_cmd = [
+            "python",
+            "matrix_generation/matrix_tiling.py",
+            matrices_dir,
+            tiles_dir,
+            "--taille_tuile",
+            str(tiles_size[0]),
+            str(tiles_size[1])
+        ]
+        
+        print(f"\nÉtape 2: Génération des tuiles...")
+        print(f"Exécution de la commande: {' '.join(tiling_cmd)}")
+        
+        # Exécuter la commande pour générer les tuiles
+        process = subprocess.Popen(
+            tiling_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True
@@ -289,26 +401,130 @@ def generate_matrix_from_python(py_file, output_dir=None, token_model="gpt-4o-mi
         exit_code = process.wait()
         
         if exit_code != 0:
-            print(f"Erreur lors de la génération de la matrice, code de sortie: {exit_code}")
+            print(f"Erreur lors de la génération des tuiles, code de sortie: {exit_code}")
             return None
         
-        # Vérifier si le fichier a été généré
-        if os.path.exists(matrix_file):
-            print(f"Matrice générée avec succès: {matrix_file}")
-            return matrix_file
-        else:
-            # Si le fichier spécifique n'existe pas, chercher des fichiers .npy dans le répertoire
-            npy_files = glob.glob(os.path.join(output_dir, "*.npy"))
-            if npy_files:
-                print(f"Matrice trouvée: {npy_files[0]}")
-                return npy_files[0]
-            else:
-                print(f"Aucune matrice générée dans le répertoire: {output_dir}")
-                return None
+        # Vérifier si des tuiles ont été générées
+        tile_files = []
+        for root, dirs, files in os.walk(tiles_dir):
+            for file in files:
+                if file.endswith('.npy'):
+                    tile_files.append(os.path.join(root, file))
+        
+        if not tile_files:
+            print(f"Aucune tuile générée dans {tiles_dir}")
+            return None
+        
+        print(f"Génération réussie ! {len(tile_files)} tuiles ont été créées dans {tiles_dir}")
+        return tiles_dir
     
     except Exception as e:
-        print(f"Erreur lors de la génération de matrice pour {py_file}: {str(e)}")
+        print(f"Erreur lors de la génération de tuiles pour {py_file}: {str(e)}")
+        traceback.print_exc()
         return None
+
+def analyze_tiles_directory(model, tiles_dir, device):
+    """
+    Analyse toutes les tuiles dans un répertoire et retourne une prédiction globale
+    
+    Args:
+        model: Le modèle UNet chargé
+        tiles_dir: Chemin vers le répertoire contenant les tuiles
+        device: Device à utiliser (cuda/cpu)
+    
+    Returns:
+        Un dictionnaire avec le résultat de l'analyse
+    """
+    # Vérifier que le répertoire existe
+    if not os.path.isdir(tiles_dir):
+        print(f"Erreur: {tiles_dir} n'est pas un répertoire valide")
+        return None
+    
+    # Trouver toutes les tuiles dans le répertoire
+    tile_files = []
+    for root, dirs, files in os.walk(tiles_dir):
+        for file in files:
+            if file.endswith('.npy'):
+                tile_files.append(os.path.join(root, file))
+    
+    if not tile_files:
+        print(f"Aucune tuile trouvée dans {tiles_dir}")
+        return None
+    
+    print(f"Analyse de {len(tile_files)} tuiles...")
+    
+    # Analyser chaque tuile
+    ia_scores = []
+    success_count = 0
+    
+    for tile_file in tqdm(tile_files, desc="Analyse des tuiles"):
+        try:
+            # Charger et prétraiter la tuile
+            tile = np.load(tile_file)
+            tile = preprocess_matrix(tile)
+            
+            # Conversion en tenseur
+            tile_tensor = torch.tensor(tile, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+            tile_tensor = tile_tensor.to(device)
+            
+            # Prédiction
+            with torch.no_grad():
+                output = model(tile_tensor).squeeze().item()
+            
+            # Ajouter le score à la liste
+            ia_scores.append(output)
+            success_count += 1
+            
+        except Exception as e:
+            print(f"Erreur lors de l'analyse de la tuile {tile_file}: {e}")
+            traceback.print_exc()
+    
+    if success_count == 0:
+        print("Aucune tuile n'a pu être analysée correctement")
+        return None
+    
+    # Calculer le score moyen et la classe prédite
+    avg_score = sum(ia_scores) / len(ia_scores)
+    predicted_class = "IA" if avg_score > 0.5 else "Humain"
+    confidence = avg_score if avg_score > 0.5 else 1 - avg_score
+    
+    # Récupérer le nom de base du répertoire de tuiles
+    directory_path = os.path.dirname(tiles_dir)
+    base_name = os.path.basename(directory_path)
+    if not base_name or base_name == "temp_matrices":
+        # Utiliser le nom du répertoire tiles lui-même
+        base_name = os.path.basename(tiles_dir)
+    
+    # Déterminer la classe réelle
+    true_class = determine_true_class(base_name)
+    
+    # Créer le résultat
+    result = {
+        'file': base_name,
+        'true_class': true_class,
+        'predicted_class': predicted_class,
+        'score': avg_score,
+        'confidence': confidence,
+        'tile_scores': ia_scores,
+        'tiles_analyzed': success_count,
+        'total_tiles': len(tile_files),
+        'correct': predicted_class == true_class if true_class != "Inconnu" else None
+    }
+    
+    # Afficher le résultat
+    print("\n" + "="*60)
+    print(f"Résultat global pour: {base_name}")
+    print("-"*60)
+    print(f"Classe réelle: {true_class}")
+    print(f"Prédiction: {predicted_class}")
+    print(f"Score moyen: {avg_score:.4f}")
+    print(f"Confiance: {confidence*100:.2f}%")
+    print(f"Tuiles analysées: {success_count}/{len(tile_files)}")
+    if true_class != "Inconnu":
+        print(f"Correct: {'✓' if predicted_class == true_class else '✗'}")
+    print("="*60)
+    
+    return result
 
 def analyze_python_file(model_path, python_file, device=None):
     """
@@ -350,11 +566,16 @@ def analyze_python_file(model_path, python_file, device=None):
     else:
         # Convertir le fichier Python en matrice
         temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_matrices")
-        matrix_file = generate_matrix_from_python(python_file, temp_dir)
+        matrix_file = generate_matrix_and_tiles_from_python(python_file, temp_dir)
     
     if matrix_file:
-        # Analyser la matrice
-        result = test_single_file(model, matrix_file, device)
+        # Vérifier si le chemin est un répertoire ou un fichier
+        if os.path.isdir(matrix_file):
+            # Si c'est un répertoire (contenant des tuiles), utiliser analyze_tiles_directory
+            result = analyze_tiles_directory(model, matrix_file, device)
+        else:
+            # Si c'est un fichier unique, utiliser test_single_file
+            result = test_single_file(model, matrix_file, device)
         
         # Ajouter le nom du fichier Python d'origine si c'est un .py
         if python_file.endswith('.py') and result:
@@ -433,9 +654,15 @@ def analyze_python_directory(model_path, directory, recursive=False, device=None
     if py_files:
         print("Génération des matrices à partir des fichiers Python...")
         for py_file in tqdm(py_files, desc="Génération et analyse des fichiers Python"):
-            matrix_file = generate_matrix_from_python(py_file, temp_dir)
+            # Note: Ici nous utilisons generate_matrix_and_tiles_from_python, pas generate_matrix_from_python
+            matrix_file = generate_matrix_and_tiles_from_python(py_file, temp_dir)
             if matrix_file:
-                result = test_single_file(model, matrix_file, device)
+                # Vérifier si le chemin est un répertoire ou un fichier
+                if os.path.isdir(matrix_file):
+                    result = analyze_tiles_directory(model, matrix_file, device)
+                else:
+                    result = test_single_file(model, matrix_file, device)
+                
                 if result:
                     result['python_file'] = py_file
                     results.append(result)
