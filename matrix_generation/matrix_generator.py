@@ -316,7 +316,7 @@ class BatchRequestItem:
         req = {
             "custom_id": self.custom_id,
             "method": "POST",
-            "url": "/v1/chat/completions",
+            "url": "/v1/completions",
             "body": {
                 "model": self.model,
                 "messages": [
@@ -356,7 +356,7 @@ class BatchAnalyzer:
             uploaded = client.files.create(file=f, purpose="batch")
         batch = client.batches.create(
             input_file_id=uploaded.id,
-            endpoint="/v1/chat/completions",
+            endpoint="/v1/completions",
             completion_window="24h"
         )
         os.unlink(file_path)

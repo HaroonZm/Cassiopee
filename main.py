@@ -10,9 +10,9 @@ from PyQt5.QtWidgets import (
     QFileDialog, QProgressBar, QSpinBox, QCheckBox,
     QComboBox, QListWidget, QMessageBox, QLineEdit,
     QGroupBox, QRadioButton, QTextEdit, QScrollArea,
-    QListWidgetItem
+    QListWidgetItem,QSizePolicy
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData,QTimer
 from PyQt5.QtGui import QDragEnterEvent, QDropEvent
 
 import matplotlib.pyplot as plt
@@ -1401,6 +1401,47 @@ class ProcessThread(QThread):
             self.update_signal.emit(f"Erreur: {str(e)}")
             self.finished_signal.emit(False, str(e))
 
+import os
+import sys
+import subprocess
+import tempfile
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
+                            QPushButton, QFileDialog, QProgressBar, QListWidget,
+                            QListWidgetItem, QCheckBox, QTextEdit, QMessageBox,
+                            QRadioButton, QLineEdit)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData, QTimer
+from PyQt5.QtGui import QDragEnterEvent, QDropEvent
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+class ProcessThread(QThread):
+    """Thread pour exécuter le script test_unet.py sans bloquer l'interface"""
+    update_signal = pyqtSignal(str)
+    finished_signal = pyqtSignal(bool, str)
+    
+    def __init__(self, command):
+        super().__init__()
+        self.command = command
+        
+    def run(self):
+        try:
+            process = subprocess.Popen(self.command, 
+                                      stdout=subprocess.PIPE, 
+                                      stderr=subprocess.STDOUT,
+                                      shell=True,
+                                      text=True,
+                                      bufsize=1)
+            
+            for line in iter(process.stdout.readline, ''):
+                self.update_signal.emit(line.strip())
+            
+            exit_code = process.wait()
+            success = exit_code == 0
+            self.finished_signal.emit(success, "Terminé avec succès" if success else f"Échec (code {exit_code})")
+        except Exception as e:
+            self.update_signal.emit(f"Erreur: {str(e)}")
+            self.finished_signal.emit(False, str(e))
+
 class UNetTestingTab(QWidget):
     """Onglet pour le test du modèle U-Net"""
     
@@ -1410,6 +1451,9 @@ class UNetTestingTab(QWidget):
         
     def initUI(self):
         layout = QVBoxLayout()
+        
+        # Partie supérieure (contrôles)
+        upper_layout = QVBoxLayout()
         
         # Sélection du modèle
         model_group = QGroupBox("Sélection du modèle")
@@ -1466,7 +1510,7 @@ class UNetTestingTab(QWidget):
         # Instructions pour le glisser-déposer
         drop_label = QLabel("Ou glissez-déposez des fichiers/dossiers ici")
         drop_label.setAlignment(Qt.AlignCenter)
-        drop_label.setStyleSheet("background-color: #f0f0f0; padding: 20px; border: 1px dashed #aaa;")
+        drop_label.setStyleSheet("background-color: #f0f0f0; padding: 15px; border: 1px dashed #aaa;")
         
         input_layout.addLayout(mode_layout)
         input_layout.addLayout(file_layout)
@@ -1481,6 +1525,17 @@ class UNetTestingTab(QWidget):
         # Bouton d'analyse
         self.test_button = QPushButton("Analyser")
         self.test_button.clicked.connect(self.analyze_code)
+        
+        # Ajouter les contrôles à la partie supérieure
+        upper_layout.addWidget(model_group)
+        upper_layout.addWidget(input_group)
+        upper_layout.addWidget(self.test_button)
+        
+        # Partie inférieure avec deux colonnes
+        lower_layout = QHBoxLayout()
+        
+        # Colonne de gauche: résultats et détails
+        left_column = QVBoxLayout()
         
         # Liste des résultats
         results_group = QGroupBox("Résultats d'analyse")
@@ -1501,13 +1556,21 @@ class UNetTestingTab(QWidget):
         details_layout.addWidget(self.details_text)
         details_group.setLayout(details_layout)
         
-        # Visualisation
+        left_column.addWidget(results_group, 1)
+        left_column.addWidget(details_group, 1)
+        
+        # Colonne de droite: visualisation et console
+        right_column = QVBoxLayout()
+        
+        # Visualisation - RENDU PLUS GRAND
         viz_group = QGroupBox("Visualisation")
         viz_layout = QVBoxLayout()
         
-        # Graphique pour montrer les scores de confiance
-        self.figure = Figure(figsize=(5, 4), dpi=100)
+        # Figure plus grande (augmentation de la taille)
+        self.figure = Figure(figsize=(8, 6), dpi=100)
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.setMinimumHeight(300)  # Force une hauteur minimale
+        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Permet l'expansion
         viz_layout.addWidget(self.canvas)
         
         viz_group.setLayout(viz_layout)
@@ -1521,26 +1584,27 @@ class UNetTestingTab(QWidget):
         console_layout.addWidget(self.console)
         console_group.setLayout(console_layout)
         
-        # Barre de progression
+        right_column.addWidget(viz_group, 2)  # Donner plus d'espace à la visualisation (ratio 2)
+        right_column.addWidget(console_group, 1)  # Console prend moins de place (ratio 1)
+        
+        # Équilibrer les colonnes (gauche: 40%, droite: 60%)
+        lower_layout.addLayout(left_column, 40)
+        lower_layout.addLayout(right_column, 60)
+        
+        # Barre de progression (en bas de la fenêtre)
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 0)  # Indéterminé
         self.progress_bar.hide()
         
         # Construction du layout principal
-        layout.addWidget(model_group)
-        layout.addWidget(input_group)
-        layout.addWidget(self.test_button)
-        layout.addWidget(results_group)
-        layout.addWidget(details_group)
-        layout.addWidget(viz_group)
-        layout.addWidget(console_group)
+        layout.addLayout(upper_layout)
+        layout.addLayout(lower_layout, 1)  # Donner plus d'espace à la partie inférieure
         layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
         
         # Stockage des résultats
         self.all_results = []
-    
     def toggle_mode(self):
         """Change l'interface en fonction du mode sélectionné"""
         if self.file_mode_radio.isChecked():
@@ -1646,6 +1710,12 @@ class UNetTestingTab(QWidget):
         self.process_thread.update_signal.connect(self.update_console)
         self.process_thread.finished_signal.connect(self.analysis_finished)
         self.process_thread.start()
+        
+        # Configurer un timer pour vérifier régulièrement les résultats
+        # Cela peut aider à détecter les résultats même si le format de sortie change
+        self.check_timer = QTimer()
+        self.check_timer.timeout.connect(self.parse_result_from_output)
+        self.check_timer.start(1000)  # Vérifier toutes les secondes
     
     def update_console(self, text):
         """Met à jour la console avec la sortie du script"""
@@ -1656,35 +1726,46 @@ class UNetTestingTab(QWidget):
         scrollbar.setValue(scrollbar.maximum())
         
         # Analyser la sortie pour extraire les résultats
-        if "Résultat pour:" in text:
+        if "Résultat pour:" in text or "Résultat global pour:" in text:
             self.parse_result_from_output()
     
     def parse_result_from_output(self):
         """Extrait les informations de résultat de la sortie de la console"""
         text = self.console.toPlainText()
-        sections = text.split("=" * 60)
+        
+        # Rechercher les sections de résultat entre les délimiteurs "=" répétés
+        sections = text.split("="*60)
+        results_found = False
         
         for section in sections:
-            if "Résultat pour:" in section and "Prédiction:" in section:
+            if ("Résultat pour:" in section or "Résultat global pour:" in section) and ("Prédiction:" in section or "predicted_class" in section):
                 # C'est une section de résultat
+                results_found = True
                 lines = section.strip().split("\n")
                 result = {}
                 
                 for line in lines:
                     line = line.strip()
-                    if line.startswith("Résultat pour:"):
+                    if "Résultat pour:" in line:
                         result['file'] = line.split("Résultat pour:")[1].strip()
-                    elif line.startswith("Classe réelle:"):
+                    elif "Résultat global pour:" in line:
+                        result['file'] = line.split("Résultat global pour:")[1].strip()
+                    elif "Classe réelle:" in line:
                         result['true_class'] = line.split("Classe réelle:")[1].strip()
-                    elif line.startswith("Prédiction:"):
+                    elif "Prédiction:" in line:
                         result['predicted_class'] = line.split("Prédiction:")[1].strip()
-                    elif line.startswith("Score brut:"):
+                    elif "Score brut:" in line:
                         try:
                             result['score'] = float(line.split("Score brut:")[1].strip())
                         except ValueError:
                             # En cas d'erreur de conversion, utiliser une valeur par défaut
                             result['score'] = 0.5
-                    elif line.startswith("Confiance:"):
+                    elif "Score moyen:" in line:
+                        try:
+                            result['score'] = float(line.split("Score moyen:")[1].strip())
+                        except ValueError:
+                            result['score'] = 0.5
+                    elif "Confiance:" in line:
                         try:
                             confidence_str = line.split("Confiance:")[1].strip()
                             result['confidence'] = float(confidence_str.replace("%", "")) / 100
@@ -1711,13 +1792,34 @@ class UNetTestingTab(QWidget):
                         self.all_results.append(result)
                         self.add_result_to_list(result)
                         
-                        # Afficher dans la console pour le débogage
-                        print(f"Ajout du résultat pour {result['file']} à la liste")
+                        self.console.append(f"Ajout du résultat pour {result['file']} à la liste")
+        
+        # Vérifier aussi si un résumé final est présent
+        final_summary_section = None
+        for section in sections:
+            if "RÉSUMÉ FINAL" in section:
+                final_summary_section = section
+                break
+        
+        if final_summary_section:
+            lines = final_summary_section.strip().split("\n")
+            for line in lines:
+                line = line.strip()
+                if "Détectés comme IA:" in line or "Détectés comme Humain:" in line:
+                    self.console.append(f"Information de résumé trouvée: {line}")
+                
+        return results_found
     
     def add_result_to_list(self, result):
         """Ajoute un résultat à la liste des résultats"""
-        filename = result['file']
-        predicted_class = result['predicted_class']
+        # Extraire le nom de fichier du chemin complet si nécessaire
+        if 'file' in result:
+            # Obtenir juste le nom de fichier sans le chemin
+            filename = os.path.basename(result['file'])
+        else:
+            filename = "Inconnu"
+            
+        predicted_class = result.get('predicted_class', 'Inconnu')
         confidence = result.get('confidence', 0) * 100
         
         item_text = f"{filename} - {predicted_class} ({confidence:.1f}%)"
@@ -1788,6 +1890,10 @@ class UNetTestingTab(QWidget):
         """Appelé lorsque l'analyse est terminée"""
         self.progress_bar.hide()
         self.test_button.setEnabled(True)
+        
+        # Arrêter le timer de vérification
+        if hasattr(self, 'check_timer'):
+            self.check_timer.stop()
         
         # Faire une dernière tentative de parse des résultats
         self.parse_result_from_output()
