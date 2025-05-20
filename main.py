@@ -1,14 +1,20 @@
 
-        # Sélection du fichierimport sys
 import sys
 import os
 import subprocess
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                             QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-                             QFileDialog, QProgressBar, QSpinBox, QCheckBox,
-                             QComboBox, QListWidget, QMessageBox, QLineEdit,
-                             QGroupBox, QRadioButton, QTextEdit, QScrollArea)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+import tempfile
+
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QTabWidget, QWidget,
+    QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QFileDialog, QProgressBar, QSpinBox, QCheckBox,
+    QComboBox, QListWidget, QMessageBox, QLineEdit,
+    QGroupBox, QRadioButton, QTextEdit, QScrollArea,
+    QListWidgetItem
+)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData
+from PyQt5.QtGui import QDragEnterEvent, QDropEvent
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -1365,6 +1371,36 @@ class UNetTrainingTab(QWidget):
         else:
             QMessageBox.warning(self, "Erreur", f"Entraînement terminé avec erreur: {message}")
 
+
+
+class ProcessThread(QThread):
+    """Thread pour exécuter le script test_unet.py sans bloquer l'interface"""
+    update_signal = pyqtSignal(str)
+    finished_signal = pyqtSignal(bool, str)
+    
+    def __init__(self, command):
+        super().__init__()
+        self.command = command
+        
+    def run(self):
+        try:
+            process = subprocess.Popen(self.command, 
+                                      stdout=subprocess.PIPE, 
+                                      stderr=subprocess.STDOUT,
+                                      shell=True,
+                                      text=True,
+                                      bufsize=1)
+            
+            for line in iter(process.stdout.readline, ''):
+                self.update_signal.emit(line.strip())
+            
+            exit_code = process.wait()
+            success = exit_code == 0
+            self.finished_signal.emit(success, "Terminé avec succès" if success else f"Échec (code {exit_code})")
+        except Exception as e:
+            self.update_signal.emit(f"Erreur: {str(e)}")
+            self.finished_signal.emit(False, str(e))
+
 class UNetTestingTab(QWidget):
     """Onglet pour le test du modèle U-Net"""
     
@@ -1388,156 +1424,412 @@ class UNetTestingTab(QWidget):
         model_layout.addWidget(model_button)
         model_group.setLayout(model_layout)
         
-        # Sélection des données de test
-        test_group = QGroupBox("Données de test")
-        test_layout = QVBoxLayout()
+        # Zone de sélection des fichiers/dossiers
+        input_group = QGroupBox("Sélection des fichiers Python")
+        input_layout = QVBoxLayout()
         
-        # Liste des batches pour le test
-        self.batch_list = QListWidget()
-        self.batch_list.setSelectionMode(QListWidget.ExtendedSelection)
-        refresh_button = QPushButton("Rafraîchir la liste des batches")
-        refresh_button.clicked.connect(self.refresh_batches)
+        # Mode de sélection
+        mode_layout = QHBoxLayout()
+        self.file_mode_radio = QRadioButton("Analyser un fichier unique")
+        self.dir_mode_radio = QRadioButton("Analyser un dossier")
+        self.file_mode_radio.setChecked(True)
+        self.file_mode_radio.toggled.connect(self.toggle_mode)
         
-        test_layout.addWidget(self.batch_list)
-        test_layout.addWidget(refresh_button)
-        test_group.setLayout(test_layout)
+        mode_layout.addWidget(self.file_mode_radio)
+        mode_layout.addWidget(self.dir_mode_radio)
         
-        # Bouton d'exécution
-        self.test_button = QPushButton("Tester le modèle")
-        self.test_button.clicked.connect(self.test_model)
+        # Sélection de fichier
+        file_layout = QHBoxLayout()
+        self.file_path = QLineEdit()
+        self.file_path.setPlaceholderText("Chemin vers le fichier Python à analyser")
+        file_button = QPushButton("Parcourir...")
+        file_button.clicked.connect(self.browse_file)
         
-        # Résultats
-        results_group = QGroupBox("Résultats du test")
+        file_layout.addWidget(self.file_path)
+        file_layout.addWidget(file_button)
+        
+        # Sélection de dossier
+        dir_layout = QHBoxLayout()
+        self.dir_path = QLineEdit()
+        self.dir_path.setPlaceholderText("Chemin vers le dossier contenant des fichiers Python")
+        self.dir_path.setEnabled(False)
+        dir_button = QPushButton("Parcourir...")
+        dir_button.clicked.connect(self.browse_directory)
+        dir_button.setEnabled(False)
+        
+        self.recursive_checkbox = QCheckBox("Rechercher également dans les sous-dossiers")
+        self.recursive_checkbox.setEnabled(False)
+        
+        dir_layout.addWidget(self.dir_path)
+        dir_layout.addWidget(dir_button)
+        
+        # Instructions pour le glisser-déposer
+        drop_label = QLabel("Ou glissez-déposez des fichiers/dossiers ici")
+        drop_label.setAlignment(Qt.AlignCenter)
+        drop_label.setStyleSheet("background-color: #f0f0f0; padding: 20px; border: 1px dashed #aaa;")
+        
+        input_layout.addLayout(mode_layout)
+        input_layout.addLayout(file_layout)
+        input_layout.addLayout(dir_layout)
+        input_layout.addWidget(self.recursive_checkbox)
+        input_layout.addWidget(drop_label)
+        input_group.setLayout(input_layout)
+        
+        # Activer la fonctionnalité de glisser-déposer
+        self.setAcceptDrops(True)
+        
+        # Bouton d'analyse
+        self.test_button = QPushButton("Analyser")
+        self.test_button.clicked.connect(self.analyze_code)
+        
+        # Liste des résultats
+        results_group = QGroupBox("Résultats d'analyse")
         results_layout = QVBoxLayout()
-        self.results_text = QTextEdit()
-        self.results_text.setReadOnly(True)
+        self.results_list = QListWidget()
+        self.results_list.setSelectionMode(QListWidget.SingleSelection)
+        self.results_list.itemClicked.connect(self.show_result_details)
         
-        export_button = QPushButton("Exporter les résultats")
-        export_button.clicked.connect(self.export_results)
-        
-        results_layout.addWidget(self.results_text)
-        results_layout.addWidget(export_button)
+        results_layout.addWidget(self.results_list)
         results_group.setLayout(results_layout)
         
+        # Détails du résultat
+        details_group = QGroupBox("Détails")
+        details_layout = QVBoxLayout()
+        self.details_text = QTextEdit()
+        self.details_text.setReadOnly(True)
+        
+        details_layout.addWidget(self.details_text)
+        details_group.setLayout(details_layout)
+        
         # Visualisation
-        viz_group = QGroupBox("Visualisation des prédictions")
+        viz_group = QGroupBox("Visualisation")
         viz_layout = QVBoxLayout()
         
-        # Créer un widget Matplotlib pour afficher les résultats
+        # Graphique pour montrer les scores de confiance
         self.figure = Figure(figsize=(5, 4), dpi=100)
         self.canvas = FigureCanvas(self.figure)
         viz_layout.addWidget(self.canvas)
         
         viz_group.setLayout(viz_layout)
         
+        # Console de sortie
+        console_group = QGroupBox("Sortie du processus")
+        console_layout = QVBoxLayout()
+        self.console = QTextEdit()
+        self.console.setReadOnly(True)
+        
+        console_layout.addWidget(self.console)
+        console_group.setLayout(console_layout)
+        
         # Barre de progression
         self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setRange(0, 0)  # Indéterminé
         self.progress_bar.hide()
         
         # Construction du layout principal
         layout.addWidget(model_group)
-        layout.addWidget(test_group)
+        layout.addWidget(input_group)
         layout.addWidget(self.test_button)
         layout.addWidget(results_group)
+        layout.addWidget(details_group)
         layout.addWidget(viz_group)
+        layout.addWidget(console_group)
         layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
+        
+        # Stockage des résultats
+        self.all_results = []
+    
+    def toggle_mode(self):
+        """Change l'interface en fonction du mode sélectionné"""
+        if self.file_mode_radio.isChecked():
+            self.file_path.setEnabled(True)
+            self.dir_path.setEnabled(False)
+            self.recursive_checkbox.setEnabled(False)
+        else:
+            self.file_path.setEnabled(False)
+            self.dir_path.setEnabled(True)
+            self.recursive_checkbox.setEnabled(True)
     
     def browse_model(self):
-        file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un modèle", "", "Modèles (*.h5 *.pth *.model)")
+        """Ouvre une boîte de dialogue pour sélectionner le modèle"""
+        file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un modèle", "", "Modèles (*.pth *.pt)")
         if file:
             self.model_path.setText(file)
     
-    def refresh_batches(self):
-        # Rechercher les batches disponibles dans le système de fichiers
-        self.batch_list.clear()
-        
-        # Dans une implémentation réelle, vous scanneriez le système de fichiers
-        batch_dir = "data/batches/"
-        
-        if os.path.exists(batch_dir):
-            for entry in os.listdir(batch_dir):
-                if os.path.isdir(os.path.join(batch_dir, entry)) and entry.startswith("batch_"):
-                    self.batch_list.addItem(entry)
-        else:
-            self.results_text.append("Dossier des batches introuvable: " + batch_dir)
+    def browse_file(self):
+        """Ouvre une boîte de dialogue pour sélectionner un fichier Python"""
+        file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier Python", "", "Fichiers Python (*.py)")
+        if file:
+            self.file_path.setText(file)
     
-    def test_model(self):
+    def browse_directory(self):
+        """Ouvre une boîte de dialogue pour sélectionner un dossier"""
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner un dossier contenant des fichiers Python")
+        if folder:
+            self.dir_path.setText(folder)
+    
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """Gère l'entrée d'un élément glissé-déposé"""
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+    
+    def dropEvent(self, event: QDropEvent):
+        """Gère le dépôt d'un élément glissé"""
+        urls = event.mimeData().urls()
+        if not urls:
+            return
+        
+        # Prendre le premier élément déposé
+        path = urls[0].toLocalFile()
+        
+        if os.path.isfile(path) and path.endswith('.py'):
+            # C'est un fichier Python
+            self.file_mode_radio.setChecked(True)
+            self.file_path.setText(path)
+        elif os.path.isdir(path):
+            # C'est un dossier
+            self.dir_mode_radio.setChecked(True)
+            self.dir_path.setText(path)
+            self.toggle_mode()
+    
+    def analyze_code(self):
+        """Analyse le code Python en appelant le script test_unet.py"""
+        
+        # Vérifier les entrées
         if not self.model_path.text():
             QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un modèle.")
             return
         
-        selected = self.batch_list.selectedItems()
-        if not selected:
-            QMessageBox.warning(self, "Attention", "Veuillez sélectionner au moins un batch pour le test.")
-            return
+        # Vérifier le chemin d'entrée selon le mode
+        if self.file_mode_radio.isChecked():
+            if not self.file_path.text() or not os.path.isfile(self.file_path.text()):
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un fichier valide.")
+                return
+            
+            # Vérifier l'extension du fichier
+            file_ext = os.path.splitext(self.file_path.text())[1].lower()
+            if file_ext not in ['.py', '.npy']:
+                QMessageBox.warning(self, "Erreur", "Le fichier doit être au format .py ou .npy")
+                return
+                
+            input_path = self.file_path.text()
+        else:
+            if not self.dir_path.text() or not os.path.isdir(self.dir_path.text()):
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier valide.")
+                return
+            input_path = self.dir_path.text()
         
-        # Construire la commande de test
-        cmd = ['python', 'unet/test_unet.py']
-        cmd.extend(['--model', self.model_path.text()])
+        # Construire la commande pour appeler test_unet.py
+        cmd = ['python', 'unet/test_unet.py', '--model', self.model_path.text(), '--input', input_path]
         
-        batches = [item.text() for item in selected]
-        cmd.extend(['--batches', ','.join(batches)])
+        # Ajouter l'option récursive si nécessaire
+        if self.dir_mode_radio.isChecked() and self.recursive_checkbox.isChecked():
+            cmd.append('--recursive')
         
-        self.results_text.clear()
+        # Préparer l'interface pour l'exécution
+        self.console.clear()
+        self.results_list.clear()
+        self.details_text.clear()
+        self.all_results = []
         self.progress_bar.show()
         self.test_button.setEnabled(False)
         
-        # Simuler le test et afficher les résultats
-        self.figure.clear()
-        for i in range(1, 101):
-            self.progress_bar.setValue(i)
-            QApplication.processEvents()
-            
-            if i == 50:
-                # Simuler un rapport de test
-                self.results_text.append("=== Résultats du test ===")
-                self.results_text.append("Précision: 85.7%")
-                self.results_text.append("Rappel: 82.3%")
-                self.results_text.append("F1-score: 84.0%")
-                self.results_text.append("Erreur moyenne: 0.142")
-                self.results_text.append("\nPerformance par type:")
-                self.results_text.append("- Type A: 87.2%")
-                self.results_text.append("- Type B: 83.5%")
-                self.results_text.append("- Type C: 79.8%")
-            
-            if i == 100:
-                # Simuler un affichage de résultats visuels
-                ax = self.figure.add_subplot(111)
-                ax.set_title("Exemples de prédictions")
-                
-                # Simuler une matrice de confusion
-                import numpy as np
-                confusion = np.array([[85, 10, 5], [12, 80, 8], [7, 13, 80]])
-                im = ax.imshow(confusion, interpolation='nearest', cmap=plt.cm.Blues)
-                ax.set_xlabel("Prédictions")
-                ax.set_ylabel("Références")
-                ax.set_xticks([0, 1, 2])
-                ax.set_yticks([0, 1, 2])
-                ax.set_xticklabels(['A', 'B', 'C'])
-                ax.set_yticklabels(['A', 'B', 'C'])
-                
-                for i in range(3):
-                    for j in range(3):
-                        text = ax.text(j, i, confusion[i, j],
-                                      ha="center", va="center", color="white" if confusion[i, j] > 40 else "black")
-                
-                self.figure.colorbar(im)
-                self.canvas.draw()
+        # Afficher la commande exécutée pour le débogage
+        cmd_str = ' '.join(cmd)
+        self.console.append(f"Exécution de la commande: {cmd_str}")
+        self.console.append("-" * 60 + "\n")
         
+        # Créer et démarrer le thread de traitement
+        self.process_thread = ProcessThread(cmd_str)
+        self.process_thread.update_signal.connect(self.update_console)
+        self.process_thread.finished_signal.connect(self.analysis_finished)
+        self.process_thread.start()
+    
+    def update_console(self, text):
+        """Met à jour la console avec la sortie du script"""
+        self.console.append(text)
+        
+        # Faire défiler vers le bas
+        scrollbar = self.console.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+        
+        # Analyser la sortie pour extraire les résultats
+        if "Résultat pour:" in text:
+            self.parse_result_from_output()
+    
+    def parse_result_from_output(self):
+        """Extrait les informations de résultat de la sortie de la console"""
+        text = self.console.toPlainText()
+        sections = text.split("=" * 60)
+        
+        for section in sections:
+            if "Résultat pour:" in section and "Prédiction:" in section:
+                # C'est une section de résultat
+                lines = section.strip().split("\n")
+                result = {}
+                
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("Résultat pour:"):
+                        result['file'] = line.split("Résultat pour:")[1].strip()
+                    elif line.startswith("Classe réelle:"):
+                        result['true_class'] = line.split("Classe réelle:")[1].strip()
+                    elif line.startswith("Prédiction:"):
+                        result['predicted_class'] = line.split("Prédiction:")[1].strip()
+                    elif line.startswith("Score brut:"):
+                        try:
+                            result['score'] = float(line.split("Score brut:")[1].strip())
+                        except ValueError:
+                            # En cas d'erreur de conversion, utiliser une valeur par défaut
+                            result['score'] = 0.5
+                    elif line.startswith("Confiance:"):
+                        try:
+                            confidence_str = line.split("Confiance:")[1].strip()
+                            result['confidence'] = float(confidence_str.replace("%", "")) / 100
+                        except ValueError:
+                            # En cas d'erreur de conversion, utiliser une valeur par défaut
+                            result['confidence'] = 0.5
+                
+                # Vérifier si ce résultat existe déjà dans la liste
+                if result and 'file' in result and 'predicted_class' in result:
+                    # Vérifier si cette entrée existe déjà
+                    exists = False
+                    for existing in self.all_results:
+                        if existing.get('file') == result['file']:
+                            exists = True
+                            break
+                    
+                    if not exists:
+                        # Si le fichier n'a pas de score, lui attribuer une valeur par défaut
+                        if 'score' not in result:
+                            result['score'] = 0.5
+                        if 'confidence' not in result:
+                            result['confidence'] = 0.5
+                            
+                        self.all_results.append(result)
+                        self.add_result_to_list(result)
+                        
+                        # Afficher dans la console pour le débogage
+                        print(f"Ajout du résultat pour {result['file']} à la liste")
+    
+    def add_result_to_list(self, result):
+        """Ajoute un résultat à la liste des résultats"""
+        filename = result['file']
+        predicted_class = result['predicted_class']
+        confidence = result.get('confidence', 0) * 100
+        
+        item_text = f"{filename} - {predicted_class} ({confidence:.1f}%)"
+        item = QListWidgetItem(item_text)
+        
+        # Définir la couleur de l'élément en fonction de la classe prédite
+        if predicted_class == "IA":
+            item.setBackground(Qt.red)
+        else:
+            item.setBackground(Qt.green)
+        
+        self.results_list.addItem(item)
+    
+    def show_result_details(self, item):
+        """Affiche les détails d'un résultat sélectionné"""
+        index = self.results_list.row(item)
+        if 0 <= index < len(self.all_results):
+            result = self.all_results[index]
+            
+            # Afficher les détails dans la zone de texte
+            self.details_text.clear()
+            self.details_text.append(f"<h3>Résultat pour: {result['file']}</h3>")
+            self.details_text.append(f"<p><b>Prédiction:</b> {result['predicted_class']}</p>")
+            self.details_text.append(f"<p><b>Confiance:</b> {result.get('confidence', 0)*100:.2f}%</p>")
+            self.details_text.append(f"<p><b>Score brut:</b> {result.get('score', 0):.4f}</p>")
+            
+            if 'true_class' in result and result['true_class'] != "Inconnu":
+                correct = result['predicted_class'] == result['true_class']
+                self.details_text.append(f"<p><b>Classe réelle:</b> {result['true_class']}</p>")
+                self.details_text.append(f"<p><b>Résultat:</b> {'Correct ✓' if correct else 'Incorrect ✗'}</p>")
+            
+            # Mettre à jour le graphique
+            self.update_visualization(result)
+    
+    def update_visualization(self, result):
+        """Met à jour la visualisation pour un résultat"""
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        
+        # Extraire le score
+        score = result.get('score', 0)
+        
+        # Créer un graphique à barres montrant la probabilité IA vs Humain
+        labels = ['Humain', 'IA']
+        values = [1 - score, score]
+        colors = ['green', 'red']
+        
+        # Tracer le graphique
+        bars = ax.bar(labels, values, color=colors)
+        
+        # Ajouter les valeurs sur les barres
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height + 0.05,
+                    f'{height:.2f}', ha='center', va='bottom')
+        
+        ax.set_ylim([0, 1.1])  # Limiter l'axe Y de 0 à 1.1
+        ax.set_title('Probabilité IA vs Humain')
+        ax.set_ylabel('Probabilité')
+        
+        # Mettre en évidence la classe prédite
+        predicted_index = 1 if result.get('predicted_class') == 'IA' else 0
+        ax.get_xticklabels()[predicted_index].set_fontweight('bold')
+        
+        self.canvas.draw()
+    
+    def analysis_finished(self, success, message):
+        """Appelé lorsque l'analyse est terminée"""
         self.progress_bar.hide()
         self.test_button.setEnabled(True)
-        QMessageBox.information(self, "Terminé", "Test terminé avec succès.")
-    
-    def export_results(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Exporter les résultats", "", "Fichiers texte (*.txt);;Fichiers CSV (*.csv)")
-        if filename:
-            with open(filename, 'w') as f:
-                f.write(self.results_text.toPlainText())
-            QMessageBox.information(self, "Exporté", f"Résultats exportés dans {filename}")
-
+        
+        # Faire une dernière tentative de parse des résultats
+        self.parse_result_from_output()
+        
+        if success:
+            total_files = len(self.all_results)
+            ia_count = sum(1 for r in self.all_results if r.get('predicted_class') == 'IA')
+            human_count = total_files - ia_count
+            
+            status_message = f"Analyse terminée: {total_files} fichiers traités, {ia_count} détectés comme IA, {human_count} détectés comme Humain."
+            QMessageBox.information(self, "Analyse terminée", status_message)
+            
+            # Mettre à jour la console avec un résumé
+            self.console.append("\n" + "="*60)
+            self.console.append("RÉSUMÉ DE L'ANALYSE")
+            self.console.append("-"*60)
+            self.console.append(status_message)
+            
+            # Mettre à jour le graphique avec un résumé global si des résultats sont disponibles
+            if total_files > 0:
+                self.figure.clear()
+                ax = self.figure.add_subplot(111)
+                
+                labels = ['Humain', 'IA']
+                values = [human_count, ia_count]
+                colors = ['green', 'red']
+                
+                ax.bar(labels, values, color=colors)
+                ax.set_title(f'Résumé des {total_files} fichiers analysés')
+                ax.set_ylabel('Nombre de fichiers')
+                
+                for i, v in enumerate(values):
+                    ax.text(i, v + 0.5, str(v), ha='center')
+                
+                self.canvas.draw()
+        else:
+            QMessageBox.warning(self, "Erreur", f"Erreur lors de l'analyse: {message}")
+            
+        # Afficher les résultats
+        self.console.append(f"\nRésultats collectés: {len(self.all_results)}")
+        for i, result in enumerate(self.all_results):
+            self.console.append(f"{i+1}. {result.get('file', 'Inconnu')} - {result.get('predicted_class', 'N/A')} ({result.get('confidence', 0)*100:.1f}%)")
 
 class VisualizationTab(QWidget):
     """Onglet pour la visualisation des résultats"""
@@ -1889,7 +2181,6 @@ class MainWindow(QMainWindow):
         
         # Afficher la fenêtre
         self.show()
-
 
 def main():
     app = QApplication(sys.argv)
