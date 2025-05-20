@@ -38,13 +38,14 @@ logger = logging.getLogger(__name__)
 # Définition des templates de prompts pour les reformulations
 REFORM_TEMPLATES = {
     # Styles de programmation
-    "style_functional": "Réécris ce code Python en utilisant un style fonctionnel sans effets secondaires. Évite les variables mutables et privilégie les fonctions pures. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "style_oop": "Réécris ce code Python en utilisant une approche orientée objet avec des classes appropriées. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "style_procedural": "Réécris ce code Python en utilisant une approche procédurale, étape par étape. Renvoie uniquement le code brut sans délimiteurs markdown.",
+ #   "style_functional": "Réécris ce code Python en utilisant un style fonctionnel sans effets secondaires. Évite les variables mutables et privilégie les fonctions pures. Renvoie uniquement le code brut sans délimiteurs markdown.",
+ #   "style_oop": "Réécris ce code Python en utilisant une approche orientée objet avec des classes appropriées. Renvoie uniquement le code brut sans délimiteurs markdown.",
+ #   "style_procedural": "Réécris ce code Python en utilisant une approche procédurale, étape par étape. Renvoie uniquement le code brut sans délimiteurs markdown.",
     
     # Niveau d'expertise
     "expertise_beginner": "Réécris ce code Python comme si tu étais un programmeur débutant, avec une structure simple mais fonctionnelle. Renvoie uniquement le code brut sans délimiteurs markdown.",
     "expertise_advanced": "Réécris ce code Python comme si tu étais un expert Python, en utilisant des fonctionnalités avancées du langage et des optimisations. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    #"expertise_medium": "Réécris ce code Python comme si tu étais un programmeur, avec une structure classique. Renvoie uniquement le code brut sans délimiteurs markdown.",
     
     # Documentation et lisibilité
     "docs_none": "Réécris ce code Python sans aucun commentaire ni docstring. Renvoie uniquement le code brut sans délimiteurs markdown.",
@@ -53,13 +54,14 @@ REFORM_TEMPLATES = {
     
     # Signatures typiques d'IA (NOUVEAUX)
     "ai_complex_simple": "Réécris ce code Python avec des solutions élégantes mais inutilement complexes pour des problèmes simples. Préfère l'ingéniosité à la lisibilité. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "ai_naming_patterns": "Réécris ce code Python en utilisant des patterns de nommage extrêmement cohérents et systématiques (comme data_manager, data_processor, data_validator). Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "ai_naming_patterns": "Réécris ce code Python en utilisant des patterns de nommage extrêmement cohérents et systématiques. Renvoie uniquement le code brut sans délimiteurs markdown.",
     "ai_overexplained": "Réécris ce code Python avec des commentaires excessivement détaillés expliquant même les concepts évidents et basiques. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    
+   
+    #(comme data_manager, data_processor, data_validator)
     # Variété d'idiomes (NOUVEAUX)
-    "idiom_avoid_pythonic": "Réécris ce code Python en évitant délibérément les idiomes Python courants et en préférant des approches plus verbales et explicites. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "idiom_overuse_comprehensions": "Réécris ce code Python en utilisant excessivement les compréhensions de liste/dictionnaire, même quand une approche plus simple serait plus appropriée. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "idiom_latest_features": "Réécris ce code Python en surchargeant le code avec des fonctionnalités Python récentes (3.10+) comme les pattern matching, les unions de types, etc. Renvoie uniquement le code brut sans délimiteurs markdown.",
+ #   "idiom_avoid_pythonic": "Réécris ce code Python en évitant délibérément les idiomes Python courants et en préférant des approches plus verbales et explicites. Renvoie uniquement le code brut sans délimiteurs markdown.",
+ #   "idiom_overuse_comprehensions": "Réécris ce code Python en utilisant excessivement les compréhensions de liste/dictionnaire, même quand une approche plus simple serait plus appropriée. Renvoie uniquement le code brut sans délimiteurs markdown.",
+ #   "idiom_latest_features": "Réécris ce code Python en surchargeant le code avec des fonctionnalités Python récentes (3.10+) comme les pattern matching, les unions de types, etc. Renvoie uniquement le code brut sans délimiteurs markdown.",
     
     # Variations structurelles (NOUVEAUX)
     "structure_fragmented": "Réécris ce code Python en le fragmentant en de nombreuses petites fonctions, même quand cela rend le code plus complexe à suivre. Renvoie uniquement le code brut sans délimiteurs markdown.",
@@ -81,10 +83,10 @@ GENERATION_TEMPLATES = {
     # Nouveaux templates de génération
     "gen_beginner_style": "Crée une solution en Python pour ce problème comme le ferait un programmeur débutant, avec une approche simple et directe, possiblement non-optimale. Renvoie uniquement le code brut sans délimiteurs markdown.",
     "gen_over_engineered": "Crée une solution excessivement sophistiquée en Python pour ce problème, avec des abstractions peut-être superflues comme si tu anticipais de futures extensions même pour cette tâche simple. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "gen_minimalist": "Crée la solution la plus minimaliste et concise possible en Python pour ce problème, en utilisant le moins de lignes possible, même au détriment de la lisibilité. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "gen_production_ready": "Crée une solution robuste et prête pour la production pour ce problème, avec gestion des erreurs exhaustive, validation des entrées et journalisation appropriée. Renvoie uniquement le code brut sans délimiteurs markdown.",
-    "gen_human_like": "Crée une solution Python pour ce problème qui semble avoir été écrite par un humain, avec quelques commentaires personnels, peut-être une ou deux approches non-optimales et un style légèrement incohérent. Renvoie uniquement le code brut sans délimiteurs markdown.",
-}
+  #  "gen_minimalist": "Crée la solution la plus minimaliste et concise possible en Python pour ce problème, en utilisant le moins de lignes possible, même au détriment de la lisibilité. Renvoie uniquement le code brut sans délimiteurs markdown.",
+  #  "gen_production_ready": "Crée une solution robuste et prête pour la production pour ce problème, avec gestion des erreurs exhaustive, validation des entrées et journalisation appropriée. Renvoie uniquement le code brut sans délimiteurs markdown.",
+    "gen_human_like": "Crée une solution Python pour ce problème qui semble avoir été écrite par un humain. Renvoie uniquement le code brut sans délimiteurs markdown.",
+}#, avec quelques commentaires personnels, peut-être une ou deux approches non-optimales et un style légèrement incohérent.
 
 class BatchRequestItem:
     """Classe représentant une requête pour le traitement par lots"""

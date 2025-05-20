@@ -14,7 +14,7 @@ def charger_script_depuis_fichier(nom_fichier):
     et le renvoie comme une chaîne de caractères.
     """
     projet_racine = Path(__file__).resolve().parent.parent
-    raw_dir       = projet_racine / "data" / "raw_scripts"
+    raw_dir       = projet_racine / "codenet" / "p00000"
     chemin_fichier  = raw_dir / nom_fichier
 
     if not chemin_fichier.exists():
@@ -99,27 +99,33 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
         token_precedent_est_tabulation = False
         if i > 0:
             token_precedent = tokens_reference[i-1]
-            if ("/n" not in token_precedent ):
+            if ("/n" not in token_precedent):
                 token_precedent_est_tabulation = token_precedent.strip() == "" and len(token_precedent) > 1
         
         try:
+            # Construire prompt pour Completions API
+            prompt = (
+                f"{contexte_actuel}"
+            )
+            
             # Demander explicitement le token suivant avec ses alternatives
-            response = client.chat.completions.create(
-                model=modele_prediction,
-                messages=[
-    {"role": "system", "content": """You are a code predictor that generates only the next token without any additional text. Pay attention to spaces, tabs, line breaks, and special symbols in the code."""},
-    {"role": "user", "content": f"""Code context: {contexte_actuel}"""}
-],
+            response = client.completions.create(
+                model="gpt-3.5-turbo-instruct",  # Better model for completions API
+                prompt=prompt,
                 max_tokens=1,
-                logprobs=True,
-                top_logprobs=10,  
+                logprobs=10,  # Maximum allowed value
                 temperature=0.0,
-                top_p = 0.1
+                top_p=0.5,  # Slightly higher to consider more possibilities
+                frequency_penalty=0.0,
+                presence_penalty=0.0,
+                stop=["\n", " "],  # Help control the output to single tokens
+                seed=42  # For deterministic output
             )
             
             # Extraire le token prédit et ses alternatives
-            token_predit = response.choices[0].logprobs.content[0].token
-            alternatives = [{"token": alt.token, "logprob": alt.logprob} for alt in response.choices[0].logprobs.content[0].top_logprobs]
+            token_predit = response.choices[0].text
+            alternatives = [{"token": token, "logprob": logprob} 
+                          for token, logprob in response.choices[0].logprobs.top_logprobs[0].items()]
             
             # Initialiser les flags pour la correction standard et la correction adaptée
             correct = token_predit == token_attendu
