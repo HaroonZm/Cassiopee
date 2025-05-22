@@ -445,8 +445,9 @@ def analyze_tiles_directory(model, tiles_dir, device):
     tile_files = []
     for root, dirs, files in os.walk(tiles_dir):
         for file in files:
-            if file.endswith('.npy'):
-                tile_files.append(os.path.join(root, file))
+            if not (file.endswith('.npy') or file.endswith('.npz')):
+                continue  # Ignore les .txt, .csv, etc.
+            tile_files.append(os.path.join(root, file))
     
     if not tile_files:
         print(f"Aucune tuile trouvée dans {tiles_dir}")
@@ -747,29 +748,35 @@ def main():
                 os.makedirs(temp_dir, exist_ok=True)
                 
                 # Générer les tuiles
-                matrix, tiles = generate_matrix_and_tiles_from_python(
+                tiles_dir = os.path.join(temp_dir, "tiles")
+                tiles = generate_matrix_and_tiles_from_python(
                     args.input, 
                     output_dir=temp_dir,
                     token_model=args.token_model,
                     pred_model=args.pred_model
                 )
                 
+                # Définir le dossier de visualisation commun
+                viz_dir = os.path.join(temp_dir, "visualisation")
+                os.makedirs(viz_dir, exist_ok=True)
+                
                 # Visualiser les tuiles
                 if args.visualize_tiles:
-                    output_dir = args.viz_output or os.path.dirname(args.input)
-                    cmd = ['python', 'visualization/visualize_tilespy.py', 
-                          '--dossier_tuiles', temp_dir]
-                    if output_dir:
-                        cmd.extend(['--dossier_sortie', output_dir])
+                    cmd = [
+                        'python', 'visualization/visualize_tiles.py',
+                        '--dossier_tuiles', tiles_dir,
+                        '--dossier_sortie', viz_dir
+                    ]
                     subprocess.run(cmd, check=True)
                 
                 # Visualiser les activations
                 if args.visualize_activations:
-                    output_dir = args.viz_output or os.path.join(os.path.dirname(args.input), 'activations')
-                    cmd = ['python', 'visualization/visualize_activation.py',
-                          '--model', args.model,
-                          '--input', temp_dir,
-                          '--output', output_dir]
+                    cmd = [
+                        'python', 'visualization/visualize_activation.py',
+                        '--model', args.model,
+                        '--input', tiles_dir,
+                        '--output', viz_dir
+                    ]
                     if args.device != 'auto':
                         cmd.extend(['--device', args.device])
                     subprocess.run(cmd, check=True)
