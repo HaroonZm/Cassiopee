@@ -316,7 +316,7 @@ class BatchRequestItem:
         req = {
             "custom_id": self.custom_id,
             "method": "POST",
-            "url": "/v1/completions",
+            "url": "/v1/chat/completions",  # Modifié pour utiliser chat/completions
             "body": {
                 "model": self.model,
                 "messages": [
@@ -324,7 +324,8 @@ class BatchRequestItem:
                     {"role": "user", "content": user_msg}
                 ],
                 "max_tokens": 1,
-                "logprobs": 10,
+                "logprobs": True,  # Modifié pour être conforme à l'API chat/completions
+                "top_logprobs": 10,  # Modifié pour utiliser top_logprobs au lieu de logprobs
                 "temperature": 0.0,
                 "top_p": 0.1
             }
@@ -356,7 +357,7 @@ class BatchAnalyzer:
             uploaded = client.files.create(file=f, purpose="batch")
         batch = client.batches.create(
             input_file_id=uploaded.id,
-            endpoint="/v1/completions",
+            endpoint="/v1/chat/completions",  # Modifié pour utiliser chat/completions
             completion_window="24h"
         )
         os.unlink(file_path)
@@ -435,8 +436,18 @@ class BatchAnalyzer:
                     continue
 
                 body = resp['response']['body']
+                # Modification du parsing pour s'adapter au format de l'API chat/completions
                 content = body['choices'][0]['message']['content']
-                top_logprobs = body['choices'][0].get('logprobs', {}).get('content', [{}])[0].get('top_logprobs', [])
+                
+                # Extraction des logprobs à partir de la structure 'logprobs' modifiée
+                top_logprobs = []
+                logprobs_data = body['choices'][0].get('logprobs', {})
+                
+                # Adapter selon la structure exacte de la réponse de l'API chat/completions
+                if 'content' in logprobs_data and logprobs_data['content']:
+                    first_token = logprobs_data['content'][0]
+                    if 'top_logprobs' in first_token:
+                        top_logprobs = first_token['top_logprobs']
                 
                 # Convertir les logprobs en format compatible
                 alternatives = []
@@ -458,9 +469,20 @@ class BatchAnalyzer:
         return results
 
 def analyser_par_batch(script, modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini",
-                      batch_size=5000, poll_interval=20):
+                      batch_size=5000, poll_interval=20, exit_after_validation=False):
     """
     Analyse le script en mode batch, en soumettant toutes les requêtes en une fois.
+    
+    Args:
+        script (str): Le script à analyser
+        modele_tokenisation (str): Modèle de tokenisation
+        modele_prediction (str): Modèle de prédiction
+        batch_size (int): Taille du batch
+        poll_interval (int): Intervalle de sondage en secondes
+        exit_after_validation (bool): Si True, le script s'arrête après validation du batch
+        
+    Returns:
+        tuple: Résultats d'analyse et tokens
     """
     logger.info(f"Démarrage de l'analyse en mode batch avec tokenisation tiktoken ({modele_tokenisation})...")
     
@@ -490,6 +512,14 @@ def analyser_par_batch(script, modele_tokenisation="gpt-4o-mini", modele_predict
     logger.info(f"Batch soumis avec ID: {batch_id}")
     
     batch = analyzer.poll(batch_id)
+    
+    # Si demandé, arrêter le script après validation du batch
+    if exit_after_validation:
+        logger.info(f"Batch {batch_id} validé avec succès. Arrêt du script demandé.")
+        logger.info(f"Pour traiter les résultats ultérieurement, vous pourrez utiliser l'ID du batch: {batch_id}")
+        import sys
+        sys.exit(0)
+    
     raw_results = analyzer.fetch_results(batch)
     
     # Traiter les résultats
@@ -608,7 +638,7 @@ def analyser_sans_batch(script, modele_tokenisation="gpt-4o-mini", modele_predic
                 ],
                 max_tokens=1,
                 logprobs=True,
-                top_logprobs=10,  
+                top_logprobs=5,  
                 temperature=0.0,
                 top_p=0.1
             )
@@ -685,7 +715,7 @@ def analyser_sans_batch(script, modele_tokenisation="gpt-4o-mini", modele_predic
 
 def analyser_script(script_path, output_dir=None, modele_tokenisation="gpt-4o-mini", 
                    modele_prediction="gpt-4o-mini", no_batch=False, batch_size=5000, 
-                   poll_interval=20):
+                   poll_interval=20, exit_after_validation=False):
     """
     Fonction principale qui analyse un script en choisissant le mode approprié.
     
@@ -697,6 +727,7 @@ def analyser_script(script_path, output_dir=None, modele_tokenisation="gpt-4o-mi
         no_batch (bool): Si True, utilise le mode sans batch
         batch_size (int): Taille du batch pour le mode batch
         poll_interval (int): Intervalle de sondage pour le mode batch
+        exit_after_validation (bool): Si True, le script s'arrête après validation du batch
     
     Returns:
         tuple: Chemin du fichier matrice et chemin du fichier résultats
@@ -723,7 +754,8 @@ def analyser_script(script_path, output_dir=None, modele_tokenisation="gpt-4o-mi
             modele_tokenisation=modele_tokenisation,
             modele_prediction=modele_prediction,
             batch_size=batch_size,
-            poll_interval=poll_interval
+            poll_interval=poll_interval,
+            exit_after_validation=exit_after_validation
         )
     
     # Construire la matrice de log probabilités
@@ -742,9 +774,10 @@ def analyser_script(script_path, output_dir=None, modele_tokenisation="gpt-4o-mi
     # Créer les chemins pour les répertoires de sortie
     matrices_dir = base_dir / "matrixes"
     rapports_dir = matrices_dir / "reports"
-    
+    tokens_dir = base_dir / "tokens_info"
     matrices_dir.mkdir(exist_ok=True, parents=True)
     rapports_dir.mkdir(exist_ok=True, parents=True)
+    tokens_dir.mkdir(exist_ok=True, parents=True)
     
     # Générer les noms de fichiers
     matrix_file = matrices_dir / f"matrix_{script_path.stem}.npy"
@@ -760,6 +793,12 @@ def analyser_script(script_path, output_dir=None, modele_tokenisation="gpt-4o-mi
         modele_tokenisation=modele_tokenisation,
         nom_fichier=str(result_file)
     )
+    # Sauvegarder le fichier JSON de tokens pour ce script
+    simple_tokens = [{"token": t} for t in tokens_reference]
+    simple_file = tokens_dir / f"{script_path.name}__{len(tokens_reference)}_tokens.json"
+    with open(simple_file, "w", encoding="utf-8") as f:
+        json.dump(simple_tokens, f, ensure_ascii=False, indent=2)
+    logger.info(f"Fichier simple de tokens sauvegardé pour {script_path.name} dans {simple_file}")
     
     # Afficher le résumé
     tokens_non_amorce = [r for r in resultats_analyse if not r.get("amorce", False)]
@@ -782,7 +821,7 @@ def analyser_script(script_path, output_dir=None, modele_tokenisation="gpt-4o-mi
 
 def traiter_dossier(directory_path, output_dir=None, modele_tokenisation="gpt-4o-mini", 
                    modele_prediction="gpt-4o-mini", no_batch=False, batch_size=5000, 
-                   poll_interval=20):
+                   poll_interval=20, exit_after_validation=False):
     """
     Traite tous les fichiers Python d'un dossier en cherchant dans le sous-dossier "scripts".
     
@@ -794,6 +833,7 @@ def traiter_dossier(directory_path, output_dir=None, modele_tokenisation="gpt-4o
         no_batch (bool): Si True, utilise le mode sans batch
         batch_size (int): Taille du batch pour le mode batch
         poll_interval (int): Intervalle de sondage pour le mode batch
+        exit_after_validation (bool): Si True, le script s'arrête après validation du batch
     
     Returns:
         list: Liste des chemins des fichiers de résultats générés
@@ -833,7 +873,8 @@ def traiter_dossier(directory_path, output_dir=None, modele_tokenisation="gpt-4o
                 modele_prediction=modele_prediction,
                 no_batch=no_batch,
                 batch_size=batch_size,
-                poll_interval=poll_interval
+                poll_interval=poll_interval,
+                exit_after_validation=exit_after_validation
             )
             results_files.append(result_file)
             logger.info(f"Analyse terminée pour {file_path.name}")
@@ -844,6 +885,51 @@ def traiter_dossier(directory_path, output_dir=None, modele_tokenisation="gpt-4o
             
     logger.info(f"Traitement du dossier terminé. {len(results_files)}/{len(python_files)} fichiers traités avec succès.")
     return results_files
+
+def generer_matrices_depuis_tokens_dir(tokens_dir, output_dir=None, modele_tokenisation="gpt-4o-mini"):
+    """
+    Pour chaque fichier *_tokens.json dans tokens_dir, reconstruit le script, génère la matrice et le rapport.
+    """
+    tokens_dir = Path(tokens_dir)
+    if output_dir is None:
+        output_dir = tokens_dir.parent
+    output_dir = Path(output_dir)
+    matrices_dir = output_dir / "matrixes"
+    rapports_dir = matrices_dir / "reports"
+    matrices_dir.mkdir(exist_ok=True, parents=True)
+    rapports_dir.mkdir(exist_ok=True, parents=True)
+    # Pour chaque fichier *_tokens.json
+    for json_file in tokens_dir.glob("*__*_tokens.json"):
+        script_name = json_file.name.split("__")[0]
+        with open(json_file, "r", encoding="utf-8") as f:
+            tokens_list = json.load(f)
+        tokens = [t["token"] for t in tokens_list]
+        script = ''.join(tokens)
+        # Tokenisation déjà faite, on utilise les tokens du fichier
+        # On simule une analyse "parfaite" (attendu = prédit)
+        resultats_analyse = []
+        for i, token in enumerate(tokens):
+            resultats_analyse.append({
+                "position": i,
+                "attendu": token,
+                "predit": token,
+                "correct": True,
+                "correct_top10": True,
+                "alternatives": []
+            })
+        matrice, structure = construire_matrice_logprob(tokens, resultats_analyse)
+        matrix_file = matrices_dir / f"matrix_{script_name}.npy"
+        report_file = rapports_dir / f"report_{script_name}.txt"
+        sauvegarder_matrice_numpy(matrice, nom_fichier=str(matrix_file))
+        sauvegarder_resultats(
+            resultats_analyse,
+            script,
+            matrice,
+            structure,
+            modele_tokenisation=modele_tokenisation,
+            nom_fichier=str(report_file)
+        )
+        logger.info(f"Matrice et rapport générés pour {script_name} depuis {json_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -865,25 +951,26 @@ if __name__ == "__main__":
                         help="Taille du batch (par défaut: 5000)")
     parser.add_argument("--poll-interval", "-i", type=int, default=20,
                         help="Intervalle de sondage en secondes (par défaut: 20)")
-    
+    parser.add_argument("--exit-after-validation", action="store_true",
+                        help="Arrêter le script une fois le batch validé (applicable uniquement en mode batch)")
+    parser.add_argument("--tokens-dir", type=str, default=None,
+                        help="Dossier contenant des fichiers *_tokens.json à transformer en matrices (mode reconstruction)")
     args = parser.parse_args()
-    
-    # Vérifier qu'au moins une source est spécifiée (fichier ou dossier)
-    if args.file is None and args.directory is None:
-        parser.error("Vous devez spécifier soit un fichier (--file) soit un dossier (--directory) à analyser.")
-    
-    # Vérifier qu'on ne spécifie pas à la fois un fichier et un dossier
-    if args.file is not None and args.directory is not None:
-        parser.error("Vous ne pouvez pas spécifier à la fois un fichier et un dossier. Choisissez l'un ou l'autre.")
-    
-    # Convertir le répertoire de sortie en Path s'il est spécifié
+    # Vérifier qu'au moins une source est spécifiée (fichier, dossier ou tokens-dir)
+    if args.file is None and args.directory is None and args.tokens_dir is None:
+        parser.error("Vous devez spécifier soit un fichier (--file), un dossier (--directory), soit un dossier de tokens (--tokens-dir) à analyser.")
+    # Vérifier qu'on ne spécifie pas plusieurs modes
+    n_modes = sum([args.file is not None, args.directory is not None, args.tokens_dir is not None])
+    if n_modes > 1:
+        parser.error("Vous ne pouvez pas spécifier plusieurs modes en même temps. Choisissez un seul mode.")
     output_dir = Path(args.output_dir) if args.output_dir else None
-    
     try:
-        if args.file:
+        if args.tokens_dir:
+            generer_matrices_depuis_tokens_dir(args.tokens_dir, output_dir=output_dir, modele_tokenisation=args.token_model)
+            logger.info(f"Génération des matrices depuis tokens_dir terminée.")
+        elif args.file:
             # Mode fichier unique
             script_path = Path(args.file)
-            # Exécuter l'analyse
             matrix_file, result_file = analyser_script(
                 script_path=script_path,
                 output_dir=output_dir,
@@ -891,9 +978,9 @@ if __name__ == "__main__":
                 modele_prediction=args.pred_model,
                 no_batch=args.no_batch,
                 batch_size=args.batch_size,
-                poll_interval=args.poll_interval
+                poll_interval=args.poll_interval,
+                exit_after_validation=args.exit_after_validation,
             )
-            
             logger.info(f"Analyse terminée avec succès!")
             logger.info(f"Matrice sauvegardée dans: {matrix_file}")
             logger.info(f"Résultats détaillés dans: {result_file}")
@@ -909,7 +996,6 @@ if __name__ == "__main__":
                 batch_size=args.batch_size,
                 poll_interval=args.poll_interval
             )
-            
             if result_files:
                 logger.info(f"Analyse du dossier terminée avec succès!")
                 logger.info(f"Nombre de fichiers traités: {len(result_files)}")
@@ -917,7 +1003,6 @@ if __name__ == "__main__":
                 logger.info(f"Les rapports sont disponibles dans: {directory_path}/matrixes/reports/")
             else:
                 logger.warning("Aucun fichier n'a été traité avec succès.")
-        
     except Exception as e:
         logger.error(f"Erreur lors de l'analyse: {e}")
         import traceback

@@ -2,6 +2,8 @@ import numpy as np
 import os
 import argparse
 import glob
+import shutil
+from pathlib import Path
 
 def tuiler_matrice(matrice, taille_tuile_lignes, taille_tuile_colonnes, padding=True, valeur_padding=100):
     """
@@ -192,7 +194,7 @@ def afficher_infos_tuiles(tuiles):
         print(f"\nDernière tuile ({nb_tuiles_lignes-1},{nb_tuiles_colonnes-1}):")
         print(tuiles[-1, -1])
 
-def sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, dimensions_originales=None):
+def sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, chemin_relatif="", dimensions_originales=None):
     """
     Sauvegarde les tuiles directement dans le répertoire de sortie avec le préfixe du nom du fichier original.
     
@@ -200,10 +202,12 @@ def sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, dimensions_origi
         tuiles (numpy.ndarray): Tableau de tuiles
         dossier_sortie (str): Chemin vers le répertoire de sortie
         nom_base (str): Nom de base du fichier original (sans extension)
+        chemin_relatif (str): Chemin relatif du sous-dossier pour préserver la structure
         dimensions_originales (tuple, optional): Dimensions originales de la matrice
     """
-    # Création du répertoire de sortie s'il n'existe pas
-    os.makedirs(dossier_sortie, exist_ok=True)
+    # Création du répertoire de sortie complet (y compris le chemin relatif)
+    dossier_sortie_complet = os.path.join(dossier_sortie, chemin_relatif)
+    os.makedirs(dossier_sortie_complet, exist_ok=True)
     
     # Sauvegarde des métadonnées
     nb_tuiles_lignes, nb_tuiles_colonnes, taille_tuile_lignes, taille_tuile_colonnes = tuiles.shape
@@ -219,61 +223,100 @@ def sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, dimensions_origi
         metadonnees['hauteur_originale'] = dimensions_originales[0]
         metadonnees['largeur_originale'] = dimensions_originales[1]
     
-    np.savez(os.path.join(dossier_sortie, f'{nom_base}_metadonnees.npz'), **metadonnees)
+    np.savez(os.path.join(dossier_sortie_complet, f'{nom_base}_metadonnees.npz'), **metadonnees)
     
     # Sauvegarde de chaque tuile
     for i in range(nb_tuiles_lignes):
         for j in range(nb_tuiles_colonnes):
             nom_fichier = f"{nom_base}_tuile_{i}_{j}.npy"
-            chemin_fichier = os.path.join(dossier_sortie, nom_fichier)
+            chemin_fichier = os.path.join(dossier_sortie_complet, nom_fichier)
             np.save(chemin_fichier, tuiles[i, j])
     
-    print(f"Les tuiles ont été sauvegardées dans {dossier_sortie}")
+    print(f"Les tuiles ont été sauvegardées dans {dossier_sortie_complet}")
     print(f"Nombre total de tuiles: {nb_tuiles_lignes * nb_tuiles_colonnes}")
 
-def tuiler_fichiers_dossier(dossier_entree, dossier_sortie, taille_tuile_lignes, taille_tuile_colonnes, padding, valeur_padding):
+def deplacer_fichier(chemin_source, dossier_destination, chemin_relatif=""):
     """
-    Traite tous les fichiers de matrices NumPy dans un dossier.
+    Déplace un fichier vers un dossier de destination en préservant la structure des sous-dossiers.
     
     Arguments:
-        dossier_entree (str): Chemin vers le dossier contenant les fichiers de matrices
+        chemin_source (str): Chemin complet du fichier à déplacer
+        dossier_destination (str): Dossier de destination racine
+        chemin_relatif (str): Chemin relatif pour préserver la structure
+        
+    Retourne:
+        str: Chemin de destination où le fichier a été déplacé
+    """
+    # Création du dossier de destination complet
+    dossier_destination_complet = os.path.join(dossier_destination, chemin_relatif)
+    os.makedirs(dossier_destination_complet, exist_ok=True)
+    
+    # Chemin de destination complet
+    nom_fichier = os.path.basename(chemin_source)
+    chemin_destination = os.path.join(dossier_destination_complet, nom_fichier)
+    
+    # Déplacement du fichier (pas de copie)
+    shutil.move(chemin_source, chemin_destination)
+    
+    print(f"Fichier déplacé: {chemin_source} -> {chemin_destination}")
+    return chemin_destination
+
+def traiter_matrices_recursive(dossier_racine, dossier_sortie, dossier_archive, taille_tuile_lignes, taille_tuile_colonnes, padding, valeur_padding):
+    """
+    Traite récursivement tous les fichiers de matrices NumPy dans un dossier et ses sous-dossiers.
+    
+    Arguments:
+        dossier_racine (str): Chemin vers le dossier racine contenant les matrices NumPy
         dossier_sortie (str): Chemin vers le dossier de sortie pour les tuiles
+        dossier_archive (str): Chemin vers le dossier d'archive pour les matrices traitées
         taille_tuile_lignes (int): Nombre de lignes pour chaque tuile
         taille_tuile_colonnes (int): Nombre de colonnes pour chaque tuile
         padding (bool): Si True, ajoute du padding si nécessaire
         valeur_padding (int/float): Valeur à utiliser pour le padding
     """
-    # Création du dossier de sortie s'il n'existe pas
+    # Création des dossiers de sortie et d'archive s'ils n'existent pas
     os.makedirs(dossier_sortie, exist_ok=True)
+    os.makedirs(dossier_archive, exist_ok=True)
     
     # Extensions de fichiers supportées
     extensions = ['*.npy', '*.npz', '*.txt', '*.csv']
     
+    # Conversion en Path pour faciliter les manipulations
+    dossier_racine_p = Path(dossier_racine)
+    
     # Liste pour stocker tous les fichiers trouvés
-    fichiers = []
+    fichiers_trouves = []
     
-    # Recherche des fichiers avec les extensions supportées
+    # Recherche des fichiers avec les extensions supportées dans tous les sous-dossiers
     for ext in extensions:
-        pattern = os.path.join(dossier_entree, ext)
-        fichiers.extend(glob.glob(pattern))
+        for fichier in dossier_racine_p.glob(f"**/{ext}"):
+            fichiers_trouves.append(fichier)
     
-    if not fichiers:
-        print(f"Aucun fichier compatible trouvé dans {dossier_entree}")
+    if not fichiers_trouves:
+        print(f"Aucun fichier compatible trouvé dans {dossier_racine} et ses sous-dossiers")
         return
     
-    print(f"Nombre de fichiers trouvés: {len(fichiers)}")
+    print(f"Nombre de fichiers trouvés: {len(fichiers_trouves)}")
     
     # Traitement de chaque fichier
-    for chemin_fichier in fichiers:
+    for chemin_fichier in fichiers_trouves:
         try:
+            # Conversion en chaîne pour compatibilité
+            chemin_fichier_str = str(chemin_fichier)
+            
             # Extraction du nom du fichier sans extension
-            nom_fichier = os.path.basename(chemin_fichier)
+            nom_fichier = chemin_fichier.name
             nom_base, _ = os.path.splitext(nom_fichier)
             
-            print(f"\nTraitement de {chemin_fichier}...")
+            # Calcul du chemin relatif par rapport au dossier racine
+            chemin_relatif = str(chemin_fichier.parent.relative_to(dossier_racine_p))
+            if chemin_relatif == '.':
+                chemin_relatif = ""
+            
+            print(f"\nTraitement de {chemin_fichier_str}...")
             
             # Chargement de la matrice
-            matrice = charger_matrice(chemin_fichier)
+            matrice = charger_matrice(chemin_fichier_str)
             print(f"Matrice chargée avec succès. Dimensions: {matrice.shape}")
             
             # Tuilage de la matrice
@@ -284,11 +327,16 @@ def tuiler_fichiers_dossier(dossier_entree, dossier_sortie, taille_tuile_lignes,
             # Affichage des informations sur les tuiles
             afficher_infos_tuiles(tuiles)
             
-            # Sauvegarde des tuiles directement dans le dossier de sortie
-            print(f"Sauvegarde des tuiles dans {dossier_sortie}...")
-            sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, dimensions_originales)
+            # Sauvegarde des tuiles en préservant la structure des sous-dossiers
+            print(f"Sauvegarde des tuiles...")
+            sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, chemin_relatif, dimensions_originales)
             
-            print(f"Tuilage de {nom_fichier} terminé avec succès!")
+            # Déplacement du fichier original vers l'archive (pas de copie)
+            print(f"Déplacement du fichier original vers l'archive...")
+            chemin_destination = deplacer_fichier(chemin_fichier_str, dossier_archive, chemin_relatif)
+            print(f"Fichier original déplacé vers: {chemin_destination}")
+            
+            print(f"Traitement de {nom_fichier} terminé avec succès!")
             
         except Exception as e:
             print(f"Erreur lors du traitement de {chemin_fichier}: {e}")
@@ -299,33 +347,38 @@ def main():
     Fonction principale du script.
     """
     # Configuration du parser d'arguments
-    parser = argparse.ArgumentParser(description='Tuilage de matrices NumPy')
-    parser.add_argument('input_dir', help='Chemin vers le dossier contenant les matrices NumPy (.npy, .npz, .txt, .csv)')
-    parser.add_argument('output_dir', help='Chemin vers le répertoire de sortie pour les tuiles')
+    parser = argparse.ArgumentParser(description='Tuilage récursif de matrices NumPy dans un dossier et ses sous-dossiers')
+    parser.add_argument('dossier_racine', help='Chemin vers le dossier racine contenant les matrices NumPy (.npy, .npz, .txt, .csv)')
+    parser.add_argument('dossier_sortie', help='Chemin vers le répertoire de sortie pour les tuiles')
+    parser.add_argument('dossier_archive', help='Chemin vers le répertoire d\'archive pour les matrices traitées')
     parser.add_argument('--taille_tuile', type=int, nargs=2, default=[3, 3], 
                         help='Taille des tuiles en lignes et colonnes (par défaut: 3 3)')
+    parser.add_argument('--padding', type=bool, default=True,
+                        help='Ajouter du padding si nécessaire (par défaut: True)')
+    parser.add_argument('--valeur_padding', type=float, default=100,
+                        help='Valeur à utiliser pour le padding (par défaut: 100)')
     
     # Parsing des arguments
     args = parser.parse_args()
     
     # Extraction des arguments
-    dossier_entree = args.input_dir
-    dossier_sortie = args.output_dir
+    dossier_racine = args.dossier_racine
+    dossier_sortie = args.dossier_sortie
+    dossier_archive = args.dossier_archive
     taille_tuile_lignes, taille_tuile_colonnes = args.taille_tuile
-    
-    # Valeurs par défaut pour le padding
-    padding = True
-    valeur_padding = 100
+    padding = args.padding
+    valeur_padding = args.valeur_padding
     
     try:
-        # Vérification de l'existence du dossier d'entrée
-        if not os.path.isdir(dossier_entree):
-            raise ValueError(f"Le dossier d'entrée {dossier_entree} n'existe pas ou n'est pas un dossier.")
+        # Vérification de l'existence du dossier racine
+        if not os.path.isdir(dossier_racine):
+            raise ValueError(f"Le dossier racine {dossier_racine} n'existe pas ou n'est pas un dossier.")
         
-        # Traitement des fichiers dans le dossier
-        print(f"Recherche de matrices NumPy dans {dossier_entree}...")
-        tuiler_fichiers_dossier(dossier_entree, dossier_sortie, taille_tuile_lignes, taille_tuile_colonnes, 
-                               padding, valeur_padding)
+        # Traitement récursif des fichiers dans le dossier et ses sous-dossiers
+        print(f"Recherche et traitement de matrices NumPy dans {dossier_racine} et ses sous-dossiers...")
+        traiter_matrices_recursive(dossier_racine, dossier_sortie, dossier_archive, 
+                                  taille_tuile_lignes, taille_tuile_colonnes, 
+                                  padding, valeur_padding)
         
         print("\nTraitement de tous les fichiers terminé!")
         

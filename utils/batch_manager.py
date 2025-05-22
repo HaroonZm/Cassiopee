@@ -136,13 +136,7 @@ class SimpleBatchManager:
     def get_batch_results(self, batch_id, save_raw=False):
         """
         Récupère les résultats d'un batch.
-        
-        Args:
-            batch_id (str): ID du batch
-            save_raw (bool): Indique s'il faut sauvegarder les résultats bruts
-            
-        Returns:
-            dict: Dictionnaire des résultats par custom_id
+        Retourne un dict custom_id -> {'content': ..., 'alternatives': [...]}
         """
         batch = self.get_batch(batch_id)
         if not batch:
@@ -178,26 +172,35 @@ class SimpleBatchManager:
             for line in output_content.strip().split('\n'):
                 if not line.strip():
                     continue
-                
                 result = json.loads(line)
                 custom_id = result.get("custom_id")
-                
                 if result.get("error"):
                     logger.error(f"Erreur pour la requête {custom_id}: {result['error']}")
                     continue
-                
                 # Extraire la réponse
                 if result.get("response") and result["response"].get("body"):
                     body = result["response"]["body"]
                     if "choices" in body and len(body["choices"]) > 0:
                         content = body["choices"][0]["message"]["content"]
-                        # Nettoyer le code des délimiteurs markdown
-                        cleaned_content = self.clean_code_response(content)
-                        results[custom_id] = cleaned_content
-            
+                        # Extraction des logprobs
+                        top_logprobs = []
+                        logprobs_data = body["choices"][0].get("logprobs", {})
+                        if 'content' in logprobs_data and logprobs_data['content']:
+                            first_token = logprobs_data['content'][0]
+                            if 'top_logprobs' in first_token:
+                                top_logprobs = first_token['top_logprobs']
+                        alternatives = []
+                        for item in top_logprobs:
+                            alternatives.append({
+                                "token": item.get('token', ''),
+                                "logprob": item.get('logprob', -100)
+                            })
+                        results[custom_id] = {
+                            "content": content,
+                            "alternatives": alternatives
+                        }
             print(f"Traitement terminé: {len(results)} résultats extraits.")
             return results
-            
         except Exception as e:
             logger.error(f"Erreur lors du traitement des résultats: {e}")
             return {}
@@ -236,6 +239,65 @@ class SimpleBatchManager:
         
         print(f"Sauvegarde terminée: {saved_count} fichiers sauvegardés dans {save_dir}")
         return saved_count
+
+    def save_tokens_json_per_script(self, results, output_dir=None):
+        """
+        Sauvegarde les tokens prédits pour chaque script dans un fichier JSON unique par script.
+        Le nom du fichier est nom_du_script.py__N_tokens.json et le contenu est une liste de {"token": ..., "alternatives": [...]}
+        Tente de retrouver le nom du script à partir d'un mapping batch_ids.json si présent.
+        """
+        from collections import defaultdict
+        import re
+        import json as _json
+        if not results:
+            print("Aucun résultat à traiter pour la sauvegarde des tokens JSON.")
+            return 0
+        # Regrouper par script_id
+        scripts = defaultdict(dict)
+        for custom_id, result in results.items():
+            m = re.match(r"(.+):(\d+)$", custom_id)
+            if not m:
+                continue
+            script_id, token_index = m.group(1), int(m.group(2))
+            # result peut être soit un str (token), soit un dict avec 'content' et 'alternatives'
+            if isinstance(result, dict) and "content" in result:
+                token = result["content"]
+                alternatives = result.get("alternatives", [])
+            else:
+                token = result
+                alternatives = []
+            scripts[script_id][token_index] = {"token": token, "alternatives": alternatives}
+        # Chercher un mapping script_id -> nom du script dans batch_ids.json si possible
+        script_id_to_name = {}
+        if output_dir:
+            batch_dir = Path(output_dir)
+            parent = batch_dir.parent
+            batch_ids_file = parent / "batch_ids.json"
+            if batch_ids_file.exists():
+                try:
+                    with open(batch_ids_file, "r", encoding="utf-8") as f:
+                        batch_info = _json.load(f)
+                    batch_scripts_info = batch_info.get("batch_scripts_info")
+                    if batch_scripts_info:
+                        for batch in batch_scripts_info.values():
+                            for script_id, info in batch.items():
+                                script_id_to_name[script_id] = info.get("script_name", script_id)
+                except Exception as e:
+                    print(f"Erreur lors de la lecture de batch_ids.json: {e}")
+        save_dir = Path(output_dir) if output_dir else self.output_dir
+        save_dir.mkdir(parents=True, exist_ok=True)
+        count = 0
+        for script_id, tokens_dict in scripts.items():
+            # Ordonner les tokens par index
+            tokens = [tokens_dict[i] for i in sorted(tokens_dict)]
+            # Utiliser le mapping si possible
+            script_name = script_id_to_name.get(script_id, script_id)
+            filename = f"{script_name}__{len(tokens)}_tokens.json"
+            file_path = save_dir / filename
+            _json.dump(tokens, open(file_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            print(f"Fichier JSON de tokens sauvegardé: {file_path}")
+            count += 1
+        return count
 
 
 def command_list(args):
@@ -323,6 +385,10 @@ def command_fetch(args):
     # Sauvegarder les résultats si demandé
     if args.save:
         manager.save_results(args.batch_id, results, args.destination)
+    # Sauvegarder les fichiers JSON de tokens si demandé
+    if getattr(args, "save_tokens_json", False):
+        n = manager.save_tokens_json_per_script(results, args.destination)
+        print(f"{n} fichiers JSON de tokens générés.")
 
 def command_fetch_range(args):
     """Commande pour récupérer les résultats de plusieurs batchs par rang"""
@@ -396,6 +462,7 @@ def main():
     fetch_parser.add_argument('--save', action='store_true', help='Sauvegarde les résultats dans des fichiers')
     fetch_parser.add_argument('--save-raw', action='store_true', help='Sauvegarde les résultats bruts')
     fetch_parser.add_argument('--destination', type=str, help='Répertoire de destination pour les résultats')
+    fetch_parser.add_argument('--save-tokens-json', action='store_true', help='Sauvegarde les tokens prédits dans des fichiers JSON par script')
     fetch_parser.set_defaults(func=command_fetch)
     
     # Commande 'fetch-range'

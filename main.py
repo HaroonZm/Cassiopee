@@ -158,6 +158,14 @@ class ScriptsGeneratorTab(QWidget):
         self.batch_spinbox.setSingleStep(100)
         batch_layout.addWidget(self.batch_spinbox)
         
+        max_batches_layout = QHBoxLayout()
+        max_batches_layout.addWidget(QLabel("Nombre max de batches:"))
+        self.max_batches_spinbox = QSpinBox()
+        self.max_batches_spinbox.setRange(1, 1000)
+        self.max_batches_spinbox.setValue(10)
+        self.max_batches_spinbox.setSingleStep(1)
+        max_batches_layout.addWidget(self.max_batches_spinbox)
+        
         interval_layout = QHBoxLayout()
         interval_layout.addWidget(QLabel("Intervalle de vérification (s):"))
         self.interval_spinbox = QSpinBox()
@@ -166,9 +174,14 @@ class ScriptsGeneratorTab(QWidget):
         interval_layout.addWidget(self.interval_spinbox)
         
         # Options
-        self.test_checkbox = QCheckBox("Mode test (petit échantillon)")
         self.no_batch_checkbox = QCheckBox("Désactiver l'API Batch (appels synchrones)")
-        self.wait_completion_checkbox = QCheckBox("Attendre la complétion des batchs")
+        
+        # Modèle de génération
+        model_layout = QHBoxLayout()
+        model_layout.addWidget(QLabel("Modèle de génération:"))
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(["gpt-4o-mini", "gpt-4.1-mini"])
+        model_layout.addWidget(self.model_combo)
         
         # API Key
         apikey_layout = QHBoxLayout()
@@ -181,10 +194,10 @@ class ScriptsGeneratorTab(QWidget):
         params_layout.addLayout(variations_layout)
         params_layout.addLayout(generations_layout)
         params_layout.addLayout(batch_layout)
+        params_layout.addLayout(max_batches_layout)
         params_layout.addLayout(interval_layout)
-        params_layout.addWidget(self.test_checkbox)
         params_layout.addWidget(self.no_batch_checkbox)
-        params_layout.addWidget(self.wait_completion_checkbox)
+        params_layout.addLayout(model_layout)
         params_layout.addLayout(apikey_layout)
         
         params_group.setLayout(params_layout)
@@ -245,16 +258,12 @@ class ScriptsGeneratorTab(QWidget):
         cmd.extend(['--variations', str(self.variations_spinbox.value())])
         cmd.extend(['--generations', str(self.generations_spinbox.value())])
         cmd.extend(['--batch-size', str(self.batch_spinbox.value())])
+        cmd.extend(['--max-batches', str(self.max_batches_spinbox.value())])
         cmd.extend(['--poll-interval', str(self.interval_spinbox.value())])
-        
-        if self.test_checkbox.isChecked():
-            cmd.append('--test')
+        cmd.extend(['--model', self.model_combo.currentText()])
         
         if self.no_batch_checkbox.isChecked():
             cmd.append('--no-batch')
-        
-        if self.wait_completion_checkbox.isChecked():
-            cmd.append('--wait-completion')
         
         if self.apikey_input.text():
             cmd.extend(['--api-key', self.apikey_input.text()])
@@ -612,28 +621,6 @@ class BatchCompletionTab(QWidget):
         batch_layout.addWidget(batch_button)
         batch_group.setLayout(batch_layout)
         
-        # Source des données
-        source_group = QGroupBox("Source des données")
-        source_layout = QVBoxLayout()
-        
-        self.codenet_radio = QRadioButton("Dataset CodeNet")
-        self.thestack_radio = QRadioButton("Dataset The Stack")
-        self.codenet_radio.setChecked(True)
-        
-        source_layout.addWidget(self.codenet_radio)
-        source_layout.addWidget(self.thestack_radio)
-        source_group.setLayout(source_layout)
-        
-        # Prévisualisation
-        preview_group = QGroupBox("Prévisualisation des fichiers")
-        preview_layout = QVBoxLayout()
-        self.preview_list = QListWidget()
-        preview_button = QPushButton("Charger l'aperçu")
-        preview_button.clicked.connect(self.load_preview)
-        
-        preview_layout.addWidget(self.preview_list)
-        preview_layout.addWidget(preview_button)
-        preview_group.setLayout(preview_layout)
         
         # Bouton d'exécution
         self.execute_button = QPushButton("Compléter le batch")
@@ -654,8 +641,6 @@ class BatchCompletionTab(QWidget):
         
         # Construction du layout principal
         layout.addWidget(batch_group)
-        layout.addWidget(source_group)
-        layout.addWidget(preview_group)
         layout.addWidget(self.execute_button)
         layout.addWidget(console_group)
         layout.addWidget(self.progress_bar)
@@ -2242,7 +2227,334 @@ class VisualizationTab(QWidget):
         self.info_text.append(f"Activation maximale: {activation.max():.4f}")
         self.info_text.append(f"Activation moyenne: {activation.mean():.4f}")
 
-
+class VisualizationTab(QWidget):
+    """Onglet pour la visualisation des résultats"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.initUI()
+        
+    def initUI(self):
+        layout = QVBoxLayout()
+        
+        # Sélection du type de visualisation
+        viz_type_group = QGroupBox("Type de visualisation")
+        viz_type_layout = QHBoxLayout()
+        
+        self.viz_type = QComboBox()
+        self.viz_type.addItems(["Matrices", "Activations"])
+        self.viz_type.currentIndexChanged.connect(self.update_viz_options)
+        
+        viz_type_layout.addWidget(QLabel("Type:"))
+        viz_type_layout.addWidget(self.viz_type)
+        viz_type_group.setLayout(viz_type_layout)
+        
+        # Options de visualisation (dynamiques selon le type)
+        self.options_group = QGroupBox("Options")
+        self.options_layout = QVBoxLayout()
+        self.options_group.setLayout(self.options_layout)
+        
+        # Sélection de fichier/dossier
+        select_group = QGroupBox("Sélection de fichier/dossier")
+        select_layout = QVBoxLayout()
+        
+        self.file_layout = QHBoxLayout()
+        self.file_path = QLineEdit()
+        self.file_path.setPlaceholderText("Chemin du fichier ou dossier à visualiser")
+        self.select_button = QPushButton("Parcourir...")
+        self.select_button.clicked.connect(self.browse_file)
+        
+        self.file_layout.addWidget(self.file_path)
+        self.file_layout.addWidget(self.select_button)
+        select_layout.addLayout(self.file_layout)
+        
+        # Options supplémentaires pour les activations
+        self.model_layout = QHBoxLayout()
+        self.model_label = QLabel("Modèle:")
+        self.model_path = QLineEdit()
+        self.model_path.setPlaceholderText("Chemin du modèle UNet (.pth)")
+        self.model_button = QPushButton("Parcourir...")
+        self.model_button.clicked.connect(self.browse_model)
+        
+        self.model_layout.addWidget(self.model_label)
+        self.model_layout.addWidget(self.model_path)
+        self.model_layout.addWidget(self.model_button)
+        select_layout.addLayout(self.model_layout)
+        
+        self.matrix_layout = QHBoxLayout()
+        self.matrix_label = QLabel("ID Matrice:")
+        self.matrix_id = QLineEdit()
+        self.matrix_id.setPlaceholderText("ID de la matrice (optionnel)")
+        
+        self.matrix_layout.addWidget(self.matrix_label)
+        self.matrix_layout.addWidget(self.matrix_id)
+        select_layout.addLayout(self.matrix_layout)
+        
+        select_group.setLayout(select_layout)
+        
+        # Bouton de visualisation
+        self.visualize_button = QPushButton("Visualiser")
+        self.visualize_button.clicked.connect(self.visualize)
+        
+        # Zone de sortie
+        output_group = QGroupBox("Sortie du processus")
+        output_layout = QVBoxLayout()
+        self.output_text = QTextEdit()
+        self.output_text.setReadOnly(True)
+        output_layout.addWidget(self.output_text)
+        output_group.setLayout(output_layout)
+        
+        # Barre de progression
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0)  # Indéterminé
+        self.progress_bar.hide()
+        
+        # Construction du layout principal
+        layout.addWidget(viz_type_group)
+        layout.addWidget(self.options_group)
+        layout.addWidget(select_group)
+        layout.addWidget(self.visualize_button)
+        layout.addWidget(output_group)
+        layout.addWidget(self.progress_bar)
+        
+        self.setLayout(layout)
+        
+        # Initialiser les options
+        self.update_viz_options(0)
+    
+    def update_viz_options(self, index):
+        # Effacer les options actuelles
+        for i in reversed(range(self.options_layout.count())): 
+            item = self.options_layout.itemAt(i)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        viz_type = self.viz_type.currentText()
+        
+        if viz_type == "Matrices":
+            # Options pour visualize_matrix.py
+            # Mode de visualisation
+            mode_layout = QHBoxLayout()
+            mode_layout.addWidget(QLabel("Mode:"))
+            self.viz_mode = QComboBox()
+            self.viz_mode.addItems(["heatmap", "categorical"])
+            mode_layout.addWidget(self.viz_mode)
+            self.options_layout.addLayout(mode_layout)
+            
+            # Options console
+            self.console_checkbox = QCheckBox("Afficher dans la console")
+            self.options_layout.addWidget(self.console_checkbox)
+            
+            self.values_checkbox = QCheckBox("Afficher les valeurs numériques")
+            self.options_layout.addWidget(self.values_checkbox)
+            
+            # Option de sauvegarde
+            self.save_checkbox = QCheckBox("Sauvegarder en PNG")
+            self.options_layout.addWidget(self.save_checkbox)
+            
+            output_layout = QHBoxLayout()
+            output_layout.addWidget(QLabel("Dossier de sortie:"))
+            self.output_dir = QLineEdit()
+            self.output_dir.setPlaceholderText("Laisser vide pour utiliser le dossier de la matrice")
+            output_button = QPushButton("...")
+            output_button.clicked.connect(self.browse_output)
+            output_layout.addWidget(self.output_dir)
+            output_layout.addWidget(output_button)
+            self.options_layout.addLayout(output_layout)
+            
+            # Masquer les options spécifiques aux activations
+            self.model_label.setVisible(False)
+            self.model_path.setVisible(False)
+            self.model_button.setVisible(False)
+            self.matrix_label.setVisible(False)
+            self.matrix_id.setVisible(False)
+            
+        elif viz_type == "Activations":
+            # Options pour visualize_activation.py
+            # Afficher les options spécifiques aux activations
+            self.model_label.setVisible(True)
+            self.model_path.setVisible(True)
+            self.model_button.setVisible(True)
+            self.matrix_label.setVisible(True)
+            self.matrix_id.setVisible(True)
+            
+            # Option device
+            device_layout = QHBoxLayout()
+            device_layout.addWidget(QLabel("Device:"))
+            self.device_combo = QComboBox()
+            self.device_combo.addItems(["auto", "cuda", "cpu"])
+            device_layout.addWidget(self.device_combo)
+            self.options_layout.addLayout(device_layout)
+            
+            # Option padding
+            padding_layout = QHBoxLayout()
+            padding_layout.addWidget(QLabel("Valeur de padding:"))
+            self.padding_value = QLineEdit("100")
+            padding_layout.addWidget(self.padding_value)
+            self.options_layout.addLayout(padding_layout)
+            
+            # Dossier de sortie
+            output_layout = QHBoxLayout()
+            output_layout.addWidget(QLabel("Dossier de sortie:"))
+            self.activation_output_dir = QLineEdit("activation_maps")
+            output_button = QPushButton("...")
+            output_button.clicked.connect(self.browse_activation_output)
+            output_layout.addWidget(self.activation_output_dir)
+            output_layout.addWidget(output_button)
+            self.options_layout.addLayout(output_layout)
+    
+    def browse_file(self):
+        viz_type = self.viz_type.currentText()
+        
+        if viz_type == "Matrices":
+            file, _ = QFileDialog.getOpenFileName(self, "Sélectionner une matrice", "", "Fichiers NumPy (*.npy)")
+        else:  # Activations
+            # Pour les activations, permettre de sélectionner un fichier ou un dossier
+            dialog = QFileDialog(self)
+            dialog.setFileMode(QFileDialog.AnyFile)
+            dialog.setNameFilter("Tous les fichiers (*)")
+            dialog.setWindowTitle("Sélectionner une tuile ou un dossier")
+            dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+            
+            # Ajouter un bouton pour sélectionner un dossier
+            for btn in dialog.findChildren(QPushButton):
+                if btn.text() == 'Open' or btn.text() == "Ouvrir":
+                    btn.setText("Sélectionner")
+            
+            if dialog.exec_():
+                selected_files = dialog.selectedFiles()
+                file = selected_files[0] if selected_files else None
+            else:
+                file = None
+        
+        if file:
+            self.file_path.setText(file)
+    
+    def browse_model(self):
+        file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un modèle UNet", "", "Modèles PyTorch (*.pth *.pt)")
+        if file:
+            self.model_path.setText(file)
+    
+    def browse_output(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie")
+        if folder:
+            self.output_dir.setText(folder)
+    
+    def browse_activation_output(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie pour les activations")
+        if folder:
+            self.activation_output_dir.setText(folder)
+    
+    def visualize(self):
+        """Appelle le script de visualisation approprié en fonction du type sélectionné"""
+        viz_type = self.viz_type.currentText()
+        
+        if not self.file_path.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un fichier ou dossier.")
+            return
+        
+        # Préparer l'interface
+        self.output_text.clear()
+        self.progress_bar.show()
+        self.visualize_button.setEnabled(False)
+        
+        # Construire la commande en fonction du type de visualisation
+        if viz_type == "Matrices":
+            cmd = ['python', 'visualization/visualize_matrix.py']
+            
+            # Ajouter les options
+            cmd.extend(['--file', self.file_path.text()])
+            
+            if self.viz_mode.currentText():
+                cmd.extend(['--mode', self.viz_mode.currentText()])
+                
+            if self.console_checkbox.isChecked():
+                cmd.append('--console')
+                
+            if self.values_checkbox.isChecked():
+                cmd.append('--values')
+                
+            if self.save_checkbox.isChecked():
+                cmd.append('--save')
+                
+            if self.output_dir.text():
+                cmd.extend(['--output-dir', self.output_dir.text()])
+                
+        else:  # Activations
+            if not self.model_path.text():
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un modèle UNet.")
+                self.progress_bar.hide()
+                self.visualize_button.setEnabled(True)
+                return
+                
+            cmd = ['python', 'visualization/visualize_activation.py']
+            
+            # Ajouter les options
+            cmd.extend(['--model', self.model_path.text()])
+            cmd.extend(['--input', self.file_path.text()])
+            
+            if self.matrix_id.text():
+                cmd.extend(['--matrix', self.matrix_id.text()])
+                
+            if self.activation_output_dir.text():
+                cmd.extend(['--output', self.activation_output_dir.text()])
+                
+            if self.device_combo.currentText() != "auto":
+                cmd.extend(['--device', self.device_combo.currentText()])
+                
+            if self.padding_value.text():
+                try:
+                    float(self.padding_value.text())  # Vérifier que c'est bien un nombre
+                    cmd.extend(['--padding', self.padding_value.text()])
+                except ValueError:
+                    QMessageBox.warning(self, "Erreur", "La valeur de padding doit être un nombre.")
+                    self.progress_bar.hide()
+                    self.visualize_button.setEnabled(True)
+                    return
+        
+        # Afficher la commande exécutée
+        command_str = ' '.join(cmd)
+        self.output_text.append(f"Exécution de la commande: {command_str}")
+        self.output_text.append("-" * 60)
+        
+        # Exécuter dans un thread
+        self.thread = ProcessThread(command_str)
+        self.thread.update_signal.connect(self.update_output)
+        self.thread.finished_signal.connect(self.process_finished)
+        self.thread.start()
+    
+    def update_output(self, text):
+        """Met à jour la zone de sortie avec la sortie du script"""
+        self.output_text.append(text)
+        # Faire défiler vers le bas
+        scrollbar = self.output_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+    
+    def process_finished(self, success, message):
+        """Appelé lorsque le processus est terminé"""
+        self.progress_bar.hide()
+        self.visualize_button.setEnabled(True)
+        
+        if success:
+            self.output_text.append("-" * 60)
+            self.output_text.append("Visualisation terminée avec succès!")
+            
+            if self.viz_type.currentText() == "Matrices":
+                # Pour les matrices, indiquer où l'image a été sauvegardée
+                if self.save_checkbox.isChecked():
+                    output_dir = self.output_dir.text() or os.path.dirname(self.file_path.text())
+                    filename = os.path.basename(self.file_path.text()).replace(".npy", ".png")
+                    img_path = os.path.join(output_dir, filename)
+                    
+                    if os.path.exists(img_path):
+                        self.output_text.append(f"Image sauvegardée dans: {img_path}")
+            else:
+                # Pour les activations, indiquer où les images ont été sauvegardées
+                output_dir = self.activation_output_dir.text() or "activation_maps"
+                self.output_text.append(f"Images sauvegardées dans le dossier: {output_dir}")
+        else:
+            self.output_text.append("-" * 60)
+            self.output_text.append(f"Erreur lors de la visualisation: {message}")
 class MainWindow(QMainWindow):
     """Fenêtre principale de l'application"""
     
