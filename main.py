@@ -1,4 +1,3 @@
-
 import sys
 import os
 import subprocess
@@ -246,7 +245,11 @@ class ScriptsGeneratorTab(QWidget):
             return
         
         # Construire la commande
-        cmd = ['python', 'scripts_generation/ia_scripts_generator.py']
+        if self.no_batch_checkbox.isChecked():
+            cmd = ['python', 'matrix_generation/matrix_generator_no_batch.py']
+        else:
+            cmd = ['python', 'scripts_generation/ia_scripts_generator.py']
+            
         cmd.append('--input')
         cmd.append(self.input_path.text())
         cmd.append('--output')
@@ -257,13 +260,13 @@ class ScriptsGeneratorTab(QWidget):
         
         cmd.extend(['--variations', str(self.variations_spinbox.value())])
         cmd.extend(['--generations', str(self.generations_spinbox.value())])
-        cmd.extend(['--batch-size', str(self.batch_spinbox.value())])
-        cmd.extend(['--max-batches', str(self.max_batches_spinbox.value())])
-        cmd.extend(['--poll-interval', str(self.interval_spinbox.value())])
-        cmd.extend(['--model', self.model_combo.currentText()])
         
-        if self.no_batch_checkbox.isChecked():
-            cmd.append('--no-batch')
+        if not self.no_batch_checkbox.isChecked():
+            cmd.extend(['--batch-size', str(self.batch_spinbox.value())])
+            cmd.extend(['--max-batches', str(self.max_batches_spinbox.value())])
+            cmd.extend(['--poll-interval', str(self.interval_spinbox.value())])
+        
+        cmd.extend(['--model', self.model_combo.currentText()])
         
         if self.apikey_input.text():
             cmd.extend(['--api-key', self.apikey_input.text()])
@@ -970,6 +973,31 @@ class MatrixTilingTab(QWidget):
         input_layout.addWidget(input_button)
         input_group.setLayout(input_layout)
         
+        # Sélection du dossier de sortie
+        output_group = QGroupBox("Dossier de sortie")
+        output_layout = QHBoxLayout()
+        
+        self.output_dir = QLineEdit()
+        self.output_dir.setPlaceholderText("Chemin vers le dossier de sortie pour les tuiles")
+        output_button = QPushButton("Parcourir...")
+        output_button.clicked.connect(self.browse_output)
+        
+        output_layout.addWidget(self.output_dir)
+        output_layout.addWidget(output_button)
+        output_group.setLayout(output_layout)
+        
+        # Sélection du dossier d'archive
+        archive_group = QGroupBox("Dossier d'archive")
+        archive_layout = QHBoxLayout()
+        
+        self.archive_dir = QLineEdit()
+        self.archive_dir.setPlaceholderText("Chemin vers le dossier d'archive pour les matrices traitées")
+        archive_button = QPushButton("Parcourir...")
+        archive_button.clicked.connect(self.browse_archive)
+        
+        archive_layout.addWidget(self.archive_dir)
+        archive_layout.addWidget(archive_button)
+        archive_group.setLayout(archive_layout)
         
         # Configuration des tuiles
         tile_group = QGroupBox("Configuration des tuiles")
@@ -977,16 +1005,34 @@ class MatrixTilingTab(QWidget):
         
         tile_layout.addWidget(QLabel("Lignes:"))
         self.rows_spinbox = QSpinBox()
-        self.rows_spinbox.setRange(1, 10)
+        self.rows_spinbox.setRange(1, 1000)  # Augmentation de la limite maximale à 1000
         self.rows_spinbox.setValue(3)
+        self.rows_spinbox.setSingleStep(1)  # Pas de 1
         tile_layout.addWidget(self.rows_spinbox)
         
         tile_layout.addWidget(QLabel("Colonnes:"))
         self.cols_spinbox = QSpinBox()
-        self.cols_spinbox.setRange(1, 10)
+        self.cols_spinbox.setRange(1, 1000)  # Augmentation de la limite maximale à 1000
         self.cols_spinbox.setValue(3)
+        self.cols_spinbox.setSingleStep(1)  # Pas de 1
         tile_layout.addWidget(self.cols_spinbox)
         
+        # Ajout d'une option pour le padding
+        padding_layout = QHBoxLayout()
+        self.padding_checkbox = QCheckBox("Ajouter du padding si nécessaire")
+        self.padding_checkbox.setChecked(True)
+        padding_layout.addWidget(self.padding_checkbox)
+        
+        padding_value_layout = QHBoxLayout()
+        padding_value_layout.addWidget(QLabel("Valeur du padding:"))
+        self.padding_value = QSpinBox()
+        self.padding_value.setRange(0, 1000)
+        self.padding_value.setValue(100)
+        self.padding_value.setSingleStep(10)
+        padding_value_layout.addWidget(self.padding_value)
+        
+        tile_layout.addLayout(padding_layout)
+        tile_layout.addLayout(padding_value_layout)
         tile_group.setLayout(tile_layout)
         
         # Bouton d'exécution
@@ -1016,6 +1062,8 @@ class MatrixTilingTab(QWidget):
         
         # Construction du layout principal
         layout.addWidget(input_group)
+        layout.addWidget(output_group)
+        layout.addWidget(archive_group)
         layout.addWidget(tile_group)
         layout.addWidget(self.execute_button)
         layout.addWidget(metadata_group)
@@ -1028,16 +1076,31 @@ class MatrixTilingTab(QWidget):
         folder = QFileDialog.getExistingDirectory(self, "Sélectionner le batch")
         if folder:
             self.input_dir.setText(folder)
+            
+    def browse_output(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie")
+        if folder:
+            self.output_dir.setText(folder)
+            
+    def browse_archive(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier d'archive")
+        if folder:
+            self.archive_dir.setText(folder)
 
     def execute_tiling(self):
-        if not self.input_dir.text():
-            QMessageBox.warning(self, "Erreur", "Les dossiers d'entrée et de sortie sont requis.")
+        if not self.input_dir.text() or not self.output_dir.text() or not self.archive_dir.text():
+            QMessageBox.warning(self, "Erreur", "Les dossiers d'entrée, de sortie et d'archive sont requis.")
             return
         
         cmd = ['python', 'matrix_generation/matrix_tiling.py']
-        cmd.append(self.input_dir.text()+"/matrixes")
-        cmd.append(self.input_dir.text()+"/tiles")
+        cmd.append(self.input_dir.text())
+        cmd.append(self.output_dir.text())
+        cmd.append(self.archive_dir.text())
         cmd.extend(['--taille_tuile', str(self.rows_spinbox.value()), str(self.cols_spinbox.value())])
+        
+        # Ajout des options de padding
+        cmd.extend(['--padding', str(self.padding_checkbox.isChecked())])
+        cmd.extend(['--valeur_padding', str(self.padding_value.value())])
         
         self.console.clear()
         self.metadata_text.clear()
@@ -1463,6 +1526,7 @@ class UNetTestingTab(QWidget):
         self.dir_mode_radio = QRadioButton("Analyser un dossier")
         self.file_mode_radio.setChecked(True)
         self.file_mode_radio.toggled.connect(self.toggle_mode)
+        self.dir_mode_radio.toggled.connect(self.toggle_mode)
         
         mode_layout.addWidget(self.file_mode_radio)
         mode_layout.addWidget(self.dir_mode_radio)
@@ -1471,26 +1535,23 @@ class UNetTestingTab(QWidget):
         file_layout = QHBoxLayout()
         self.file_path = QLineEdit()
         self.file_path.setPlaceholderText("Chemin vers le fichier Python à analyser")
-        file_button = QPushButton("Parcourir...")
-        file_button.clicked.connect(self.browse_file)
+        self.file_button = QPushButton("Parcourir...")
+        self.file_button.clicked.connect(self.browse_file)
         
         file_layout.addWidget(self.file_path)
-        file_layout.addWidget(file_button)
+        file_layout.addWidget(self.file_button)
         
         # Sélection de dossier
         dir_layout = QHBoxLayout()
         self.dir_path = QLineEdit()
         self.dir_path.setPlaceholderText("Chemin vers le dossier contenant des fichiers Python")
         self.dir_path.setEnabled(False)
-        dir_button = QPushButton("Parcourir...")
-        dir_button.clicked.connect(self.browse_directory)
-        dir_button.setEnabled(False)
-        
-        self.recursive_checkbox = QCheckBox("Rechercher également dans les sous-dossiers")
-        self.recursive_checkbox.setEnabled(False)
+        self.dir_button = QPushButton("Parcourir...")
+        self.dir_button.clicked.connect(self.browse_directory)
+        self.dir_button.setEnabled(False)
         
         dir_layout.addWidget(self.dir_path)
-        dir_layout.addWidget(dir_button)
+        dir_layout.addWidget(self.dir_button)
         
         # Instructions pour le glisser-déposer
         drop_label = QLabel("Ou glissez-déposez des fichiers/dossiers ici")
@@ -1500,12 +1561,35 @@ class UNetTestingTab(QWidget):
         input_layout.addLayout(mode_layout)
         input_layout.addLayout(file_layout)
         input_layout.addLayout(dir_layout)
-        input_layout.addWidget(self.recursive_checkbox)
         input_layout.addWidget(drop_label)
         input_group.setLayout(input_layout)
         
-        # Activer la fonctionnalité de glisser-déposer
-        self.setAcceptDrops(True)
+        # Options de visualisation
+        viz_group = QGroupBox("Options de visualisation")
+        viz_layout = QVBoxLayout()
+        
+        # Option pour visualiser les tuiles
+        self.visualize_tiles_checkbox = QCheckBox("Visualiser les tuiles")
+        self.visualize_tiles_checkbox.setChecked(False)
+        viz_layout.addWidget(self.visualize_tiles_checkbox)
+        
+        # Option pour visualiser les activations
+        self.visualize_activations_checkbox = QCheckBox("Visualiser les activations")
+        self.visualize_activations_checkbox.setChecked(False)
+        viz_layout.addWidget(self.visualize_activations_checkbox)
+        
+        # Dossier de sortie pour les visualisations
+        output_layout = QHBoxLayout()
+        output_layout.addWidget(QLabel("Dossier de sortie:"))
+        self.viz_output_dir = QLineEdit()
+        self.viz_output_dir.setPlaceholderText("Dossier pour sauvegarder les visualisations")
+        output_button = QPushButton("...")
+        output_button.clicked.connect(self.browse_viz_output)
+        output_layout.addWidget(self.viz_output_dir)
+        output_layout.addWidget(output_button)
+        viz_layout.addLayout(output_layout)
+        
+        viz_group.setLayout(viz_layout)
         
         # Bouton d'analyse
         self.test_button = QPushButton("Analyser")
@@ -1514,6 +1598,7 @@ class UNetTestingTab(QWidget):
         # Ajouter les contrôles à la partie supérieure
         upper_layout.addWidget(model_group)
         upper_layout.addWidget(input_group)
+        upper_layout.addWidget(viz_group)
         upper_layout.addWidget(self.test_button)
         
         # Partie inférieure avec deux colonnes
@@ -1547,15 +1632,15 @@ class UNetTestingTab(QWidget):
         # Colonne de droite: visualisation et console
         right_column = QVBoxLayout()
         
-        # Visualisation - RENDU PLUS GRAND
+        # Visualisation
         viz_group = QGroupBox("Visualisation")
         viz_layout = QVBoxLayout()
         
-        # Figure plus grande (augmentation de la taille)
+        # Figure plus grande
         self.figure = Figure(figsize=(8, 6), dpi=100)
         self.canvas = FigureCanvas(self.figure)
-        self.canvas.setMinimumHeight(300)  # Force une hauteur minimale
-        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Permet l'expansion
+        self.canvas.setMinimumHeight(300)
+        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         viz_layout.addWidget(self.canvas)
         
         viz_group.setLayout(viz_layout)
@@ -1569,37 +1654,50 @@ class UNetTestingTab(QWidget):
         console_layout.addWidget(self.console)
         console_group.setLayout(console_layout)
         
-        right_column.addWidget(viz_group, 2)  # Donner plus d'espace à la visualisation (ratio 2)
-        right_column.addWidget(console_group, 1)  # Console prend moins de place (ratio 1)
+        right_column.addWidget(viz_group, 2)
+        right_column.addWidget(console_group, 1)
         
-        # Équilibrer les colonnes (gauche: 40%, droite: 60%)
+        # Équilibrer les colonnes
         lower_layout.addLayout(left_column, 40)
         lower_layout.addLayout(right_column, 60)
         
-        # Barre de progression (en bas de la fenêtre)
+        # Barre de progression
         self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 0)  # Indéterminé
+        self.progress_bar.setRange(0, 0)
         self.progress_bar.hide()
         
         # Construction du layout principal
         layout.addLayout(upper_layout)
-        layout.addLayout(lower_layout, 1)  # Donner plus d'espace à la partie inférieure
+        layout.addLayout(lower_layout, 1)
         layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
         
         # Stockage des résultats
         self.all_results = []
+        
+    def browse_viz_output(self):
+        """Ouvre une boîte de dialogue pour sélectionner le dossier de sortie des visualisations"""
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie pour les visualisations")
+        if folder:
+            self.viz_output_dir.setText(folder)
+            
     def toggle_mode(self):
         """Change l'interface en fonction du mode sélectionné"""
         if self.file_mode_radio.isChecked():
+            # Mode fichier
             self.file_path.setEnabled(True)
+            self.file_button.setEnabled(True)
             self.dir_path.setEnabled(False)
-            self.recursive_checkbox.setEnabled(False)
+            self.dir_button.setEnabled(False)
+            self.dir_path.clear()
         else:
+            # Mode dossier
             self.file_path.setEnabled(False)
+            self.file_button.setEnabled(False)
+            self.file_path.clear()
             self.dir_path.setEnabled(True)
-            self.recursive_checkbox.setEnabled(True)
+            self.dir_button.setEnabled(True)
     
     def browse_model(self):
         """Ouvre une boîte de dialogue pour sélectionner le modèle"""
@@ -1618,6 +1716,7 @@ class UNetTestingTab(QWidget):
         folder = QFileDialog.getExistingDirectory(self, "Sélectionner un dossier contenant des fichiers Python")
         if folder:
             self.dir_path.setText(folder)
+            self.dir_path.setEnabled(True)  # S'assurer que le champ reste activé après la sélection
     
     def dragEnterEvent(self, event: QDragEnterEvent):
         """Gère l'entrée d'un élément glissé-déposé"""
@@ -1637,6 +1736,7 @@ class UNetTestingTab(QWidget):
             # C'est un fichier Python
             self.file_mode_radio.setChecked(True)
             self.file_path.setText(path)
+            self.toggle_mode()
         elif os.path.isdir(path):
             # C'est un dossier
             self.dir_mode_radio.setChecked(True)
@@ -1656,13 +1756,6 @@ class UNetTestingTab(QWidget):
             if not self.file_path.text() or not os.path.isfile(self.file_path.text()):
                 QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un fichier valide.")
                 return
-            
-            # Vérifier l'extension du fichier
-            file_ext = os.path.splitext(self.file_path.text())[1].lower()
-            if file_ext not in ['.py', '.npy']:
-                QMessageBox.warning(self, "Erreur", "Le fichier doit être au format .py ou .npy")
-                return
-                
             input_path = self.file_path.text()
         else:
             if not self.dir_path.text() or not os.path.isdir(self.dir_path.text()):
@@ -1673,9 +1766,16 @@ class UNetTestingTab(QWidget):
         # Construire la commande pour appeler test_unet.py
         cmd = ['python', 'unet/test_unet.py', '--model', self.model_path.text(), '--input', input_path]
         
-        # Ajouter l'option récursive si nécessaire
-        if self.dir_mode_radio.isChecked() and self.recursive_checkbox.isChecked():
-            cmd.append('--recursive')
+        # Ajouter les options de visualisation si demandées
+        if self.visualize_tiles_checkbox.isChecked():
+            cmd.append('--visualize-tiles')
+            if self.viz_output_dir.text():
+                cmd.extend(['--viz-output', self.viz_output_dir.text()])
+                
+        if self.visualize_activations_checkbox.isChecked():
+            cmd.append('--visualize-activations')
+            if self.viz_output_dir.text():
+                cmd.extend(['--viz-output', self.viz_output_dir.text()])
         
         # Préparer l'interface pour l'exécution
         self.console.clear()
@@ -1697,7 +1797,6 @@ class UNetTestingTab(QWidget):
         self.process_thread.start()
         
         # Configurer un timer pour vérifier régulièrement les résultats
-        # Cela peut aider à détecter les résultats même si le format de sortie change
         self.check_timer = QTimer()
         self.check_timer.timeout.connect(self.parse_result_from_output)
         self.check_timer.start(1000)  # Vérifier toutes les secondes
@@ -1743,7 +1842,6 @@ class UNetTestingTab(QWidget):
                         try:
                             result['score'] = float(line.split("Score brut:")[1].strip())
                         except ValueError:
-                            # En cas d'erreur de conversion, utiliser une valeur par défaut
                             result['score'] = 0.5
                     elif "Score moyen:" in line:
                         try:
@@ -1755,7 +1853,6 @@ class UNetTestingTab(QWidget):
                             confidence_str = line.split("Confiance:")[1].strip()
                             result['confidence'] = float(confidence_str.replace("%", "")) / 100
                         except ValueError:
-                            # En cas d'erreur de conversion, utiliser une valeur par défaut
                             result['confidence'] = 0.5
                 
                 # Vérifier si ce résultat existe déjà dans la liste
@@ -1779,20 +1876,6 @@ class UNetTestingTab(QWidget):
                         
                         self.console.append(f"Ajout du résultat pour {result['file']} à la liste")
         
-        # Vérifier aussi si un résumé final est présent
-        final_summary_section = None
-        for section in sections:
-            if "RÉSUMÉ FINAL" in section:
-                final_summary_section = section
-                break
-        
-        if final_summary_section:
-            lines = final_summary_section.strip().split("\n")
-            for line in lines:
-                line = line.strip()
-                if "Détectés comme IA:" in line or "Détectés comme Humain:" in line:
-                    self.console.append(f"Information de résumé trouvée: {line}")
-                
         return results_found
     
     def add_result_to_list(self, result):

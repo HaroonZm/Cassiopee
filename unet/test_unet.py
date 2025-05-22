@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import traceback
 from tqdm import tqdm
+import subprocess
 
 # Architecture UNet pour la détection de code IA
 class UNetForCodeDetection(nn.Module):
@@ -252,7 +253,7 @@ def test_directory(model, test_dir, device, recursive=False):
 def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model="gpt-4o-mini", pred_model="gpt-4o-mini", tiles_size=(16, 16)):
     """
     Convertit un fichier Python en représentation matricielle puis en tuiles pour l'analyse
-    en appelant matrix_generator.py puis matrix_tiling.py.
+    en appelant matrix_generator_no_batch.py puis matrix_tiling.py.
     
     Args:
         py_file: Chemin vers le fichier Python
@@ -279,12 +280,11 @@ def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model=
         # Nom de base du fichier
         base_name = os.path.basename(py_file).replace('.py', '')
         
-        # 1. Générer la matrice avec matrix_generator.py
+        # 1. Générer la matrice avec matrix_generator_no_batch.py
         matrix_cmd = [
             "python", 
-            "matrix_generation/matrix_generator.py",
+            "matrix_generation/matrix_generator_no_batch.py",
             "--file", py_file,
-            "--no-batch",
             "--token-model", token_model,
             "--pred-model", pred_model,
             "--output-dir", output_dir
@@ -377,6 +377,7 @@ def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model=
             "matrix_generation/matrix_tiling.py",
             matrices_dir,
             tiles_dir,
+            os.path.join(output_dir, "archive"),  # Dossier d'archive requis
             "--taille_tuile",
             str(tiles_size[0]),
             str(tiles_size[1])
@@ -702,52 +703,92 @@ def analyze_python_directory(model_path, directory, recursive=False, device=None
 
 def main():
     # Configurer les arguments en ligne de commande
-    parser = argparse.ArgumentParser(description="Test d'un modèle UNet pour la détection de code généré par IA")
-    parser.add_argument('--model', type=str, default='best_unet_tile_detector.pth', 
-                        help='Chemin vers le fichier du modèle (.pth)')
-    parser.add_argument('--input', type=str, required=True, 
-                        help='Chemin vers un fichier Python/NPY ou un répertoire contenant des fichiers')
-    parser.add_argument('--recursive', action='store_true', 
-                        help='Parcourir récursivement les sous-dossiers')
-    parser.add_argument('--device', type=str, default='', 
-                        help='Device à utiliser (cuda/cpu, vide pour auto-détection)')
-    parser.add_argument('--token-model', type=str, default='gpt-4o-mini',
-                        help='Modèle à utiliser pour la tokenisation')
-    parser.add_argument('--pred-model', type=str, default='gpt-4o-mini',
-                        help='Modèle à utiliser pour la prédiction')
+    parser = argparse.ArgumentParser(description='Test du modèle UNet sur des fichiers Python')
+    parser.add_argument('--model', required=True, help='Chemin vers le modèle UNet')
+    parser.add_argument('--input', required=True, help='Chemin vers le fichier ou dossier à analyser')
+    parser.add_argument('--recursive', action='store_true', help='Rechercher récursivement dans les sous-dossiers')
+    parser.add_argument('--device', default='auto', help='Device à utiliser (auto, cuda, cpu)')
+    parser.add_argument('--token-model', default='gpt-4o-mini', help='Modèle de tokenisation à utiliser')
+    parser.add_argument('--pred-model', default='gpt-4o-mini', help='Modèle de prédiction à utiliser')
+    parser.add_argument('--visualize-tiles', action='store_true', help='Visualiser les tuiles générées')
+    parser.add_argument('--visualize-activations', action='store_true', help='Visualiser les activations du modèle')
+    parser.add_argument('--viz-output', help='Dossier de sortie pour les visualisations')
     
     args = parser.parse_args()
     
     # Déterminer le device
-    if args.device:
-        device = torch.device(args.device)
-    else:
+    if args.device == 'auto':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-    # Vérifier que le modèle existe
-    if not os.path.exists(args.model):
-        print(f"Erreur: Le fichier modèle '{args.model}' n'existe pas!")
-        return
-    
-    # Analyser selon le type d'entrée
-    if os.path.isfile(args.input):
-        if args.input.endswith('.py') or args.input.endswith('.npy'):
-            # Fichier Python ou NPY
-            result = analyze_python_file(args.model, args.input, device)
-            
-            # Afficher un résumé
-            if result:
-                print("\nRÉSUMÉ:")
-                print(f"Fichier: {args.input}")
-                print(f"Prédiction: {result['predicted_class']}")
-                print(f"Confiance: {result['confidence']*100:.2f}%")
-        else:
-            print(f"Erreur: '{args.input}' n'est pas un fichier Python (.py) ou une matrice (.npy)!")
-    elif os.path.isdir(args.input):
-        # Répertoire de fichiers
-        analyze_python_directory(args.model, args.input, args.recursive, device)
     else:
-        print(f"Erreur: '{args.input}' n'est pas un fichier ou un répertoire valide!")
+        device = torch.device(args.device)
+    
+    print(f"Utilisation du device: {device}")
+    
+    # Charger le modèle
+    model = UNetForCodeDetection()
+    model.load_state_dict(torch.load(args.model, map_location=device))
+    model.to(device)
+    model.eval()
+    
+    # Créer le dossier de sortie pour les visualisations si nécessaire
+    if args.viz_output:
+        os.makedirs(args.viz_output, exist_ok=True)
+    
+    # Analyser le fichier ou le dossier
+    if os.path.isfile(args.input):
+        if args.input.endswith('.py'):
+            # Analyser un fichier Python
+            results = analyze_python_file(args.model, args.input, device)
+            
+            # Générer les visualisations si demandé
+            if args.visualize_tiles or args.visualize_activations:
+                # Créer un dossier temporaire pour les tuiles
+                temp_dir = os.path.join(os.path.dirname(args.input), 'temp_tiles')
+                os.makedirs(temp_dir, exist_ok=True)
+                
+                # Générer les tuiles
+                matrix, tiles = generate_matrix_and_tiles_from_python(
+                    args.input, 
+                    output_dir=temp_dir,
+                    token_model=args.token_model,
+                    pred_model=args.pred_model
+                )
+                
+                # Visualiser les tuiles
+                if args.visualize_tiles:
+                    output_dir = args.viz_output or os.path.dirname(args.input)
+                    cmd = ['python', 'visualization/visualize_tilespy.py', 
+                          '--dossier_tuiles', temp_dir]
+                    if output_dir:
+                        cmd.extend(['--dossier_sortie', output_dir])
+                    subprocess.run(cmd, check=True)
+                
+                # Visualiser les activations
+                if args.visualize_activations:
+                    output_dir = args.viz_output or os.path.join(os.path.dirname(args.input), 'activations')
+                    cmd = ['python', 'visualization/visualize_activation.py',
+                          '--model', args.model,
+                          '--input', temp_dir,
+                          '--output', output_dir]
+                    if args.device != 'auto':
+                        cmd.extend(['--device', args.device])
+                    subprocess.run(cmd, check=True)
+                
+                # Nettoyer le dossier temporaire
+                import shutil
+                shutil.rmtree(temp_dir)
+                
+        else:
+            # Analyser une matrice ou un dossier de tuiles
+            results = test_single_file(model, args.input, device)
+    else:
+        # Analyser un dossier
+        if args.recursive:
+            results = analyze_python_directory(args.model, args.input, recursive=True, device=device)
+        else:
+            results = analyze_python_directory(args.model, args.input, device=device)
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

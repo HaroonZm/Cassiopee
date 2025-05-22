@@ -93,7 +93,7 @@ class BatchRequestItem:
                 ],
                 "max_tokens": 1,
                 "logprobs": True,
-                "top_logprobs": 10,
+                "top_logprobs": 5,
                 "temperature": 0.0,
                 "top_p": 0.1
             }
