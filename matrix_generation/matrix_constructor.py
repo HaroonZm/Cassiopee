@@ -1,569 +1,659 @@
-#!/usr/bin/env python3
-"""
-Script de construction de matrices à partir des résultats de batch téléchargés depuis l'API OpenAI.
-Compatible avec le nouveau format d'ID (script_id:token_index) pour un traitement optimisé.
-"""
-import os
-import argparse
-import logging
 import json
-import numpy as np
-import datetime
+import os
 import shutil
-from collections import defaultdict
+import numpy as np
+from typing import Dict, List, Tuple, Optional
+import pandas as pd
+import logging
 from pathlib import Path
 
 # Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def construire_matrice_logprob(tokens_reference, resultats_analyse):
-    """
-    Construit une matrice 2D de log probabilités avec taille dynamique,
-    en padding avec 100 et anomalies à -50.
-    """
-    # 1) Reconstituer le texte complet et découper en lignes
-    texte_complet = ''.join(tokens_reference)
-    lignes_texte = texte_complet.split('\n')
-    
-    # Ajuster les lignes pour gérer les cas spéciaux
-    if tokens_reference[-1] != '\n':
-        lignes_texte[-1] = lignes_texte[-1]
-    else:
-        lignes_texte.append('')
-    if lignes_texte[-1] == '':
-        lignes_texte = lignes_texte[:-1]
-    
-    n_lignes = len(lignes_texte)
-    
-    # 2) Parcourir les tokens pour déterminer tokens_par_ligne et positions
-    tokens_par_ligne = []
-    position_tokens = []
-    ligne_courante = 0
-    position_dans_ligne = 0
-    
-    for i, token in enumerate(tokens_reference):
-        # Enregistrer la position
-        position_tokens.append((ligne_courante, position_dans_ligne))
-        position_dans_ligne += 1
+class TokenMatrixConstructor:
+    def __init__(self, input_directory: str):
+        """
+        Constructeur de matrices basé sur les fichiers JSON de tokens
+        Inspiré de la logique du script d'analyse OpenAI
         
-        # Si le token contient un saut de ligne, on change de ligne
-        if '\n' in token:
-            tokens_par_ligne.append(position_dans_ligne)
-            ligne_courante += 1
-            position_dans_ligne = 0
-            if ligne_courante >= n_lignes:
-                break
-    
-    # Ajouter la dernière ligne si nécessaire
-    if ligne_courante < n_lignes and position_dans_ligne > 0:
-        tokens_par_ligne.append(position_dans_ligne)
-    
-    # 3) Calculer les dimensions de la matrice
-    max_tokens = max(tokens_par_ligne) if tokens_par_ligne else 0
-    
-    logger.info(f"Structure du code: {n_lignes} lignes, {max_tokens} tokens max par ligne")
-    
-    # 4) Initialiser la matrice de padding avec les dimensions dynamiques
-    matrice = np.full((n_lignes, max_tokens), 100.0)
-    
-    structure = {
-        "lignes": n_lignes,
-        "max_tokens": max_tokens,
-        "tokens_par_ligne": tokens_par_ligne,
-        "position_tokens": position_tokens
-    }
-    
-    # 5) Remplir la matrice avec log-probabilités ou valeurs spéciales
-    for idx, (i, j) in enumerate(position_tokens):
-        if i < n_lignes and j < max_tokens:
-            resultat = next((r for r in resultats_analyse if r["position"] == idx), None)
+        Args:
+            input_directory: Dossier contenant les fichiers JSON des tokens
+        """
+        self.input_directory = Path(input_directory)
+        self.token_data = {}
+        self.vocabulary = set()
+        self.scripts_info = {}
+        
+    def load_token_files(self) -> Dict[str, Tuple[List[Dict], Path]]:
+        """
+        Charge tous les fichiers JSON de tokens depuis le dossier d'entrée
+        
+        Returns:
+            Dict avec nom_fichier -> (données des tokens, chemin du fichier)
+        """
+        token_files = {}
+        
+        if not self.input_directory.exists():
+            raise ValueError(f"Le dossier {self.input_directory} n'existe pas")
             
-            if not resultat:
-                matrice[i, j] = -50.0  # Pas de résultat pour ce token
-            else:
-                attendu = resultat["attendu"]
-                alternatives = resultat.get("alternatives", [])
+        for filepath in self.input_directory.glob("*_tokens.json"):
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Extraire les informations du nom de fichier
+                script_name = filepath.stem.replace('_tokens', '')
+                token_files[script_name] = (data, filepath)
+                
+                # Construire le vocabulaire
+                self._build_vocabulary(data)
+                
+                logger.info(f"Chargé: {filepath.name} ({len(data)} tokens)")
+                
+            except Exception as e:
+                logger.error(f"Erreur lors du chargement de {filepath.name}: {e}")
+                
+        # Sauvegarder les données pour usage ultérieur, mais garder aussi les chemins
+        self.token_data = {name: data for name, (data, _) in token_files.items()}
+        return token_files
+    
+    def _build_vocabulary(self, token_data: List[Dict]):
+        """
+        Construit le vocabulaire à partir des données de tokens
+        """
+        for token_info in token_data:
+            # Ajouter le token principal
+            if token_info.get('token'):
+                self.vocabulary.add(token_info['token'])
+            
+            # Ajouter les alternatives
+            for alt in token_info.get('alternatives', []):
+                if alt.get('token'):
+                    self.vocabulary.add(alt['token'])
+
+    def _reconstruct_text_and_get_structure(self, tokens: List[str]) -> Tuple[List[str], List[int], List[Tuple[int, int]]]:
+        """
+        Reconstruit le texte et analyse sa structure en lignes
+        Inspiré de la fonction construire_matrice_logprob du script original
+        
+        Args:
+            tokens: Liste des tokens à analyser
+            
+        Returns:
+            Tuple (lignes_texte, tokens_par_ligne, position_tokens)
+        """
+        # 1) Reconstituer le texte complet et découper en lignes
+        texte_complet = ''.join(tokens)
+        lignes_texte = texte_complet.split('\n')
+        
+        # Ajuster les lignes pour gérer les cas spéciaux
+        if tokens and tokens[-1] != '\n':
+            # Le dernier token n'est pas un saut de ligne
+            pass
+        else:
+            # Ajouter une ligne vide si le texte se termine par \n
+            lignes_texte.append('')
+        
+        # Supprimer la dernière ligne vide si elle existe
+        if lignes_texte and lignes_texte[-1] == '':
+            lignes_texte = lignes_texte[:-1]
+        
+        n_lignes = len(lignes_texte)
+        
+        # 2) Parcourir les tokens pour déterminer tokens_par_ligne et positions
+        tokens_par_ligne = []
+        position_tokens = []
+        ligne_courante = 0
+        position_dans_ligne = 0
+        
+        for i, token in enumerate(tokens):
+            # Enregistrer la position
+            position_tokens.append((ligne_courante, position_dans_ligne))
+            position_dans_ligne += 1
+            
+            # Si le token contient un saut de ligne, on change de ligne
+            if '\n' in token:
+                tokens_par_ligne.append(position_dans_ligne)
+                ligne_courante += 1
+                position_dans_ligne = 0
+                if ligne_courante >= n_lignes:
+                    break
+        
+        # Ajouter la dernière ligne si nécessaire
+        if ligne_courante < n_lignes and position_dans_ligne > 0:
+            tokens_par_ligne.append(position_dans_ligne)
+        
+        return lignes_texte, tokens_par_ligne, position_tokens
+
+    def construire_matrice_logprob(self, script_name: str, top_k: int = 10) -> Tuple[np.ndarray, Dict]:
+        """
+        Construit une matrice 2D de log probabilités avec la même logique que le script original
+        
+        Args:
+            script_name: Nom du script à traiter
+            top_k: Nombre d'alternatives à considérer
+            
+        Returns:
+            Tuple (matrice, structure_info)
+        """
+        if script_name not in self.token_data:
+            raise ValueError(f"Script {script_name} non trouvé dans les données")
+        
+        data = self.token_data[script_name]
+        
+        # Extraire les tokens de référence
+        tokens_reference = []
+        for token_info in data:
+            token = token_info.get('token', '')
+            tokens_reference.append(token)
+        
+        # Analyser la structure du texte
+        lignes_texte, tokens_par_ligne, position_tokens = self._reconstruct_text_and_get_structure(tokens_reference)
+        
+        # Calculer les dimensions de la matrice
+        n_lignes = len(lignes_texte)
+        max_tokens = max(tokens_par_ligne) if tokens_par_ligne else 0
+        
+        logger.info(f"Structure du code pour {script_name}: {n_lignes} lignes, {max_tokens} tokens max par ligne")
+        
+        # Initialiser la matrice de padding avec les dimensions dynamiques
+        # Valeur 100.0 pour le padding comme dans le script original
+        matrice = np.full((n_lignes, max_tokens), 100.0)
+        
+        structure = {
+            "script_name": script_name,
+            "lignes": n_lignes,
+            "max_tokens": max_tokens,
+            "tokens_par_ligne": tokens_par_ligne,
+            "position_tokens": position_tokens,
+            "lignes_texte": lignes_texte
+        }
+        
+        # Remplir la matrice avec log-probabilités ou valeurs spéciales
+        for idx, (i, j) in enumerate(position_tokens):
+            if i < n_lignes and j < max_tokens:
+                token_info = data[idx] if idx < len(data) else None
+                
+                if not token_info:
+                    # Pas d'information pour ce token -> anomalie
+                    matrice[i, j] = -50.0
+                    continue
+                
+                token_attendu = token_info.get('token', '')
+                alternatives = token_info.get('alternatives', [])
+                
+                # Si pas d'alternatives, c'est probablement un token d'amorce
+                if not alternatives:
+                    matrice[i, j] = -10.0  # Valeur pour l'amorce
+                    continue
                 
                 # Valeur par défaut pour anomalie
                 val = -50.0
                 
                 # Chercher le token attendu dans les alternatives
                 for alt in alternatives:
-                    if alt["token"] == attendu:
-                        val = alt["logprob"]
+                    if alt.get("token") == token_attendu:
+                        val = alt.get("logprob", -50.0)
                         break
                 
-                # Si correct, prendre la logprob de la prédiction
-                if resultat.get("correct", False):
-                    predit = resultat["predit"]
-                    for alt in alternatives:
-                        if alt["token"] == predit:
-                            val = alt["logprob"]
-                            break
-                
-                # Si token attendu n'est pas dans le top 10
-                if not resultat.get("correct_top10", False):
-                    val = -50.0
-                
+                # Si le token attendu n'est pas dans les alternatives, garder -50.0
                 matrice[i, j] = val
-    
-    return matrice, structure
+        
+        return matrice, structure
 
-def sauvegarder_matrice_numpy(matrice, nom_fichier="matrice_logprob.npy"):
-    """
-    Sauvegarde la matrice au format numpy pour une utilisation ultérieure.
-    """
-    np.save(nom_fichier, matrice)
-    logger.info(f"Matrice sauvegardée dans {nom_fichier}")
-
-def sauvegarder_resultats(resultats_analyse, script_content, matrice, structure_tokens,
-                         modele_tokenisation="gpt-4o-mini", nom_fichier=None):
-    """
-    Sauvegarde les résultats d'analyse dans un fichier texte bien formaté.
-    """
-    if nom_fichier is None:
-        # Générer un nom de fichier basé sur la date et l'heure
-        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        nom_fichier = f"analyse_tokens_{ts}.txt"
-    
-    with open(nom_fichier, 'w', encoding='utf-8') as f:
-        # Écrire l'en-tête
-        f.write("="*80 + "\nANALYSE DES PRÉDICTIONS DE TOKENS\n" + "="*80 + "\n\n")
+    def afficher_matrice_brute(self, matrice: np.ndarray, structure: Dict):
+        """
+        Affiche la matrice 2D de log probabilités brute dans la console
+        Reproduit la fonction du script original
+        """
+        print(f"\nMATRICE BRUTE DE LOG PROBABILITÉS - {structure['script_name']}:")
+        print(f"Dimensions: {matrice.shape[0]} lignes x {matrice.shape[1]} colonnes")
         
-        # Écrire le script original
-        f.write("SCRIPT ORIGINAL:\n" + "-"*80 + "\n")
-        f.write(script_content + "\n" + "-"*80 + "\n\n")
+        # Calculer la largeur maximale pour l'affichage
+        max_w = 10  # Largeur par défaut pour chaque valeur
         
-        # Écrire l'information sur la tokenisation
-        f.write("INFORMATION SUR LA TOKENISATION:\n" + "-"*80 + "\n")
-        f.write(f"Tokenisation: tiktoken ({modele_tokenisation})\n" + "-"*80 + "\n\n")
+        # Créer une ligne de séparation
+        sep = "-" * (max_w * matrice.shape[1] + 10)
+        print(sep)
         
-        # Écrire la matrice 2D
-        f.write("MATRICE 2D:\n" + "-"*80 + "\n")
+        # Afficher les indices de colonnes
+        print("     ", end="")
+        for j in range(matrice.shape[1]):
+            print(f"{j:^{max_w}}", end="")
+        print()  # Nouvelle ligne
+        
+        # Ligne de séparation après les indices de colonnes
+        print("     " + "-" * (max_w * matrice.shape[1]))
+        
+        # Afficher chaque ligne avec son indice
         for i in range(matrice.shape[0]):
-            row = []
+            print(f"{i:3d} |", end="")
             for j in range(matrice.shape[1]):
-                v = matrice[i, j]
-                row.append("PAD" if v == 100 else ("ANOM" if v == -50 else f"{v:.2f}"))
-            f.write("[ " + ", ".join(row) + " ]\n")
+                val = matrice[i, j]
+                if val == 100:
+                    # Padding
+                    cell = "PAD"
+                elif val == -50:
+                    # Anomalie
+                    cell = "ANOM"
+                elif val == -10:
+                    # Amorce
+                    cell = "AMOR"
+                else:
+                    # Log probabilité normale
+                    cell = f"{val:.4f}"
+                print(f"{cell:^{max_w}}", end="")
+            print()  # Nouvelle ligne
         
-        # Écrire les résultats d'analyse token par token
-        f.write("\nTOKEN-BY-TOKEN:\n" + "-"*80 + "\n")
-        for r in resultats_analyse:
-            pos = r["position"]
-            a = repr(r['attendu'])[1:-1]
-            p = repr(r.get('predit', ''))[1:-1]
-            status = "✓" if r.get("correct", False) else "✗"
-            f.write(f"Pos {pos}: attendu='{a}' préd='{p}' {status}\n")
-            
-            # Ajouter les alternatives si disponibles
-            alts = r.get("alternatives", [])
-            if alts:
-                f.write("  Alternatives:\n")
-                for i, alt in enumerate(alts[:10]):  # Limiter aux 10 premières alternatives
-                    alt_token = repr(alt["token"])[1:-1]
-                    alt_logprob = alt["logprob"]
-                    f.write(f"    {i+1}. '{alt_token}' (logprob: {alt_logprob:.4f})")
-                    if alt["token"] == r.get("predit", ""):
-                        f.write(" [Prédiction principale]")
-                    if alt["token"] == r["attendu"]:
-                        f.write(" [Token attendu]")
-                    f.write("\n")
-                f.write("\n")
+        # Ligne de séparation finale
+        print(sep)
         
-        # Ajouter un résumé
-        correct_tokens = len([r for r in resultats_analyse if r.get("correct", False)])
-        correct_top10 = len([r for r in resultats_analyse if r.get("correct_top10", False)])
-        total_tokens = len(resultats_analyse)
-        
-        f.write("\nRÉSUMÉ:\n" + "-"*80 + "\n")
-        f.write(f"Total des tokens analysés: {total_tokens}\n")
-        f.write(f"Tokens correctement prédits (1ère position): {correct_tokens}\n")
-        f.write(f"Tokens correctement prédits (top 10): {correct_top10}\n")
-        
-        if total_tokens > 0:
-            f.write(f"Précision (1ère position): {(correct_tokens / total_tokens) * 100:.2f}%\n")
-            f.write(f"Précision (top 10): {(correct_top10 / total_tokens) * 100:.2f}%\n")
-        
-        f.write("\n" + "="*80 + "\n")
-    
-    logger.info(f"Résultats sauvegardés dans {nom_fichier}")
-    return nom_fichier
+        # Légende
+        print("Légende:")
+        print("  - PAD  : Padding (valeur 100)")
+        print("  - ANOM : Anomalie (valeur -50)")
+        print("  - AMOR : Amorce (valeur -10)")
+        print("  - Autres valeurs : Log probabilités réelles")
+        print(sep)
 
-def deplacer_resultats_batch(results_files, archive_dir):
-    """
-    Déplace les fichiers de résultats vers le dossier d'archives après traitement.
-    
-    Args:
-        results_files (list): Liste des chemins des fichiers de résultats
-        archive_dir (Path): Répertoire d'archivage
-    """
-    archive_dir.mkdir(exist_ok=True, parents=True)
-    
-    moved_count = 0
-    for file_path in results_files:
-        try:
-            # Préserver uniquement le nom du fichier
-            archive_path = archive_dir / file_path.name
-            
-            # En cas de conflit de noms, ajouter un timestamp
-            if archive_path.exists():
-                stem = archive_path.stem
-                suffix = archive_path.suffix
-                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                archive_path = archive_dir / f"{stem}_{timestamp}{suffix}"
-            
-            # Déplacer le fichier
-            shutil.move(str(file_path), str(archive_path))
-            logger.info(f"Fichier de résultats déplacé: {file_path} → {archive_path}")
-            moved_count += 1
-        except Exception as e:
-            logger.error(f"Erreur lors du déplacement du fichier {file_path}: {e}")
-    
-    logger.info(f"{moved_count}/{len(results_files)} fichiers de résultats déplacés avec succès")
+    def sauvegarder_matrice_numpy(self, matrice: np.ndarray, nom_fichier: str):
+        """
+        Sauvegarde la matrice au format numpy pour une utilisation ultérieure.
+        """
+        np.save(nom_fichier, matrice)
+        logger.info(f"Matrice sauvegardée dans {nom_fichier}")
 
-def charger_info_tokens(tokens_dir):
-    """
-    Charge les informations sur les tokens depuis les fichiers d'information.
-    Prend en charge les fichiers simples (nom_du_script__N_tokens.json) et les anciens .tokens_info.json.
-    
-    Args:
-        tokens_dir (Path): Répertoire contenant les fichiers d'information sur les tokens
+    def analyser_script_statistiques(self, script_name: str) -> Dict:
+        """
+        Analyse statistique d'un script avec la logique adaptée
+        """
+        if script_name not in self.token_data:
+            raise ValueError(f"Script {script_name} non trouvé")
         
-    Returns:
-        dict: Dictionnaire contenant les informations sur les tokens par script_id ou script_name
-    """
-    tokens_info = {}
-    
-    # Chercher tous les fichiers simples de tokens (nom explicite)
-    simple_files = list(tokens_dir.glob("*__*_tokens.json"))
-    if simple_files:
-        for simple_file in simple_files:
-            try:
-                with open(simple_file, "r", encoding="utf-8") as f:
-                    simple_tokens = json.load(f)
-                # Récupérer le nom du script et le nombre de tokens depuis le nom du fichier
-                name_part = simple_file.name.rsplit("__", 1)[0]
-                script_name = name_part
-                tokens = [t["token"] for t in simple_tokens]
-                tokens_info[script_name] = {
-                    "script_name": script_name,
-                    "tokens": tokens
-                }
-                logger.info(f"Tokens chargés depuis {simple_file}")
-            except Exception as e:
-                logger.error(f"Erreur lors du chargement des tokens depuis {simple_file}: {e}")
-        return tokens_info
-    # Sinon, fallback sur l'ancien format
-    info_files = list(tokens_dir.glob("*.tokens_info.json"))
-    if not info_files:
-        logger.warning(f"Aucun fichier d'information sur les tokens trouvé dans {tokens_dir}")
-        return tokens_info
-    for info_file in info_files:
-        try:
-            with open(info_file, "r", encoding="utf-8") as f:
-                script_data = json.load(f)
-            script_id = script_data.get("script_id", script_data.get("script_name", info_file.stem))
-            tokens_info[script_id] = script_data
-            logger.info(f"Informations sur les tokens chargées depuis {info_file}")
-        except Exception as e:
-            logger.error(f"Erreur lors du chargement des informations depuis {info_file}: {e}")
-    return tokens_info
-
-def parser_resultats_batch(results_dir):
-    """
-    Parse les fichiers de résultats de batch téléchargés depuis l'API OpenAI.
-    
-    Args:
-        results_dir (Path): Répertoire contenant les fichiers de résultats
+        data = self.token_data[script_name]
+        matrice, structure = self.construire_matrice_logprob(script_name)
         
-    Returns:
-        dict: Dictionnaire contenant les résultats par script_id et token_index
-    """
-    # Format de résultats: {script_id: {token_index: résultat}}
-    resultats_par_script = defaultdict(dict)
-    
-    # Chercher tous les fichiers de résultats
-    results_files = []
-    for ext in [".jsonl", ".json"]:
-        results_files.extend(list(results_dir.glob(f"*{ext}")))
-    
-    if not results_files:
-        logger.warning(f"Aucun fichier de résultats trouvé dans {results_dir}")
-        return resultats_par_script, []
-    
-    # Parser chaque fichier
-    for results_file in results_files:
-        logger.info(f"Parsing du fichier de résultats {results_file}")
+        stats = {
+            'script_name': script_name,
+            'total_positions': len(data),
+            'lignes_code': structure['lignes'],
+            'max_tokens_par_ligne': structure['max_tokens'],
+            'tokens_par_ligne': structure['tokens_par_ligne'],
+            'positions_with_alternatives': 0,
+            'positions_amorce': 0,
+            'positions_anomalie': 0,
+            'total_alternatives': 0,
+            'avg_alternatives_per_position': 0,
+            'max_alternatives': 0,
+            'min_logprob': float('inf'),
+            'max_logprob': float('-inf'),
+            'reconstructed_code': ''
+        }
         
-        try:
-            with open(results_file, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
+        all_logprobs = []
+        reconstructed_tokens = []
+        
+        for token_info in data:
+            token = token_info.get('token', '')
+            reconstructed_tokens.append(token)
+            alternatives = token_info.get('alternatives', [])
             
-            for line in lines:
-                if not line.strip():
+            if not alternatives:
+                stats['positions_amorce'] += 1
+            else:
+                stats['positions_with_alternatives'] += 1
+                stats['total_alternatives'] += len(alternatives)
+                stats['max_alternatives'] = max(stats['max_alternatives'], len(alternatives))
+                
+                # Analyser les log-probabilités
+                for alt in alternatives:
+                    logprob = alt.get('logprob', float('-inf'))
+                    if logprob != float('-inf'):
+                        all_logprobs.append(logprob)
+                        stats['min_logprob'] = min(stats['min_logprob'], logprob)
+                        stats['max_logprob'] = max(stats['max_logprob'], logprob)
+                
+                # Vérifier si le token attendu est dans les alternatives
+                token_found = any(alt.get('token') == token for alt in alternatives)
+                if not token_found:
+                    stats['positions_anomalie'] += 1
+        
+        if stats['positions_with_alternatives'] > 0:
+            stats['avg_alternatives_per_position'] = stats['total_alternatives'] / stats['positions_with_alternatives']
+        
+        # Reconstruire le code
+        stats['reconstructed_code'] = ''.join(reconstructed_tokens)
+        
+        # Statistiques de la matrice
+        unique_values, counts = np.unique(matrice, return_counts=True)
+        matrix_stats = dict(zip(unique_values, counts))
+        stats['matrix_stats'] = {
+            'padding_cells': matrix_stats.get(100.0, 0),
+            'anomaly_cells': matrix_stats.get(-50.0, 0),
+            'amorce_cells': matrix_stats.get(-10.0, 0),
+            'logprob_cells': sum(counts) - matrix_stats.get(100.0, 0) - matrix_stats.get(-50.0, 0) - matrix_stats.get(-10.0, 0)
+        }
+        
+        return stats
+
+    def generer_rapport_detaille(self, script_name: str, output_file: str = None):
+        """
+        Génère un rapport détaillé similaire au script original
+        """
+        if script_name not in self.token_data:
+            raise ValueError(f"Script {script_name} non trouvé")
+        
+        data = self.token_data[script_name]
+        matrice, structure = self.construire_matrice_logprob(script_name)
+        stats = self.analyser_script_statistiques(script_name)
+        
+        if output_file is None:
+            output_file = f"rapport_{script_name}.txt"
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            # Écrire l'en-tête
+            f.write("="*80 + f"\nRAPPORT D'ANALYSE - {script_name}\n" + "="*80 + "\n\n")
+            
+            # Écrire le script reconstruit
+            f.write("SCRIPT RECONSTRUIT:\n" + "-"*80 + "\n")
+            f.write(stats['reconstructed_code'] + "\n" + "-"*80 + "\n\n")
+            
+            # Écrire la matrice 2D
+            f.write("MATRICE 2D:\n" + "-"*80 + "\n")
+            for i in range(matrice.shape[0]):
+                row = []
+                for j in range(matrice.shape[1]):
+                    v = matrice[i, j]
+                    if v == 100:
+                        row.append("PAD")
+                    elif v == -50:
+                        row.append("ANOM")
+                    elif v == -10:
+                        row.append("AMOR")
+                    else:
+                        row.append(f"{v:.2f}")
+                f.write("[ " + ", ".join(row) + " ]\n")
+            f.write("\n")
+            
+            # Écrire l'analyse token par token
+            f.write("ANALYSE TOKEN PAR TOKEN:\n" + "-"*80 + "\n")
+            for idx, token_info in enumerate(data):
+                token = token_info.get('token', '')
+                alternatives = token_info.get('alternatives', [])
+                
+                f.write(f"Position {idx}: '{repr(token)[1:-1]}'\n")
+                
+                if not alternatives:
+                    f.write("  -> Token d'amorce (pas d'alternatives)\n\n")
                     continue
                 
-                try:
-                    resp = json.loads(line)
-                    custom_id = resp.get('custom_id')
-                    
-                    if not custom_id:
-                        logger.warning(f"Ligne sans custom_id trouvée dans {results_file}, ignorée")
-                        continue
-                    
-                    # Format du custom_id: script_id:token_index
-                    parts = custom_id.split(':')
-                    if len(parts) != 2:
-                        logger.warning(f"ID mal formaté: {custom_id}, ignoré")
-                        continue
-                    
-                    script_id, token_index = parts
-                    token_index = int(token_index)
-                    
-                    # Vérifier si la réponse contient une erreur
-                    if resp.get('error'):
-                        logger.error(f"[{custom_id}] {resp['error']}")
-                        continue
-                    
-                    # Extraire le contenu et les alternatives
-                    body = resp['response']['body']
-                    content = body['choices'][0]['message']['content']
-                    
-                    # Extraction des logprobs
-                    top_logprobs = []
-                    logprobs_data = body['choices'][0].get('logprobs', {})
-                    
-                    if 'content' in logprobs_data and logprobs_data['content']:
-                        first_token = logprobs_data['content'][0]
-                        if 'top_logprobs' in first_token:
-                            top_logprobs = first_token['top_logprobs']
-                    
-                    # Convertir les logprobs
-                    alternatives = []
-                    for item in top_logprobs:
-                        alternatives.append({
-                            "token": item.get('token', ''),
-                            "logprob": item.get('logprob', -100)
-                        })
-                    
-                    # Stocker le résultat
-                    resultats_par_script[script_id][token_index] = {
-                        "content": content,
-                        "alternatives": alternatives
-                    }
-                    
-                except Exception as e:
-                    logger.error(f"Erreur lors du parsing d'une ligne dans {results_file}: {e}")
-            
-            logger.info(f"Parsing de {results_file} terminé")
-            
-        except Exception as e:
-            logger.error(f"Erreur lors du chargement du fichier {results_file}: {e}")
-    
-    return resultats_par_script, results_files
-
-def reconstruire_resultats_analyse(tokens_info, resultats_par_script):
-    """
-    Reconstruit les résultats d'analyse à partir des informations sur les tokens et des résultats de batch.
-    
-    Args:
-        tokens_info (dict): Dictionnaire contenant les informations sur les tokens par script_id
-        resultats_par_script (dict): Dictionnaire contenant les résultats par script_id et token_index
-        
-    Returns:
-        dict: Dictionnaire contenant les résultats d'analyse par script_id
-    """
-    resultats_analyse = {}
-    
-    for script_id, script_info in tokens_info.items():
-        if script_id not in resultats_par_script:
-            logger.warning(f"Aucun résultat trouvé pour le script {script_id}, ignoré")
-            continue
-        
-        script_results = resultats_par_script[script_id]
-        tokens = script_info["tokens"]
-        
-        # Créer les résultats d'analyse pour ce script
-        resultats = []
-        
-        for i, token in enumerate(tokens):
-            if i in script_results:
-                # Résultat disponible pour ce token
-                result = script_results[i]
-                predit = result["content"]
-                alternatives = result["alternatives"]
+                # Vérifier si le token est dans les alternatives
+                token_found = False
+                token_logprob = -50.0
                 
-                # Vérifier si la prédiction est correcte
-                correct = predit == token
-                correct_top10 = correct or any(alt["token"] == token for alt in alternatives)
+                for alt in alternatives:
+                    if alt.get('token') == token:
+                        token_found = True
+                        token_logprob = alt.get('logprob', -50.0)
+                        break
                 
-                resultats.append({
-                    "position": i,
-                    "attendu": token,
-                    "predit": predit,
-                    "correct": correct,
-                    "correct_top10": correct_top10,
-                    "alternatives": alternatives
-                })
-            else:
-                # Pas de résultat pour ce token
-                resultats.append({
-                    "position": i,
-                    "attendu": token,
-                    "predit": "ERROR",
-                    "correct": False,
-                    "correct_top10": False,
-                    "alternatives": []
-                })
+                status = "✓" if token_found else "✗"
+                f.write(f"  -> Status: {status} (logprob: {token_logprob:.4f})\n")
+                
+                # Afficher les alternatives
+                f.write("  -> Alternatives:\n")
+                for i, alt in enumerate(alternatives[:10]):  # Top 10
+                    alt_token = alt.get('token', '')
+                    alt_logprob = alt.get('logprob', -100)
+                    marker = " [TOKEN ATTENDU]" if alt_token == token else ""
+                    f.write(f"    {i+1}. '{repr(alt_token)[1:-1]}' (logprob: {alt_logprob:.4f}){marker}\n")
+                f.write("\n")
+            
+            # Ajouter les statistiques
+            f.write("STATISTIQUES:\n" + "-"*80 + "\n")
+            f.write(f"Script: {stats['script_name']}\n")
+            f.write(f"Total des positions: {stats['total_positions']}\n")
+            f.write(f"Lignes de code: {stats['lignes_code']}\n")
+            f.write(f"Tokens max par ligne: {stats['max_tokens_par_ligne']}\n")
+            f.write(f"Positions avec alternatives: {stats['positions_with_alternatives']}\n")
+            f.write(f"Positions d'amorce: {stats['positions_amorce']}\n")
+            f.write(f"Positions d'anomalie: {stats['positions_anomalie']}\n")
+            f.write(f"Alternatives moyennes par position: {stats['avg_alternatives_per_position']:.2f}\n")
+            f.write(f"Max alternatives: {stats['max_alternatives']}\n")
+            if stats['min_logprob'] != float('inf'):
+                f.write(f"Log-prob min: {stats['min_logprob']:.4f}\n")
+                f.write(f"Log-prob max: {stats['max_logprob']:.4f}\n")
+            
+            # Statistiques de la matrice
+            f.write(f"\nSTATISTIQUES DE LA MATRICE:\n")
+            f.write(f"Cellules de padding: {stats['matrix_stats']['padding_cells']}\n")
+            f.write(f"Cellules d'anomalie: {stats['matrix_stats']['anomaly_cells']}\n")
+            f.write(f"Cellules d'amorce: {stats['matrix_stats']['amorce_cells']}\n")
+            f.write(f"Cellules avec log-prob: {stats['matrix_stats']['logprob_cells']}\n")
+            
+            f.write("\n" + "="*80 + "\n")
         
-        resultats_analyse[script_id] = resultats
-    
-    return resultats_analyse
+        logger.info(f"Rapport détaillé sauvegardé dans {output_file}")
+        return output_file
 
-def construire_matrices(tokens_dir, results_dir, output_dir, archive_dir, modele_tokenisation="gpt-4o-mini"):
-    """
-    Construit des matrices à partir des informations sur les tokens et des résultats de batch.
-    
-    Args:
-        tokens_dir (Path): Répertoire contenant les informations sur les tokens
-        results_dir (Path): Répertoire contenant les résultats de batch
-        output_dir (Path): Répertoire de sortie pour les matrices et rapports
-        archive_dir (Path): Répertoire d'archivage pour les fichiers de résultats traités
-        modele_tokenisation (str): Modèle de tokenisation utilisé
+    def archive_token_file(self, script_name: str, token_files_dict: Dict[str, Tuple[List[Dict], Path]], archive_dir: str):
+        """
+        Déplace le fichier JSON de tokens vers le dossier d'archive après traitement réussi
         
-    Returns:
-        list: Liste des chemins des fichiers de rapports générés
-    """
-    # Créer les répertoires de sortie
-    matrices_dir = output_dir / "matrixes"
-    rapports_dir = matrices_dir / "reports"
-    matrices_dir.mkdir(exist_ok=True, parents=True)
-    rapports_dir.mkdir(exist_ok=True, parents=True)
-    
-    # Charger les informations sur les tokens
-    tokens_info = charger_info_tokens(tokens_dir)
-    
-    if not tokens_info:
-        logger.error("Aucune information sur les tokens disponible, impossible de construire les matrices")
-        return []
-    
-    # Parser les résultats de batch
-    resultats_par_script, results_files = parser_resultats_batch(results_dir)
-    
-    if not resultats_par_script:
-        logger.error("Aucun résultat de batch disponible, impossible de construire les matrices")
-        return []
-    
-    # Reconstruire les résultats d'analyse
-    resultats_analyse = reconstruire_resultats_analyse(tokens_info, resultats_par_script)
-    
-    # Liste pour stocker les chemins des fichiers de rapports générés
-    report_files = []
-    
-    # Construire les matrices pour chaque script
-    for script_id, resultats in resultats_analyse.items():
+        Args:
+            script_name: Nom du script traité
+            token_files_dict: Dictionnaire des fichiers de tokens avec leurs chemins
+            archive_dir: Dossier de destination pour l'archivage
+        """
+        if script_name not in token_files_dict:
+            logger.warning(f"Impossible d'archiver {script_name}: fichier non trouvé dans le dictionnaire")
+            return False
+        
         try:
-            script_info = tokens_info[script_id]
-            script_name = script_info["script_name"]
-            tokens = script_info["tokens"]
+            _, source_path = token_files_dict[script_name]
+            archive_path = Path(archive_dir)
+            archive_path.mkdir(parents=True, exist_ok=True)
             
-            logger.info(f"Construction de la matrice pour {script_name}")
+            destination_path = archive_path / source_path.name
             
-            # Reconstruire le contenu du script à partir des tokens
-            script_content = ''.join(tokens)
-            
-            # Construire la matrice
-            matrice, structure = construire_matrice_logprob(tokens, resultats)
-            
-            # Sauvegarder la matrice
-            matrix_file = matrices_dir / f"matrix_{script_name}.npy"
-            sauvegarder_matrice_numpy(matrice, nom_fichier=str(matrix_file))
-            
-            # Sauvegarder les résultats
-            report_file = rapports_dir / f"report_{script_name}.txt"
-            sauvegarder_resultats(
-                resultats,
-                script_content,
-                matrice,
-                structure,
-                modele_tokenisation=modele_tokenisation,
-                nom_fichier=str(report_file)
-            )
-            
-            report_files.append(report_file)
-            
-            # Afficher un résumé
-            correct_tokens = len([r for r in resultats if r.get("correct", False)])
-            correct_top10 = len([r for r in resultats if r.get("correct_top10", False)])
-            total_tokens = len(resultats)
-            
-            if total_tokens > 0:
-                precision = (correct_tokens / total_tokens) * 100
-                precision_top10 = (correct_top10 / total_tokens) * 100
-                logger.info(f"Résumé pour {script_name}: Précision = {precision:.2f}%, Précision top 10 = {precision_top10:.2f}%")
+            # Déplacer le fichier (pas copier)
+            shutil.move(str(source_path), str(destination_path))
+            logger.info(f"Fichier JSON archivé: {source_path.name} -> {destination_path}")
+            return True
             
         except Exception as e:
-            logger.error(f"Erreur lors de la construction de la matrice pour {script_id}: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-    
-    # Déplacer les fichiers de résultats si des matrices ont été générées avec succès
-    if report_files and archive_dir:
-        deplacer_resultats_batch(results_files, archive_dir)
-    
-    return report_files
+            logger.error(f"Erreur lors de l'archivage de {script_name}: {e}")
+            return False
 
-
-if __name__ == "__main__":
+def main():
+    """
+    Fonction principale avec gestion des arguments de ligne de commande
+    """
+    import argparse
+    
     parser = argparse.ArgumentParser(
-        description="Script de construction de matrices à partir des résultats de batch"
+        description="Constructeur de matrices à partir de fichiers JSON de tokens",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Exemples d'utilisation:
+  %(prog)s --input-dir ./tokens_json --output-dir ./matrices_output
+  %(prog)s -i ./data/tokens -o ./results --script gen_p00000_optimized.py__12
+  %(prog)s --input-dir ./tokens --output-dir ./output --archive-dir ./processed
+  %(prog)s -i ./tokens -o ./output -a ./archive --display-matrix --verbose
+        """
     )
-    parser.add_argument("--tokens-dir", "-t", type=str, required=True,
-                        help="Répertoire contenant les informations sur les tokens")
-    parser.add_argument("--results-dir", "-r", type=str, required=True,
-                        help="Répertoire contenant les résultats de batch")
-    parser.add_argument("--output-dir", "-o", type=str, required=True,
-                        help="Répertoire de sortie pour les matrices et rapports")
-    parser.add_argument("--archive-dir", "-a", type=str, required=True,
-                        help="Répertoire d'archivage pour les fichiers de résultats traités")
-    parser.add_argument("--token-model", "-m", type=str, default="gpt-4o-mini",
-                        help="Modèle de tokenisation utilisé (par défaut: gpt-4o-mini)")
+    
+    # Arguments obligatoires
+    parser.add_argument(
+        '--input-dir', '-i', 
+        type=str, 
+        required=True,
+        help='Dossier contenant les fichiers JSON de tokens (*_tokens.json)'
+    )
+    
+    parser.add_argument(
+        '--output-dir', '-o', 
+        type=str, 
+        required=True,
+        help='Dossier de sortie pour les matrices et rapports'
+    )
+    
+    # Arguments optionnels
+    parser.add_argument(
+        '--script', '-s',
+        type=str,
+        default=None,
+        help='Nom spécifique du script à traiter (sans extension). Si non spécifié, traite tous les scripts.'
+    )
+    
+    parser.add_argument(
+        '--display-matrix', '-d',
+        action='store_true',
+        help='Afficher les matrices dans la console'
+    )
+    
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Mode verbeux (affichage détaillé)'
+    )
+    
+    parser.add_argument(
+        '--top-k',
+        type=int,
+        default=10,
+        help='Nombre maximum d\'alternatives à considérer (défaut: 10)'
+    )
+    
+    parser.add_argument(
+        '--archive-dir', '-a',
+        type=str,
+        default=None,
+        help='Dossier d\'archive où déplacer les fichiers JSON après traitement réussi (optionnel)'
+    )
     
     args = parser.parse_args()
     
-    # Convertir les chemins en objets Path
-    tokens_dir = Path(args.tokens_dir)
-    results_dir = Path(args.results_dir)
-    output_dir = Path(args.output_dir)
-    archive_dir = Path(args.archive_dir)
+    # Configuration du logging selon le mode verbeux
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
     
     try:
-        # Construire les matrices
-        report_files = construire_matrices(
-            tokens_dir=tokens_dir,
-            results_dir=results_dir,
-            output_dir=output_dir,
-            archive_dir=archive_dir,
-            modele_tokenisation=args.token_model
-        )
+        # Vérifier que le dossier d'entrée existe
+        input_path = Path(args.input_dir)
+        if not input_path.exists():
+            logger.error(f"Le dossier d'entrée n'existe pas: {input_path}")
+            return 1
+            
+        # Créer le dossier de sortie s'il n'existe pas
+        output_path = Path(args.output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
         
-        if report_files:
-            logger.info(f"Construction des matrices terminée avec succès!")
-            logger.info(f"Nombre de scripts traités: {len(report_files)}")
-            logger.info(f"Les matrices sont disponibles dans: {output_dir}/matrixes/")
-            logger.info(f"Les rapports sont disponibles dans: {output_dir}/matrixes/reports/")
-            logger.info(f"Les fichiers de résultats ont été déplacés vers: {archive_dir}")
+        logger.info(f"Dossier d'entrée: {input_path}")
+        logger.info(f"Dossier de sortie: {output_path}")
+        if args.archive_dir:
+            logger.info(f"Dossier d'archive: {args.archive_dir}")
+        
+        # Initialiser le constructeur
+        constructor = TokenMatrixConstructor(str(input_path))
+        
+        # Charger les fichiers
+        token_files = constructor.load_token_files()
+        
+        if not token_files:
+            logger.warning("Aucun fichier *_tokens.json trouvé dans le dossier d'entrée")
+            return 1
+        
+        logger.info(f"Nombre de scripts trouvés: {len(token_files)}")
+        
+        # Déterminer quels scripts traiter
+        scripts_to_process = []
+        if args.script:
+            if args.script in token_files:
+                scripts_to_process = [args.script]
+                logger.info(f"Traitement du script spécifique: {args.script}")
+            else:
+                logger.error(f"Script '{args.script}' non trouvé. Scripts disponibles: {list(token_files.keys())}")
+                return 1
         else:
-            logger.warning("Aucun fichier n'a été traité avec succès.")
+            scripts_to_process = list(token_files.keys())
+            logger.info("Traitement de tous les scripts disponibles")
         
+        # Créer les dossiers de sortie
+        rapports_dir = output_path / "rapports"
+        rapports_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Traiter chaque script
+        processed_count = 0
+        for script_name in scripts_to_process:
+            logger.info(f"Traitement de {script_name}...")
+            
+            try:
+                # Construire la matrice
+                matrice, structure = constructor.construire_matrice_logprob(script_name, top_k=args.top_k)
+                
+                # Afficher la matrice si demandé
+                if args.display_matrix:
+                    constructor.afficher_matrice_brute(matrice, structure)
+                
+                # Sauvegarder la matrice directement dans output_path
+                matrix_file = output_path / f"matrix_{script_name}.npy"
+                constructor.sauvegarder_matrice_numpy(matrice, str(matrix_file))
+                
+                # Générer le rapport détaillé
+                rapport_file = rapports_dir / f"rapport_{script_name}.txt"
+                constructor.generer_rapport_detaille(script_name, str(rapport_file))
+                
+                # Archiver le fichier JSON si un dossier d'archive est spécifié
+                if args.archive_dir:
+                    archive_success = constructor.archive_token_file(script_name, token_files, args.archive_dir)
+                    if not archive_success:
+                        logger.warning(f"Échec de l'archivage pour {script_name}, mais traitement réussi")
+                
+                # Générer les statistiques si mode verbeux
+                if args.verbose:
+                    stats = constructor.analyser_script_statistiques(script_name)
+                    logger.info(f"Statistiques pour {script_name}:")
+                    logger.info(f"  - Lignes de code: {stats['lignes_code']}")
+                    logger.info(f"  - Positions avec alternatives: {stats['positions_with_alternatives']}")
+                    logger.info(f"  - Positions d'amorce: {stats['positions_amorce']}")
+                    logger.info(f"  - Positions d'anomalie: {stats['positions_anomalie']}")
+                    logger.info(f"  - Max alternatives par position: {stats['max_alternatives']}")
+                
+                processed_count += 1
+                logger.info(f"✓ {script_name} traité avec succès")
+                
+            except Exception as e:
+                logger.error(f"✗ Erreur lors du traitement de {script_name}: {e}")
+                if args.verbose:
+                    import traceback
+                    logger.error(traceback.format_exc())
+        
+        # Résumé final
+        logger.info(f"\nTraitement terminé:")
+        logger.info(f"  - Scripts traités avec succès: {processed_count}/{len(scripts_to_process)}")
+        logger.info(f"  - Matrices sauvegardées dans: {output_path}")
+        logger.info(f"  - Rapports sauvegardés dans: {rapports_dir}")
+        if args.archive_dir:
+            logger.info(f"  - Fichiers JSON archivés dans: {args.archive_dir}")
+        
+        if processed_count == len(scripts_to_process):
+            logger.info("✓ Tous les scripts ont été traités avec succès")
+            return 0
+        else:
+            logger.warning(f"⚠ {len(scripts_to_process) - processed_count} scripts n'ont pas pu être traités")
+            return 1
+            
+    except KeyboardInterrupt:
+        logger.info("Traitement interrompu par l'utilisateur")
+        return 1
     except Exception as e:
-        logger.error(f"Erreur lors de la construction des matrices: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        exit(1)
+        logger.error(f"Erreur générale: {e}")
+        if args.verbose:
+            import traceback
+            logger.error(traceback.format_exc())
+        return 1
+
+if __name__ == "__main__":
+    exit(main())
