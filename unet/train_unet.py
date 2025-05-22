@@ -410,7 +410,7 @@ def main():
     os.makedirs(model_save_dir, exist_ok=True)
     
     # Chemin vers le dossier des tuiles
-    tiles_folder = os.path.join(batch_directory, "tiles")
+    tiles_folder = os.path.join(batch_directory)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
