@@ -109,23 +109,30 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
             )
             
             # Demander explicitement le token suivant avec ses alternatives
-            response = client.completions.create(
-                model="gpt-3.5-turbo-instruct",  # Better model for completions API
-                prompt=prompt,
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",  # Better model for completions API
+                messages=[
+                    {"role": "system", "content": "Tu es un modèle de langage assistant. Réponds avec le prochain token le plus probable."},
+                    {"role": "user", "content": contexte_actuel}
+                ],
                 max_tokens=1,
-                logprobs=10,  # Maximum allowed value
                 temperature=0.0,
-                top_p=0.5,  # Slightly higher to consider more possibilities
+                top_p=0.1,  # Slightly higher to consider more possibilities
                 frequency_penalty=0.0,
                 presence_penalty=0.0,
-                stop=["\n", " "],  # Help control the output to single tokens
-                seed=42  # For deterministic output
+                seed=42,  # For deterministic output
+                logprobs=True,
+                top_logprobs=10
             )
             
             # Extraire le token prédit et ses alternatives
-            token_predit = response.choices[0].text
-            alternatives = [{"token": token, "logprob": logprob} 
-                          for token, logprob in response.choices[0].logprobs.top_logprobs[0].items()]
+            token_predit = response.choices[0].message.content
+            
+            # Extraction des logprobs (format différent de l'API completions)
+            alternatives = []
+            if hasattr(response.choices[0], 'logprobs') and response.choices[0].logprobs:
+                logprobs_data = response.choices[0].logprobs.content[0].top_logprobs
+                alternatives = [{"token": item.token, "logprob": item.logprob} for item in logprobs_data]
             
             # Initialiser les flags pour la correction standard et la correction adaptée
             correct = token_predit == token_attendu

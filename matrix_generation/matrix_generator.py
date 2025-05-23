@@ -308,11 +308,7 @@ class BatchRequestItem:
 
     def to_jsonl(self):
         """Convertit la requête en format JSONL attendu par l'API batch."""
-        system_msg = (
-            "You are a code predictor that generates only the next token without any additional text."
-            " Pay attention to spaces, tabs, line breaks, and special symbols in the code."
-        )
-        user_msg = f"Code context: {self.context}"
+        # Format pour Chat Completions qui fonctionne avec l'API Batch
         req = {
             "custom_id": self.custom_id,
             "method": "POST",
@@ -320,11 +316,10 @@ class BatchRequestItem:
             "body": {
                 "model": self.model,
                 "messages": [
-                    {"role": "system", "content": system_msg},
-                    {"role": "user", "content": user_msg}
+                    {"role": "system", "content": "Tu es un modèle de langage assistant. Réponds avec le prochain token le plus probable."},
+                    {"role": "user", "content": self.context}
                 ],
                 "max_tokens": 1,
-                "logprobs": 10,
                 "temperature": 0.0,
                 "top_p": 0.1
             }
@@ -347,32 +342,121 @@ class BatchAnalyzer:
         with open(path, 'w', encoding='utf-8') as f:
             for item in items:
                 f.write(item.to_jsonl() + "\n")
+        
+        # Debug: afficher les premières lignes du fichier
+        self.debug_batch_file(path)
         return path
+        
+    def debug_batch_file(self, file_path):
+        """Affiche des informations de débogage sur le fichier batch."""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            logger.info(f"Fichier batch: {file_path}, {len(lines)} lignes")
+            
+            # Afficher la première ligne pour vérifier le format
+            if lines:
+                first_line = lines[0].strip()
+                try:
+                    parsed = json.loads(first_line)
+                    logger.info(f"Exemple de requête batch:")
+                    logger.info(f"  custom_id: {parsed.get('custom_id')}")
+                    logger.info(f"  method: {parsed.get('method')}")
+                    logger.info(f"  url: {parsed.get('url')}")
+                    
+                    body = parsed.get('body', {})
+                    logger.info(f"  body.model: {body.get('model')}")
+                    logger.info(f"  body.prompt: {body.get('prompt')[:20]}...")
+                    logger.info(f"  autres paramètres body: {[k for k in body.keys() if k not in ['model', 'prompt']]}")
+                except json.JSONDecodeError as e:
+                    logger.error(f"Format JSON invalide: {e}")
+                    logger.error(f"Contenu: {first_line[:100]}...")
+        except Exception as e:
+            logger.error(f"Erreur lors du débogage du fichier batch: {e}")
 
     def submit_batch(self, items):
         """Soumet un lot de requêtes à l'API batch d'OpenAI."""
         file_path = self.create_batch_file(items)
+        logger.debug(f"Fichier batch créé: {file_path}")
+        
+        # Afficher le contenu du fichier pour débogage
+        with open(file_path, 'r', encoding='utf-8') as f:
+            batch_content = f.read()
+            logger.debug(f"Contenu du batch:\n{batch_content}")
+        
         with open(file_path, 'rb') as f:
-            uploaded = client.files.create(file=f, purpose="batch")
-        batch = client.batches.create(
+            uploaded = self.client.files.create(file=f, purpose="batch")
+            logger.info(f"Fichier uploadé avec ID: {uploaded.id}")
+        
+        # Créer le batch avec l'endpoint chat/completions qui fonctionne
+        batch = self.client.batches.create(
             input_file_id=uploaded.id,
             endpoint="/v1/chat/completions",
-            completion_window="24h"
+            completion_window="24h",
+            metadata={"description": "Token analysis batch"}
         )
+        logger.info(f"Batch créé avec ID: {batch.id}")
+        
         os.unlink(file_path)
         return batch.id
 
     def poll(self, batch_id):
-        """Attend la complétion du batch en sondant périodiquement."""
-        while True:
-            batch = client.batches.retrieve(batch_id)
-            logger.info(f"Batch {batch_id} status: {batch.status} "
-                        f"{batch.request_counts.completed}/{batch.request_counts.total}")
-            if batch.status == 'completed':
-                return batch
-            if batch.status in ['failed', 'cancelled', 'expired']:
-                raise RuntimeError(f"Batch {batch_id} failed with status {batch.status}")
-            time.sleep(self.poll_interval)
+        """Attend la complétion du batch en sondant périodiquement selon la documentation OpenAI."""
+        try:
+            while True:
+                batch = client.batches.retrieve(batch_id)
+                
+                # Afficher les informations de base du batch
+                completed = getattr(batch.request_counts, "completed", 0)
+                total = getattr(batch.request_counts, "total", 0)
+                logger.info(f"Batch {batch_id} status: {batch.status} {completed}/{total}")
+                
+                # Ajouter plus de détails de débogage sans accéder à des attributs qui pourraient ne pas exister
+                if hasattr(batch, 'request_counts'):
+                    rc = batch.request_counts
+                    debug_info = {
+                        "completed": getattr(rc, "completed", 0),
+                        "failed": getattr(rc, "failed", 0),
+                        "total": getattr(rc, "total", 0)
+                    }
+                    logger.info(f"Request counts: {debug_info}")
+                
+                # Les transitions d'état selon la documentation
+                if batch.status == 'completed':
+                    logger.info(f"Batch {batch_id} completed successfully")
+                    return batch
+                elif batch.status == 'in_progress':
+                    logger.info(f"Batch {batch_id} is being processed")
+                elif batch.status == 'finalizing':
+                    logger.info(f"Batch {batch_id} is finalizing")
+                elif batch.status == 'validating':
+                    logger.info(f"Batch {batch_id} is being validated")
+                elif batch.status in ['failed', 'cancelled', 'expired']:
+                    # Récupérer les détails de l'erreur de manière plus complète
+                    error_details = f"Batch {batch_id} failed with status {batch.status}"
+                    
+                    # Tenter de récupérer et afficher les fichiers d'erreur
+                    try:
+                        if hasattr(batch, 'error_file_id') and batch.error_file_id:
+                            logger.error(f"Batch error file ID: {batch.error_file_id}")
+                            try:
+                                error_content = client.files.content(batch.error_file_id).text
+                                logger.error(f"Batch error details: {error_content}")
+                                error_details += f"\nError details: {error_content}"
+                            except Exception as e:
+                                logger.error(f"Impossible de récupérer le fichier d'erreur: {e}")
+                    except Exception as e:
+                        logger.error(f"Erreur lors de la récupération des détails d'erreur du batch: {e}")
+                    
+                    raise RuntimeError(error_details)
+                
+                # Pause et continuer à sonder
+                logger.info(f"Waiting {self.poll_interval} seconds before next poll")
+                time.sleep(self.poll_interval)
+        except Exception as e:
+            logger.error(f"Erreur lors du sondage du batch {batch_id}: {e}")
+            raise
 
     def fetch_results(self, batch):
         """Récupère et traite les résultats d'un batch complété."""
@@ -435,16 +519,26 @@ class BatchAnalyzer:
                     continue
 
                 body = resp['response']['body']
-                content = body['choices'][0]['message']['content']
-                top_logprobs = body['choices'][0].get('logprobs', {}).get('content', [{}])[0].get('top_logprobs', [])
                 
-                # Convertir les logprobs en format compatible
-                alternatives = []
-                for item in top_logprobs:
-                    alternatives.append({
-                        "token": item.get('token', ''),
-                        "logprob": item.get('logprob', -100)
-                    })
+                # Extraction pour l'API Chat Completions
+                try:
+                    # Pour l'API chat/completions, le texte est dans message.content
+                    content = body['choices'][0]['message']['content']
+                    
+                    # Et les logprobs ont une structure différente pour chat/completions
+                    alternatives = []
+                    if 'logprobs' in body['choices'][0]:
+                        logprobs_data = body['choices'][0]['logprobs']['content'][0]['top_logprobs']
+                        for item in logprobs_data:
+                            alternatives.append({
+                                "token": item['token'],
+                                "logprob": item['logprob']
+                            })
+                except (KeyError, IndexError) as e:
+                    logf.write(f"[{cid}] Erreur extraction contenu/logprobs: {e}\n")
+                    logf.write(f"Structure réponse: {json.dumps(body, indent=2)}\n")
+                    logger.error(f"[{cid}] Erreur extraction: {e}")
+                    continue
                 
                 results[cid] = {
                     "content": content,
@@ -599,24 +693,31 @@ def analyser_sans_batch(script, modele_tokenisation="gpt-4o-mini", modele_predic
                 token_precedent_est_tabulation = token_precedent.strip() == "" and len(token_precedent) > 1
         
         try:
-            # Demander explicitement le token suivant avec ses alternatives
+            # Utilisation de l'API Chat Completions au lieu de Completions
             response = client.chat.completions.create(
                 model=modele_prediction,
                 messages=[
-                    {"role": "system", "content": "You are a code predictor that generates only the next token without any additional text. Pay attention to spaces, tabs, line breaks, and special symbols in the code."},
-                    {"role": "user", "content": f"Code context: {contexte_actuel}"}
+                    {"role": "system", "content": "Tu es un modèle de langage assistant. Réponds avec le prochain token le plus probable."},
+                    {"role": "user", "content": contexte_actuel}
                 ],
                 max_tokens=1,
-                logprobs=True,
-                top_logprobs=10,  
                 temperature=0.0,
-                top_p=0.1
+                top_p=0.1,
+                frequency_penalty=0.0,
+                presence_penalty=0.0,
+                seed=42,
+                logprobs=True,
+                top_logprobs=10
             )
             
             # Extraire le token prédit et ses alternatives
-            token_predit = response.choices[0].logprobs.content[0].token
-            alternatives = [{"token": alt.token, "logprob": alt.logprob} 
-                           for alt in response.choices[0].logprobs.content[0].top_logprobs]
+            token_predit = response.choices[0].message.content
+            
+            # Extraction des logprobs (format différent de l'API completions)
+            alternatives = []
+            if hasattr(response.choices[0], 'logprobs') and response.choices[0].logprobs:
+                logprobs_data = response.choices[0].logprobs.content[0].top_logprobs
+                alternatives = [{"token": item.token, "logprob": item.logprob} for item in logprobs_data]
             
             # Initialiser les flags pour la correction standard et la correction adaptée
             correct = token_predit == token_attendu
@@ -709,24 +810,42 @@ def analyser_script(script_path, output_dir=None, modele_tokenisation="gpt-4o-mi
     logger.info(f"Script chargé depuis {script_path} ({len(script)} caractères)")
     
     # Analyser le script avec le mode approprié
-    if no_batch:
-        logger.info("Utilisation du mode sans batch (une requête par token)")
-        resultats_analyse, tokens_reference = analyser_sans_batch(
-            script, 
-            modele_tokenisation=modele_tokenisation,
-            modele_prediction=modele_prediction
-        )
-    else:
-        logger.info("Utilisation du mode batch (requêtes groupées)")
-        resultats_analyse, tokens_reference = analyser_par_batch(
-            script,
-            modele_tokenisation=modele_tokenisation,
-            modele_prediction=modele_prediction,
-            batch_size=batch_size,
-            poll_interval=poll_interval
-        )
+    try:
+        if no_batch:
+            logger.info("Utilisation du mode sans batch (une requête par token)")
+            resultats_analyse, tokens_reference = analyser_sans_batch(
+                script, 
+                modele_tokenisation=modele_tokenisation,
+                modele_prediction=modele_prediction
+            )
+        else:
+            logger.info("Utilisation du mode batch (requêtes groupées)")
+            try:
+                resultats_analyse, tokens_reference = analyser_par_batch(
+                    script,
+                    modele_tokenisation=modele_tokenisation,
+                    modele_prediction=modele_prediction,
+                    batch_size=batch_size,
+                    poll_interval=poll_interval
+                )
+            except Exception as e:
+                logger.warning(f"Mode batch a échoué: {e}. Essai en mode sans batch...")
+                resultats_analyse, tokens_reference = analyser_sans_batch(
+                    script, 
+                    modele_tokenisation=modele_tokenisation,
+                    modele_prediction=modele_prediction
+                )
+    except Exception as e:
+        logger.error(f"Erreur lors de l'analyse: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None, None
     
     # Construire la matrice de log probabilités
+    if resultats_analyse is None or tokens_reference is None:
+        logger.error(f"L'analyse a échoué pour {script_path.name}, passage au fichier suivant.")
+        return None, None
+    
     matrice, structure = construire_matrice_logprob(tokens_reference, resultats_analyse)
     
     # Afficher la matrice brute
@@ -835,8 +954,12 @@ def traiter_dossier(directory_path, output_dir=None, modele_tokenisation="gpt-4o
                 batch_size=batch_size,
                 poll_interval=poll_interval
             )
-            results_files.append(result_file)
-            logger.info(f"Analyse terminée pour {file_path.name}")
+            
+            if matrix_file is not None and result_file is not None:
+                results_files.append(result_file)
+                logger.info(f"Analyse terminée pour {file_path.name}")
+            else:
+                logger.warning(f"Analyse échouée pour {file_path.name}")
         except Exception as e:
             logger.error(f"Erreur lors de l'analyse de {file_path.name}: {e}")
             import traceback
@@ -859,8 +982,8 @@ if __name__ == "__main__":
                         help="Modèle de prédiction (par défaut: gpt-4o-mini)")
     parser.add_argument("--output-dir", "-o", type=str, default=None,
                         help="Répertoire de sortie pour les résultats")
-    parser.add_argument("--no-batch", action="store_true",
-                        help="Utiliser le mode sans batch (une requête par token)")
+    parser.add_argument("--use-batch", action="store_true",
+                        help="Utiliser le mode batch (par défaut: mode sans batch)")
     parser.add_argument("--batch-size", "-b", type=int, default=5000,
                         help="Taille du batch (par défaut: 5000)")
     parser.add_argument("--poll-interval", "-i", type=int, default=20,
@@ -879,6 +1002,9 @@ if __name__ == "__main__":
     # Convertir le répertoire de sortie en Path s'il est spécifié
     output_dir = Path(args.output_dir) if args.output_dir else None
     
+    # Utiliser mode sans batch par défaut (no_batch=True)
+    no_batch = not args.use_batch
+    
     try:
         if args.file:
             # Mode fichier unique
@@ -889,14 +1015,17 @@ if __name__ == "__main__":
                 output_dir=output_dir,
                 modele_tokenisation=args.token_model,
                 modele_prediction=args.pred_model,
-                no_batch=args.no_batch,
+                no_batch=no_batch,
                 batch_size=args.batch_size,
                 poll_interval=args.poll_interval
             )
             
-            logger.info(f"Analyse terminée avec succès!")
-            logger.info(f"Matrice sauvegardée dans: {matrix_file}")
-            logger.info(f"Résultats détaillés dans: {result_file}")
+            if matrix_file and result_file:
+                logger.info(f"Analyse terminée avec succès!")
+                logger.info(f"Matrice sauvegardée dans: {matrix_file}")
+                logger.info(f"Résultats détaillés dans: {result_file}")
+            else:
+                logger.error("L'analyse a échoué.")
         else:
             # Mode dossier
             directory_path = Path(args.directory)
@@ -905,7 +1034,7 @@ if __name__ == "__main__":
                 output_dir=output_dir,
                 modele_tokenisation=args.token_model,
                 modele_prediction=args.pred_model,
-                no_batch=args.no_batch,
+                no_batch=no_batch,
                 batch_size=args.batch_size,
                 poll_interval=args.poll_interval
             )
