@@ -16,6 +16,7 @@ import tempfile
 import math
 from pathlib import Path
 from openai import OpenAI
+from utils.config import config, IABATCH_PREFIX
 
 # ==============================================
 # CONFIGURATION : ENTREZ VOTRE CLÉ API ICI
@@ -30,7 +31,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("flexible_batch_processor.log"),
+        logging.FileHandler("ia_scripts_generator.log"),
         logging.StreamHandler()
     ]
 )
@@ -103,6 +104,10 @@ class BatchRequestItem:
             metadata (dict, optional): Métadonnées associées à cette requête
             model (str): Modèle OpenAI à utiliser
         """
+        # Ajouter le préfixe iabatch_ si nécessaire
+        if not custom_id.startswith(IABATCH_PREFIX):
+            custom_id = f"{IABATCH_PREFIX}{custom_id}"
+            
         self.custom_id = custom_id
         self.prompt_template = prompt_template
         self.content = content
@@ -135,54 +140,36 @@ class BatchRequestItem:
 class FlexibleBatchProcessor:
     """Processeur flexible pour les datasets de code Python"""
     
-    def __init__(self, input_path, output_path, api_key=None, poll_interval=60, batch_size=1000, use_batch=True, model="gpt-4.1-mini"):
+    def __init__(self, input_path, api_key=None, poll_interval=None, batch_size=None, use_batch=True, model=None):
         """
         Initialise le processeur flexible.
         
         Args:
             input_path (str): Chemin vers le dataset d'entrée
-            output_path (str): Chemin de sortie pour les fichiers générés
-            api_key (str, optional): Clé API OpenAI. Par défaut, utilise la variable définie dans le script.
+            api_key (str, optional): Clé API OpenAI
             poll_interval (int): Intervalle en secondes entre chaque vérification de l'état du batch
-            batch_size (int): Nombre de requêtes par batch (maximum 50000 par l'API OpenAI)
+            batch_size (int): Nombre de requêtes par batch
             use_batch (bool): Utiliser l'API Batch (True) ou des appels synchrones (False)
             model (str): Modèle OpenAI à utiliser
         """
         self.input_path = Path(input_path)
-        self.output_path = Path(output_path)
-        self.poll_interval = poll_interval
-        self.batch_size = min(batch_size, 50000)  # OpenAI limite à 50000 requêtes par batch
+        self.poll_interval = poll_interval or config.DEFAULT_POLL_INTERVAL
+        self.batch_size = min(batch_size or config.DEFAULT_BATCH_SIZE, 50000)
         self.use_batch = use_batch
-        self.model = model
-        
-        # Extraire le nom du dataset à partir du chemin d'entrée
-        self.dataset_name = self.input_path.name
-        logger.info(f"Nom du dataset: {self.dataset_name}")
+        self.model = model or config.DEFAULT_MODEL
         
         # Initialiser le client OpenAI
-        if OPENAI_API_KEY:
-            self.client = OpenAI(api_key=OPENAI_API_KEY)
-        elif api_key:
+        if api_key:
             self.client = OpenAI(api_key=api_key)
         else:
             env_api_key = os.environ.get("OPENAI_API_KEY")
             if not env_api_key:
-                raise ValueError("Aucune clé API OpenAI trouvée. Définissez-la dans le script, passez-la en paramètre ou utilisez la variable d'environnement OPENAI_API_KEY.")
+                raise ValueError("Aucune clé API OpenAI trouvée.")
             self.client = OpenAI(api_key=env_api_key)
         
         # Déterminer le type de dataset
         self.dataset_type = self._detect_dataset_type()
         logger.info(f"Type de dataset détecté: {self.dataset_type}")
-        
-        # Créer le répertoire de métadonnées
-        self.metadata_dir = self.output_path / "metadata"
-        self.metadata_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Fichier de métadonnées global
-        self.global_metadata_file = self.metadata_dir / "dataset_metadata.jsonl"
-        if not self.global_metadata_file.exists():
-            with open(self.global_metadata_file, 'w') as f:
-                f.write('')
         
         # Statistiques
         self.stats = {
@@ -198,118 +185,63 @@ class FlexibleBatchProcessor:
         }
     
     def _detect_dataset_type(self):
-        """
-        Détecte automatiquement le type de dataset à partir de sa structure.
-        
-        Returns:
-            str: "codenet" pour le format CodeNet traditionnel avec énoncés,
-                 "the_stack" pour un dataset contenant uniquement des fichiers Python
-        """
-        # Vérifier s'il y a des fichiers prompt.txt (format CodeNet)
-        prompt_files = list(self.input_path.glob("**/prompt.txt"))
-        if prompt_files:
+        """Détecte le type de dataset en fonction de sa structure"""
+        if (self.input_path / "data").exists():
             return "codenet"
-        
-        # Vérifier s'il y a des fichiers .py (format The Stack)
-        python_files = list(self.input_path.glob("**/*.py"))
-        if python_files:
-            return "the_stack"
-        
-        # Si aucun des deux formats n'est détecté, lever une exception
-        raise ValueError(f"Impossible de détecter le type de dataset dans {self.input_path}. Aucun fichier prompt.txt ou .py trouvé.")
+        elif (self.input_path / "python").exists():
+            return "thestack"
+        else:
+            raise ValueError("Type de dataset non reconnu")
     
     def create_directories(self, path):
-        """Crée les répertoires nécessaires s'ils n'existent pas déjà."""
+        """Crée les répertoires nécessaires"""
         path.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Répertoire vérifié: {path}")
     
     def read_file(self, file_path):
-        """Lit le contenu d'un fichier."""
+        """Lit le contenu d'un fichier"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                return file.read()
-        except UnicodeDecodeError:
-            # Essayer avec une autre encodage si utf-8 échoue
-            try:
-                with open(file_path, 'r', encoding='latin-1') as file:
-                    return file.read()
-            except Exception as e:
-                logger.error(f"Erreur lors de la lecture du fichier {file_path} avec l'encodage latin-1: {e}")
-                self.stats["file_errors"] += 1
-                return None
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
         except Exception as e:
-            logger.error(f"Erreur lors de la lecture du fichier {file_path}: {e}")
+            logger.error(f"Erreur lors de la lecture de {file_path}: {e}")
             self.stats["file_errors"] += 1
             return None
     
     def write_file(self, file_path, content):
-        """Écrit le contenu dans un fichier."""
+        """Écrit le contenu dans un fichier"""
         try:
-            with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(content)
-            logger.debug(f"Fichier écrit: {file_path}")
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
             return True
         except Exception as e:
-            logger.error(f"Erreur lors de l'écriture du fichier {file_path}: {e}")
+            logger.error(f"Erreur lors de l'écriture dans {file_path}: {e}")
             self.stats["file_errors"] += 1
             return False
     
     def append_metadata(self, metadata):
-        """Ajoute une entrée de métadonnées au fichier global."""
+        """Ajoute des métadonnées au fichier global"""
+        metadata_path = config.get_metadata_path(metadata["batch_id"])
         try:
-            with open(self.global_metadata_file, 'a') as f:
-                f.write(json.dumps(metadata) + '\n')
-            return True
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error(f"Erreur lors de l'écriture des métadonnées: {e}")
-            return False
     
     def clean_code_response(self, response):
-        """
-        Nettoie la réponse de l'API en retirant les délimiteurs de code Markdown.
-        
-        Args:
-            response (str): Réponse de l'API
-            
-        Returns:
-            str: Code nettoyé
-        """
+        """Nettoie la réponse de l'API"""
         if not response:
             return response
         
-        # Supprimer les délimiteurs Markdown ```python et ```
         response = response.strip()
         
-        # Cas 1: Code entouré de ```python ... ```
-        if response.startswith("```python") and response.endswith("```"):
-            response = response[len("```python"):].strip()
-            response = response[:-3].strip()
-        # Cas 2: Code entouré simplement de ``` ... ```
-        elif response.startswith("```") and response.endswith("```"):
-            response = response[3:].strip()
-            response = response[:-3].strip()
-        # Cas 3: Vérifier si le code commence par ```python mais ne se termine pas exactement par ```
-        elif response.startswith("```python"):
-            lines = response.split("\n")
-            if len(lines) > 1:
-                lines = lines[1:]  # Supprimer la première ligne contenant ```python
-                # Rechercher la dernière ligne contenant ``` et la supprimer
-                for i in range(len(lines)-1, -1, -1):
-                    if lines[i].strip() == "```":
-                        lines.pop(i)
-                        break
-                response = "\n".join(lines)
-        # Cas 4: Vérifier si le code commence par ``` mais ne se termine pas exactement par ```
-        elif response.startswith("```"):
-            lines = response.split("\n")
-            if len(lines) > 1:
-                lines = lines[1:]  # Supprimer la première ligne contenant ```
-                # Rechercher la dernière ligne contenant ``` et la supprimer
-                for i in range(len(lines)-1, -1, -1):
-                    if lines[i].strip() == "```":
-                        lines.pop(i)
-                        break
-                response = "\n".join(lines)
+        # Supprimer les délimiteurs Markdown
+        if response.startswith("```") and response.endswith("```"):
+            response = response[3:-3].strip()
+            
+            # Supprimer l'indication du langage si présente
+            if response.startswith("python\n"):
+                response = response[7:].strip()
         
         return response
     
@@ -365,9 +297,13 @@ class FlexibleBatchProcessor:
                 completion_window="24h"
             )
             
+            # Modifier l'ID du batch en ajoutant le préfixe "iabatch_"
+            prefixed_batch_id = f"iabatch_{batch.id[6:]}" if batch.id.startswith("batch_") else batch.id
+            
             # Sauvegarder les métadonnées du batch
             batch_info = {
-                "batch_id": batch.id,
+                "original_batch_id": batch.id,
+                "prefixed_batch_id": prefixed_batch_id,
                 "status": batch.status,
                 "created_at": batch.created_at,
                 "request_counts": {
@@ -376,13 +312,13 @@ class FlexibleBatchProcessor:
                 "custom_ids": [req.custom_id for req in requests]
             }
             
-            batch_file = self.metadata_dir / f"batch_{batch.id}.json"
+            batch_file = config.get_metadata_path(prefixed_batch_id)
             with open(batch_file, 'w') as f:
                 json.dump(batch_info, f, indent=2)
             
             # Sauvegarder les détails des requêtes
             requests_map = {req.custom_id: req.metadata for req in requests}
-            requests_file = self.metadata_dir / f"requests_{batch.id}.json"
+            requests_file = config.get_requests_path(prefixed_batch_id)
             with open(requests_file, 'w') as f:
                 json.dump(requests_map, f, indent=2)
             
@@ -390,9 +326,10 @@ class FlexibleBatchProcessor:
             os.unlink(batch_file_path)
             
             self.stats["batches_submitted"] += 1
-            logger.info(f"Batch soumis avec succès: {batch.id}")
+            logger.info(f"Batch soumis avec succès: {prefixed_batch_id} (ID original: {batch.id})")
             
-            return batch.id, requests_map
+            # Retourner l'ID préfixé
+            return prefixed_batch_id, requests_map
             
         except Exception as e:
             logger.error(f"Erreur lors de la soumission du batch: {e}")
@@ -462,7 +399,7 @@ class FlexibleBatchProcessor:
             output_content = output_response.text
             
             # Sauvegarder les résultats bruts
-            raw_results_file = self.metadata_dir / f"results_{batch.id}.jsonl"
+            raw_results_file = config.get_results_path(batch.id)
             with open(raw_results_file, 'w') as f:
                 f.write(output_content)
             
@@ -472,7 +409,7 @@ class FlexibleBatchProcessor:
                 error_response = self.client.files.content(batch.error_file_id)
                 error_content = error_response.text
                 
-                error_file = self.metadata_dir / f"errors_{batch.id}.jsonl"
+                error_file = config.get_errors_path(batch.id)
                 with open(error_file, 'w') as f:
                     f.write(error_content)
             
@@ -498,7 +435,7 @@ class FlexibleBatchProcessor:
             logger.info(f"Traitement terminé pour le batch {batch.id}: {len(results)} résultats")
             
             # Charger les métadonnées des requêtes
-            requests_file = self.metadata_dir / f"requests_{batch.id}.json"
+            requests_file = config.get_requests_path(batch.id)
             if requests_file.exists():
                 with open(requests_file, 'r') as f:
                     requests_map = json.load(f)
@@ -533,7 +470,7 @@ class FlexibleBatchProcessor:
         logger.info(f"Traitement synchrone de {total} requêtes avec ID: {sync_batch_id}...")
         
         # Créer un dossier spécial pour ce batch synchrone
-        sync_batch_dir = self.output_path / f"batch_{sync_batch_id}"
+        sync_batch_dir = config.get_batch_dir(sync_batch_id)
         self.create_directories(sync_batch_dir)
         
         for i, request in enumerate(requests):
@@ -582,13 +519,13 @@ class FlexibleBatchProcessor:
             "custom_ids": [req.custom_id for req in requests]
         }
         
-        batch_file = self.metadata_dir / f"batch_{sync_batch_id}.json"
+        batch_file = config.get_batch_info_path(sync_batch_id)
         with open(batch_file, 'w') as f:
             json.dump(sync_batch_info, f, indent=2)
             
         # Sauvegarder les détails des requêtes
         requests_map = {req.custom_id: req.metadata for req in requests}
-        requests_file = self.metadata_dir / f"requests_{sync_batch_id}.json"
+        requests_file = config.get_requests_path(sync_batch_id)
         with open(requests_file, 'w') as f:
             json.dump(requests_map, f, indent=2)
         
@@ -612,7 +549,7 @@ class FlexibleBatchProcessor:
         processed_count = 0
         
         # Créer un dossier spécial pour ce batch (pour le mode synchrone aussi)
-        batch_output_dir = self.output_path / f"batch_{batch_id}"
+        batch_output_dir = config.get_batch_dir(batch_id)
         self.create_directories(batch_output_dir)
         
         for custom_id, code in results.items():
@@ -648,7 +585,7 @@ class FlexibleBatchProcessor:
                     solution_id = filename
                 
                 # Inclure le nom du dataset dans le nom du fichier
-                output_file = batch_output_dir / f"{self.dataset_name}_var_{problem_id}_{solution_id}_{variation_key}.py"
+                output_file = batch_output_dir / f"{config.DATASET_NAME}_var_{problem_id}_{solution_id}_{variation_key}.py"
                 
                 # Sauvegarder le résultat dans le dossier batch
                 if self.write_file(output_file, code):
@@ -662,7 +599,7 @@ class FlexibleBatchProcessor:
                         "is_reformulation": True,
                         "batch_id": batch_id,
                         "custom_id": custom_id,
-                        "dataset_name": self.dataset_name,
+                        "dataset_name": config.DATASET_NAME,
                         "timestamp": time.time()
                     }
                     self.append_metadata(result_metadata)
@@ -672,7 +609,7 @@ class FlexibleBatchProcessor:
                 
                 # Également sauvegarder dans la structure originale si ce n'est pas un batch synchrone
                 if not batch_id.startswith("sync_"):
-                    original_output_dir = self.output_path / problem_id / f"original_{solution_id}"
+                    original_output_dir = config.get_original_dir(problem_id) / f"original_{solution_id}"
                     self.create_directories(original_output_dir)
                     
                     # Sauvegarder l'original si ce n'est pas déjà fait
@@ -683,7 +620,7 @@ class FlexibleBatchProcessor:
                             self.write_file(original_file, original_code)
                     
                     # Sauvegarder également dans la structure originale
-                    original_variation_file = original_output_dir / f"{self.dataset_name}_ai_{variation_key}.py"
+                    original_variation_file = original_output_dir / f"{config.DATASET_NAME}_ai_{variation_key}.py"
                     self.write_file(original_variation_file, code)
             
             elif req_type == "generation" and self.dataset_type == "codenet":
@@ -696,7 +633,7 @@ class FlexibleBatchProcessor:
                     continue
                 
                 # Inclure le nom du dataset dans le nom du fichier
-                output_file = batch_output_dir / f"{self.dataset_name}_gen_{problem_id}_{template_key}.py"
+                output_file = batch_output_dir / f"{config.DATASET_NAME}_gen_{problem_id}_{template_key}.py"
                 
                 # Sauvegarder le résultat dans le dossier batch
                 if self.write_file(output_file, code):
@@ -708,7 +645,7 @@ class FlexibleBatchProcessor:
                         "output_path": str(output_file),
                         "batch_id": batch_id,
                         "custom_id": custom_id,
-                        "dataset_name": self.dataset_name,
+                        "dataset_name": config.DATASET_NAME,
                         "timestamp": time.time()
                     }
                     self.append_metadata(result_metadata)
@@ -718,14 +655,14 @@ class FlexibleBatchProcessor:
                 
                 # Également sauvegarder dans la structure originale si ce n'est pas un batch synchrone
                 if not batch_id.startswith("sync_"):
-                    original_output_dir = self.output_path / problem_id / "from_scratch"
+                    original_output_dir = config.get_original_dir(problem_id) / "from_scratch"
                     self.create_directories(original_output_dir)
                     
                     # Sauvegarder également dans la structure originale
-                    original_gen_file = original_output_dir / f"{self.dataset_name}_ai_generated_{template_key}.py"
+                    original_gen_file = original_output_dir / f"{config.DATASET_NAME}_ai_generated_{template_key}.py"
                     self.write_file(original_gen_file, code)
         
-        logger.info(f"Sauvegarde terminée pour le batch {batch.id}: {processed_count}/{len(results)} résultats traités")
+        logger.info(f"Sauvegarde terminée pour le batch {batch_id}: {processed_count}/{len(results)} résultats traités")
         return processed_count
     
     def collect_codenet_requests(self, problems, variation_limit=3, generation_limit=2, test_mode=False):
@@ -963,7 +900,7 @@ class FlexibleBatchProcessor:
             dict: Statistiques de traitement
         """
         # Créer le répertoire de sortie principal
-        self.create_directories(self.output_path)
+        self.create_directories(config.OUTPUT_PATH)
         
         # Obtenir tous les sous-dossiers de premier niveau
         subfolders = [d for d in self.input_path.iterdir() if d.is_dir()]
@@ -1146,7 +1083,6 @@ def main():
         
         processor = FlexibleBatchProcessor(
             input_path=args.input,
-            output_path=output_path,
             api_key=args.api_key,
             poll_interval=args.poll_interval,
             batch_size=args.batch_size,

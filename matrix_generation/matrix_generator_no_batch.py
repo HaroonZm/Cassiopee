@@ -14,6 +14,7 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from openai import OpenAI
+from utils.config import config, TBATCH_PREFIX
 
 # Configuration du logging
 logging.basicConfig(
@@ -216,9 +217,13 @@ def sauvegarder_resultats(resultats_analyse, script, matrice, structure_tokens,
     Sauvegarde les résultats d'analyse dans un fichier texte bien formaté.
     """
     if nom_fichier is None:
-        # Générer un nom de fichier basé sur la date et l'heure
+        # Générer un ID de batch unique avec le préfixe tbatch_
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        nom_fichier = f"analyse_tokens_{ts}.txt"
+        batch_id = f"{TBATCH_PREFIX}{ts}"
+        nom_fichier = config.get_results_path(batch_id)
+    
+    # Créer le répertoire parent si nécessaire
+    nom_fichier.parent.mkdir(parents=True, exist_ok=True)
     
     with open(nom_fichier, 'w', encoding='utf-8') as f:
         # Écrire l'en-tête
@@ -258,7 +263,7 @@ def sauvegarder_resultats(resultats_analyse, script, matrice, structure_tokens,
             alts = r.get("alternatives", [])
             if alts:
                 f.write("  Alternatives:\n")
-                for i, alt in enumerate(alts[:10]):  # Limiter aux 10 premières alternatives
+                for i, alt in enumerate(alts[:10]):
                     alt_token = repr(alt["token"])[1:-1]
                     alt_logprob = alt["logprob"]
                     f.write(f"    {i+1}. '{alt_token}' (logprob: {alt_logprob:.4f})")
@@ -290,6 +295,30 @@ def sauvegarder_resultats(resultats_analyse, script, matrice, structure_tokens,
         f.write("\n" + "="*80 + "\n")
     
     logger.info(f"Résultats sauvegardés dans {nom_fichier}")
+    
+    # Sauvegarder la matrice au format numpy
+    matrice_path = nom_fichier.parent / f"{nom_fichier.stem}_matrix.npy"
+    np.save(matrice_path, matrice)
+    logger.info(f"Matrice sauvegardée dans {matrice_path}")
+    
+    # Sauvegarder les métadonnées
+    metadata = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "model": modele_tokenisation,
+        "script_name": Path(script).name if isinstance(script, (str, Path)) else "unknown",
+        "matrix_shape": matrice.shape,
+        "total_tokens": total_tokens,
+        "correct_tokens": correct_tokens,
+        "correct_adapte": correct_adapte,
+        "correct_top10": correct_top10
+    }
+    
+    metadata_path = config.get_metadata_path(batch_id)
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+    
+    logger.info(f"Métadonnées sauvegardées dans {metadata_path}")
+    
     return nom_fichier
 
 def analyser_sans_batch(script, modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini"):

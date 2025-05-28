@@ -23,7 +23,7 @@ sys.path.append('visualization')
 try:
     import visualize_matrix
     import visualize_activation
-    import visualize_tilespy
+    import visualize_tiles
 except ImportError:
     print("Warning: Modules de visualisation non trouvés. Certaines fonctionnalités seront désactivées.")
 
@@ -315,20 +315,21 @@ class BatchManagerTab(QWidget):
         self.api_key.setPlaceholderText("Laissez vide pour utiliser la variable d'environnement")
         api_layout.addWidget(self.api_key)
         
+        # Mise à jour du texte par défaut pour refléter la nouvelle structure
         self.output_dir = QLineEdit()
-        self.output_dir.setPlaceholderText("../data/batches")
+        self.output_dir.setPlaceholderText("../data/batches (les sous-dossiers tbatch/ et iabatch/ seront créés automatiquement)")
         self.output_browse_button = QPushButton("...")
         self.output_browse_button.clicked.connect(self.browse_output)
 
-        
         dest_layout = QHBoxLayout()
         dest_layout.addWidget(QLabel("Destination des résultats:"))
         self.destination_path = QLineEdit()
-        self.destination_path.setPlaceholderText("Par defaut data/batches")
+        self.destination_path.setPlaceholderText("Par défaut data/batches (avec sous-dossiers tbatch/ et iabatch/)")
         self.browse_dest_button = QPushButton("...")
         self.browse_dest_button.clicked.connect(self.browse_destination)
         dest_layout.addWidget(self.destination_path)
-        dest_layout.addWidget(self.browse_dest_button) 
+        dest_layout.addWidget(self.browse_dest_button)
+        
         config_layout.addLayout(api_layout)
         config_layout.addLayout(dest_layout)
         config_group.setLayout(config_layout)
@@ -351,6 +352,7 @@ class BatchManagerTab(QWidget):
         
         # Liste des batches
         batch_group = QGroupBox("Batches disponibles")
+        batch_group.setObjectName("batch_group")  # Ajouter un nom d'objet pour pouvoir le retrouver
         batch_layout = QVBoxLayout()
         self.batch_list = QListWidget()
         self.batch_list.setSelectionMode(QListWidget.ExtendedSelection)
@@ -441,6 +443,7 @@ class BatchManagerTab(QWidget):
             cmd.extend(['--limit', str(self.batch_limit.value())])
         
         if self.output_dir.text():
+            # Utiliser le répertoire principal pour la commande list
             cmd.extend(['--output', self.output_dir.text()])
         
         if self.api_key.text():
@@ -465,39 +468,100 @@ class BatchManagerTab(QWidget):
     def update_batch_list(self, success, message):
         self.progress_bar.hide()
         if success:
+            # Ajouter un widget de filtrage pour les types de batches
+            if not hasattr(self, 'filter_layout'):
+                self.filter_layout = QHBoxLayout()
+                self.filter_layout.addWidget(QLabel("Filtrer par type:"))
+                
+                self.filter_all = QRadioButton("Tous")
+                self.filter_scripts = QRadioButton("Scripts IA (iabatch_)")
+                self.filter_tokens = QRadioButton("Tokens (tbatch_)")
+                self.filter_other = QRadioButton("Autres (batch_)")
+                
+                self.filter_all.setChecked(True)
+                self.filter_all.toggled.connect(self.filter_batches)
+                self.filter_scripts.toggled.connect(self.filter_batches)
+                self.filter_tokens.toggled.connect(self.filter_batches)
+                self.filter_other.toggled.connect(self.filter_batches)
+                
+                self.filter_layout.addWidget(self.filter_all)
+                self.filter_layout.addWidget(self.filter_scripts)
+                self.filter_layout.addWidget(self.filter_tokens)
+                self.filter_layout.addWidget(self.filter_other)
+                
+                # Insérer le layout de filtrage juste au-dessus de la liste des batches
+                layout = self.layout()
+                list_group_idx = layout.indexOf(self.findChild(QGroupBox, "batch_group"))
+                
+                if list_group_idx != -1:
+                    filter_group = QGroupBox("Filtres")
+                    filter_group.setLayout(self.filter_layout)
+                    layout.insertWidget(list_group_idx, filter_group)
+            
             # Analyser la sortie pour extraire les IDs de batch
             console_text = self.console.toPlainText()
             lines = console_text.split('\n')
             
+            # Stocker tous les batches trouvés
+            self.all_batches = []
             batch_count = 0
-            # Utiliser une expression plus souple pour détecter les IDs de batch
+            
+            # Chercher les lignes contenant un ID de batch aux différents formats
             for line in lines:
-                # Chercher les lignes contenant un ID de batch au format batch_xxx
-                if 'batch_' in line:
-                    # Extraire le batch ID (peut apparaître sous différentes formes)
+                # Batches de tokens (tbatch_xxx)
+                if 'tbatch_' in line:
+                    parts = line.split()
+                    for part in parts:
+                        if part.startswith('tbatch_'):
+                            batch_id = part.strip(',.:;()[]{}')
+                            self.all_batches.append(('tokens', batch_id))
+                            batch_count += 1
+                            break
+                
+                # Batches de scripts IA (iabatch_xxx)
+                elif 'iabatch_' in line:
+                    parts = line.split()
+                    for part in parts:
+                        if part.startswith('iabatch_'):
+                            batch_id = part.strip(',.:;()[]{}')
+                            self.all_batches.append(('scripts', batch_id))
+                            batch_count += 1
+                            break
+                
+                # Batches standard (batch_xxx)
+                elif 'batch_' in line and 'tbatch_' not in line and 'iabatch_' not in line:
                     parts = line.split()
                     for part in parts:
                         if part.startswith('batch_'):
-                            # Nettoyer l'ID des caractères potentiellement indésirables
                             batch_id = part.strip(',.:;()[]{}')
-                            self.batch_list.addItem(batch_id)
+                            self.all_batches.append(('other', batch_id))
                             batch_count += 1
                             break
+                
                 # Autre format possible: ligne contenant "ID:" suivi d'un ID de batch
                 elif 'ID:' in line or 'Id:' in line or 'id:' in line:
                     parts = line.split('ID:' if 'ID:' in line else 'Id:' if 'Id:' in line else 'id:')
                     if len(parts) > 1:
-                        batch_id = parts[1].strip().split()[0]
-                        if batch_id.startswith('batch_'):
-                            self.batch_list.addItem(batch_id)
+                        batch_part = parts[1].strip().split()[0]
+                        if batch_part.startswith('tbatch_'):
+                            self.all_batches.append(('tokens', batch_part))
                             batch_count += 1
+                        elif batch_part.startswith('iabatch_'):
+                            self.all_batches.append(('scripts', batch_part))
+                            batch_count += 1
+                        elif batch_part.startswith('batch_'):
+                            self.all_batches.append(('other', batch_part))
+                            batch_count += 1
+            
+            # Appliquer le filtre actuel
+            self.filter_batches()
             
             self.console.append("----------------------------------")
             self.console.append(f"Nombre de batches trouvés: {batch_count}")
         
             if batch_count == 0:
                 self.console.append("Aucun batch trouvé dans la sortie du programme.")
-                self.console.append("Vérifiez que le script 'simple_batch_manager.py' fonctionne correctement.")
+                self.console.append("Vérifiez que le script 'batch_manager.py' fonctionne correctement.")
                 self.console.append("Voici la sortie complète pour analyse:")
                 self.console.append("----------------------------------")
                 self.console.append(console_text)
@@ -505,6 +569,42 @@ class BatchManagerTab(QWidget):
                 self.console.append("Sélectionnez un batch dans la liste pour voir ses détails.")
         else:
             self.console.append(f"Erreur lors de la récupération des batches: {message}")
+    
+    def filter_batches(self):
+        """Filtre la liste des batches selon le type sélectionné"""
+        if not hasattr(self, 'all_batches'):
+            return
+            
+        # Effacer la liste actuelle
+        self.batch_list.clear()
+        
+        # Déterminer le filtre actif
+        if hasattr(self, 'filter_all') and self.filter_all.isChecked():
+            batch_filter = None
+        elif hasattr(self, 'filter_scripts') and self.filter_scripts.isChecked():
+            batch_filter = 'scripts'
+        elif hasattr(self, 'filter_tokens') and self.filter_tokens.isChecked():
+            batch_filter = 'tokens'
+        elif hasattr(self, 'filter_other') and self.filter_other.isChecked():
+            batch_filter = 'other'
+        else:
+            batch_filter = None
+        
+        # Ajouter les batches qui correspondent au filtre
+        for batch_type, batch_id in self.all_batches:
+            if batch_filter is None or batch_type == batch_filter:
+                # Format coloré selon le type
+                item = QListWidgetItem(batch_id)
+                if batch_type == 'tokens':
+                    item.setBackground(Qt.yellow)
+                    item.setToolTip("Batch de tokens pour matrices")
+                elif batch_type == 'scripts':
+                    item.setBackground(Qt.green)
+                    item.setToolTip("Batch de scripts générés par IA")
+                else:
+                    item.setToolTip("Batch standard")
+                
+                self.batch_list.addItem(item)
     
     def get_batch_status(self):
         """Vérifie l'état d'un batch spécifique"""
@@ -534,55 +634,49 @@ class BatchManagerTab(QWidget):
         scrollbar.setValue(scrollbar.maximum())
     
     def fetch_batch(self):
-        """Récupère les résultats d'un ou plusieurs batches"""
-        selected = self.batch_list.selectedItems()
-        if not selected:
-            QMessageBox.warning(self, "Attention", "Veuillez sélectionner un ou plusieurs batches.")
+        """Récupère les résultats d'un batch sélectionné"""
+        selected_items = self.batch_list.selectedItems()
+        if not selected_items:
+            self.console.append("Veuillez sélectionner un batch à récupérer.")
             return
         
-        for item in selected:
-            batch_id = item.text()
-            cmd = ['python', 'utils/batch_manager.py', 'fetch', batch_id]
-            
-            # Toujours ajouter l'option --save
-            cmd.append('--save')
-            
-            if self.destination_path.text():
-                cmd.extend(['--destination', self.destination_path.text()])
-            
-            if self.api_key.text():
-                cmd.extend(['--api-key', self.api_key.text()])
-            
-            self.console.append(f"Récupération du batch {batch_id}...")
-            self.progress_bar.show()
-            
-            # Exécuter dans un thread
-            self.thread = ProcessThread(' '.join(cmd))
-            self.thread.update_signal.connect(self.update_console)
-            self.thread.finished_signal.connect(lambda success, message, bid=batch_id: 
-                                              self.console.append(f"Batch {bid} : {'Succès' if success else 'Échec'} - {message}"))
-            self.thread.start()
-    
-    def fetch_range(self):
-        """Récupère les résultats des N batches les plus récents"""
-        n = self.range_spinbox.value()
-        cmd = ['python', 'utils/batch_manager.py', 'fetch-range', str(n)]
+        batch_id = selected_items[0].text().split()[0]  # Prendre le premier mot (l'ID)
         
-        # Ajouter les options selon le guide
-        if self.batch_limit.value() > 0:
-            cmd.extend(['--limit', str(self.batch_limit.value())])
-        
-        # Toujours ajouter l'option --save
-        cmd.append('--save')
-        
-        if self.destination_path.text():
-            cmd.extend(['--destination', self.destination_path.text()])
+        cmd = ['python', 'utils/batch_manager.py', 'fetch', batch_id]
         
         if self.api_key.text():
             cmd.extend(['--api-key', self.api_key.text()])
         
+        if self.destination_path.text():
+            # Le gestionnaire de batch créera automatiquement le sous-répertoire approprié
+            cmd.extend(['--output', self.destination_path.text()])
+        
         self.console.clear()
-        self.console.append(f"Récupération des {n} batches les plus récents...")
+        self.progress_bar.show()
+        
+        # Exécuter dans un thread
+        self.thread = ProcessThread(' '.join(cmd))
+        self.thread.update_signal.connect(self.update_console)
+        self.thread.finished_signal.connect(lambda success, msg: self.progress_bar.hide())
+        self.thread.start()
+    
+    def fetch_range(self):
+        """Récupère les N derniers batchs"""
+        n = self.range_spinbox.value()
+        if n <= 0:
+            self.console.append("Veuillez spécifier un nombre positif de batchs à récupérer.")
+            return
+        
+        cmd = ['python', 'utils/batch_manager.py', 'fetch-range', str(n)]
+        
+        if self.api_key.text():
+            cmd.extend(['--api-key', self.api_key.text()])
+        
+        if self.destination_path.text():
+            # Le gestionnaire de batch créera automatiquement les sous-répertoires appropriés
+            cmd.extend(['--output', self.destination_path.text()])
+        
+        self.console.clear()
         self.progress_bar.show()
         
         # Exécuter dans un thread
