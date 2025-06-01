@@ -1,0 +1,24 @@
+def orderN(N,L,ices):
+    upPeak = L - ices[0]
+    downPeak = L - ices[0]
+    peaks = []
+    append = peaks.append
+    for i in xrange(len(ices)):
+        if i < N-1:
+            if ices[i] < ices[i+1]:
+                append(downPeak)
+                downPeak = L - ices[i+1]
+                upPeak += L - ices[i+1]
+            else:
+                append(upPeak)
+                upPeak = L - ices[i+1]
+                downPeak += L - ices[i+1]
+        else:
+            append(upPeak)
+            append(downPeak)
+    print(max(peaks))
+
+N,L = map(int,raw_input().strip().split())
+ices = [int(raw_input().strip()) for _ in xrange(N)]
+
+orderN(N,L,ices)

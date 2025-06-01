@@ -1,0 +1,73 @@
+import sys
+from string import digits
+
+sys.setrecursionlimit(10**6)
+def calc(S, MOD):
+    L = len(S)
+    S = S + "$"
+    ok = 1
+    cur = 0
+    def expr():
+        nonlocal cur
+        op = "+"
+        res = 0
+        while cur < L:
+            val = term()
+            if op == "+":
+                res += val
+            else: # '-'
+                res -= val
+            res %= MOD
+            if S[cur] not in "+-":
+                break
+            op = S[cur]
+            cur += 1 # '+' or '-'
+        return res % MOD
+    def term():
+        nonlocal cur, ok
+        op = "*"
+        res = 1
+        while cur < L:
+            val = factor()
+            if op == "*":
+                res *= val
+            else: # '/'
+                if val == 0:
+                    ok = 0
+                res *= pow(val, MOD-2, MOD)
+            res %= MOD
+            if S[cur] not in "*/":
+                break
+            op = S[cur]
+            cur += 1 # '*' or '/'
+        return res
+    def factor():
+        nonlocal cur
+        if S[cur] == '(':
+            cur += 1 # '('
+            val = expr()
+            cur += 1 # ')'
+            return val
+        return number()
+    def number():
+        nonlocal cur
+        val = 0
+        while S[cur] in digits:
+            val = (10*val + int(S[cur])) % MOD
+            cur += 1 # '0123456789'
+        return val
+    res = expr()
+    return res if ok else -1
+
+while 1:
+    S = input()
+    if S == '0:':
+        break
+    p, S = S.split(":")
+    p = int(p)
+    S = S.replace(" ", "")
+    res = calc(S, p)
+    if res == -1:
+        print("NG")
+    else:
+        print("%s = %d (mod %d)" % (S, res, p))

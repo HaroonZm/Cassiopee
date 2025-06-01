@@ -465,16 +465,40 @@ def main():
         print(f"Erreur lors du chargement du modèle: {e}")
         return
     
-    # Trouver les tuiles à visualiser
+    # Si --input est un dossier et --matrix n'est pas fourni, détecter automatiquement les matrices
+    if os.path.isdir(args.input) and args.matrix is None:
+        # Chercher tous les fichiers *_tuile_*.npy dans le dossier
+        tile_files = glob.glob(os.path.join(args.input, '*_tuile_*.npy'))
+        if not tile_files:
+            print(f"Aucune tuile trouvée dans {args.input}")
+            return
+        # Extraire tous les préfixes de matrice présents
+        prefixes = set()
+        for tile_file in tile_files:
+            filename = os.path.basename(tile_file)
+            parts = filename.split('tuile_')
+            if len(parts) >= 2:
+                prefix = parts[0].rstrip('_')
+                prefixes.add(prefix)
+        if not prefixes:
+            print(f"Aucun préfixe de matrice détecté dans {args.input}")
+            return
+        print(f"Matrices détectées dans {args.input}: {sorted(prefixes)}")
+        for matrix_id in sorted(prefixes):
+            print(f"\nTraitement de la matrice: {matrix_id}")
+            tile_paths, _ = find_matrix_tiles(args.input, matrix_id)
+            if not tile_paths:
+                print(f"Aucune tuile trouvée pour la matrice '{matrix_id}'")
+                continue
+            print(f"Trouvé {len(tile_paths)} tuiles pour la matrice {matrix_id}")
+            visualize_matrix_tiles(model, tile_paths, args.output, device, args.padding)
+        return
+    # Sinon, comportement standard
     tile_paths, matrix_id = find_matrix_tiles(args.input, args.matrix)
-    
     if not tile_paths:
         print(f"Aucune tuile trouvée pour la matrice '{args.matrix if args.matrix else 'spécifiée'}'")
         return
-    
     print(f"Trouvé {len(tile_paths)} tuiles pour la matrice {matrix_id}")
-    
-    # Visualiser les tuiles
     visualize_matrix_tiles(model, tile_paths, args.output, device, args.padding)
 
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+from sys import stdin
+
+en = [*map(chr, range(65, 91)), *" .,-'?"]
+de = {
+    '101':' ','000000':'\'','000011':',','10010001':'-','010001':'.','000001':'?',
+    '100101':'A','10011010':'B','0101':'C','0001':'D','110':'E','01001':'F',
+    '10011011':'G','010000':'H','0111':'I','10011000':'J','0110':'K','00100':'L',
+    '10011001':'M','10011110':'N','00101':'O','111':'P','10011111':'Q','1000':'R',
+    '00110':'S','00111':'T','10011100':'U','10011101':'V','000010':'W','10010010':'X',
+    '10010011':'Y','10010000':'Z'
+}
+
+from itertools import accumulate
+
+for line in map(str.strip, stdin):
+    bits = ''.join(f'{en.index(c):05b}' for c in line)
+    decoded, buf = [], ''
+    for bit in bits:
+        buf += bit
+        if buf in de:
+            decoded.append(de[buf])
+            buf = ''
+    print(''.join(decoded))

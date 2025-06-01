@@ -1,0 +1,11 @@
+while True:
+    n = int(input())
+    if n == 0: break
+    ans = minv = 1<<10
+    for _ in range(n):
+        p, h, w = map(int, input().split())
+        BMI = w / ((h*0.01)**2)
+        tmp = 22 - BMI if 22 > BMI else BMI - 22
+        if tmp < minv:
+            ans, minv = p, tmp
+    print(ans)

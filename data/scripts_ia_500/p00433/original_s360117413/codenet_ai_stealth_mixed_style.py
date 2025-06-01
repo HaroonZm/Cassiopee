@@ -1,0 +1,1 @@
+print(max(sum(int(x) for x in raw_input().split()) for _ in xrange(2)))

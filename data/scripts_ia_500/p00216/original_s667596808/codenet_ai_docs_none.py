@@ -1,0 +1,14 @@
+while True:
+    n = int(input())
+    if n == -1:
+        break
+    a = 4280
+    b = 1150
+    if n <= 10:
+        print(a - b)
+    elif n <= 20:
+        print(a - (b + (n - 10) * 125))
+    elif n <= 30:
+        print(a - (b + 1250 + (n - 20) * 140))
+    else:
+        print(a - (b + 1250 + 1400 + (n - 30) * 160))

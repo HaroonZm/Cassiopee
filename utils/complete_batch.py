@@ -9,53 +9,33 @@ def main():
     # Analyse des arguments de la ligne de commande
     parser = argparse.ArgumentParser(description='Intégration de fichiers sources Python depuis un dataset de référence')
     parser.add_argument('batch_path', help='Chemin vers le dossier batch à traiter')
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--codenet', action='store_true', help='Utiliser le dataset CodeNet')
-    group.add_argument('--thestack', action='store_true', help='Utiliser le dataset The Stack')
    
     args = parser.parse_args()
    
-    # Définition du chemin du dataset en fonction de l'option choisie
-    if args.codenet:
-        dataset_path = './original_datasets/codenet'
-    else:  # args.thestack
-        dataset_path = './original_datasets/the_stack_organized'
+    # Chemins des datasets
+    codenet_path = './original_datasets/codenet'
+    thestack_path = './original_datasets/the_stack_organized'
    
     # Vérification de l'existence du dossier batch
     if not os.path.isdir(args.batch_path):
         print(f"Erreur: Le dossier batch '{args.batch_path}' n'existe pas")
         sys.exit(1)
    
-    # Vérification de l'existence du dossier dataset
-    if not os.path.isdir(dataset_path):
-        print(f"Erreur: Le dossier dataset '{dataset_path}' n'existe pas")
-        sys.exit(1)
+    # Vérification de l'existence des dossiers datasets
+    if not os.path.isdir(codenet_path):
+        print(f"Avertissement: Le dossier dataset '{codenet_path}' n'existe pas. Les samples CodeNet seront ignorés.")
     
-    # Création du sous-dossier scripts s'il n'existe pas
-    scripts_dir = os.path.join(args.batch_path, "scripts")
-    if not os.path.exists(scripts_dir):
-        os.makedirs(scripts_dir)
-        print(f"Dossier '{scripts_dir}' créé")
+    if not os.path.isdir(thestack_path):
+        print(f"Avertissement: Le dossier dataset '{thestack_path}' n'existe pas. Les samples The Stack seront ignorés.")
+    
+    if not os.path.isdir(codenet_path) and not os.path.isdir(thestack_path):
+        print("Erreur: Aucun dossier dataset n'existe. Impossible de continuer.")
+        sys.exit(1)
    
     # Récupération de tous les fichiers dans le dossier batch
     batch_files = os.listdir(args.batch_path)
     
-    # Déplacer tous les fichiers Python existants du dossier batch vers scripts
-    python_files_moved = 0
-    for filename in batch_files:
-        if filename.endswith('.py'):
-            src_path = os.path.join(args.batch_path, filename)
-            dst_path = os.path.join(scripts_dir, filename)
-            
-            # Ne pas déplacer le dossier scripts lui-même s'il est un fichier .py (cas peu probable)
-            if filename != "scripts":
-                shutil.move(src_path, dst_path)
-                python_files_moved += 1
-                print(f"Déplacé: {filename} -> scripts/{filename}")
-    
-    print(f"{python_files_moved} fichiers Python existants ont été déplacés vers le dossier 'scripts'")
-   
-    # Extraction des identifiants des samples à partir des noms de fichiers restants ou déplacés
+    # Extraction des identifiants des samples à partir des noms de fichiers
     sample_ids = set()
     for filename in batch_files:
         # Extraction de la partie après le premier underscore
@@ -69,49 +49,68 @@ def main():
     # Traitement de chaque identifiant de sample
     total_copied = 0
     for sample_id in sample_ids:
-        if args.codenet:
-            # Logique originale pour CodeNet
-            sample_path = os.path.join(dataset_path, sample_id)
+        sample_found = False
+        
+        # Essayer de trouver dans CodeNet
+        if os.path.isdir(codenet_path):
+            sample_path = os.path.join(codenet_path, sample_id)
             
-            # Vérification de l'existence du sous-dossier
-            if not os.path.isdir(sample_path):
-                print(f"Avertissement: Le sous-dossier '{sample_id}' n'a pas été trouvé dans le dataset")
-                continue
-        else:  # args.thestack
-            # Nouvelle logique pour The Stack: chercher le premier sous-dossier qui contient l'identifiant
+            if os.path.isdir(sample_path):
+                sample_found = True
+                print(f"Traitement du sample CodeNet: {sample_id}")
+                
+                # Récupération de tous les fichiers Python dans le sous-dossier
+                py_files = [f for f in os.listdir(sample_path) if f.endswith('.py')]
+                
+                if not py_files:
+                    print(f"Avertissement: Aucun fichier Python trouvé dans le sous-dossier CodeNet '{sample_id}'")
+                else:
+                    # Copie et renommage de chaque fichier Python
+                    for py_file in py_files:
+                        src_path = os.path.join(sample_path, py_file)
+                        new_filename = f"human_{sample_id}_{py_file}"
+                        dst_path = os.path.join(args.batch_path, new_filename)
+                        
+                        shutil.copy2(src_path, dst_path)
+                        total_copied += 1
+                        print(f"Copié (CodeNet): {py_file} -> {new_filename}")
+        
+        # Essayer de trouver dans The Stack si pas déjà trouvé dans CodeNet
+        if not sample_found and os.path.isdir(thestack_path):
+            # Chercher le premier sous-dossier qui contient l'identifiant
             found = False
-            for subdir in os.listdir(dataset_path):
+            for subdir in os.listdir(thestack_path):
                 if sample_id in subdir:
-                    sample_path = os.path.join(dataset_path, subdir)
+                    sample_path = os.path.join(thestack_path, subdir)
                     found = True
-                    print(f"Trouvé: sous-dossier '{subdir}' pour l'identifiant '{sample_id}'")
+                    print(f"Trouvé: sous-dossier '{subdir}' pour l'identifiant '{sample_id}' dans The Stack")
+                    
+                    # Récupération de tous les fichiers Python dans le sous-dossier
+                    py_files = [f for f in os.listdir(sample_path) if f.endswith('.py')]
+                    
+                    if not py_files:
+                        print(f"Avertissement: Aucun fichier Python trouvé dans le sous-dossier The Stack '{subdir}'")
+                    else:
+                        # Copie et renommage de chaque fichier Python
+                        for py_file in py_files:
+                            src_path = os.path.join(sample_path, py_file)
+                            new_filename = f"human_{sample_id}_{py_file}"
+                            dst_path = os.path.join(args.batch_path, new_filename)
+                            
+                            shutil.copy2(src_path, dst_path)
+                            total_copied += 1
+                            print(f"Copié (The Stack): {py_file} -> {new_filename}")
+                    
                     break
             
             if not found:
-                print(f"Avertissement: Aucun sous-dossier contenant '{sample_id}' n'a été trouvé dans le dataset")
-                continue
-       
-        print(f"Traitement du sample: {sample_id}")
-       
-        # Récupération de tous les fichiers Python dans le sous-dossier
-        py_files = [f for f in os.listdir(sample_path) if f.endswith('.py')]
-       
-        if not py_files:
-            print(f"Avertissement: Aucun fichier Python trouvé dans le sous-dossier '{sample_id}'")
-            continue
-       
-        # Copie et renommage de chaque fichier Python
-        for py_file in py_files:
-            src_path = os.path.join(sample_path, py_file)
-            new_filename = f"human_{sample_id}_{py_file}"
-            # Utilisation du sous-dossier scripts comme destination
-            dst_path = os.path.join(scripts_dir, new_filename)
-           
-            shutil.copy2(src_path, dst_path)
-            total_copied += 1
-            print(f"Copié: {py_file} -> scripts/{new_filename}")
+                print(f"Avertissement: L'identifiant '{sample_id}' n'a pas été trouvé dans The Stack")
+        
+        # Si l'identifiant n'a été trouvé dans aucun dataset
+        if not sample_found and (not os.path.isdir(thestack_path) or not found):
+            print(f"Avertissement: L'identifiant '{sample_id}' n'a été trouvé dans aucun dataset")
    
-    print(f"Terminé! {total_copied} nouveaux fichiers ont été copiés dans le dossier 'scripts'.")
+    print(f"Terminé! {total_copied} nouveaux fichiers ont été copiés dans le dossier batch.")
 
 if __name__ == '__main__':
     main()

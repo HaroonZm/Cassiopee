@@ -221,6 +221,9 @@ def sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, dimensions_origi
     
     np.savez(os.path.join(dossier_sortie, f'{nom_base}_metadonnees.npz'), **metadonnees)
     
+    # Déterminer si c'est un code généré par IA ou un code humain
+    is_ai_generated = any(marker in nom_base.lower() for marker in ["var", "gen", "ia", "ai"])
+    
     # Sauvegarde de chaque tuile
     for i in range(nb_tuiles_lignes):
         for j in range(nb_tuiles_colonnes):
@@ -230,6 +233,7 @@ def sauvegarder_tuiles_direct(tuiles, dossier_sortie, nom_base, dimensions_origi
     
     print(f"Les tuiles ont été sauvegardées dans {dossier_sortie}")
     print(f"Nombre total de tuiles: {nb_tuiles_lignes * nb_tuiles_colonnes}")
+    print(f"Type de code: {'IA' if is_ai_generated else 'Humain'}")
 
 def tuiler_fichiers_dossier(dossier_entree, dossier_sortie, taille_tuile_lignes, taille_tuile_colonnes, padding, valeur_padding):
     """
@@ -252,7 +256,7 @@ def tuiler_fichiers_dossier(dossier_entree, dossier_sortie, taille_tuile_lignes,
     # Liste pour stocker tous les fichiers trouvés
     fichiers = []
     
-    # Recherche des fichiers avec les extensions supportées
+    # Rechercher tous les fichiers compatibles
     for ext in extensions:
         pattern = os.path.join(dossier_entree, ext)
         fichiers.extend(glob.glob(pattern))

@@ -1,0 +1,5 @@
+s = input()
+s = s.replace('apple', '__tmp__')
+s = s.replace('peach', 'apple')
+s = s.replace('__tmp__', 'peach')
+print(s)

@@ -14,8 +14,9 @@ import datetime  # Pour générer des noms de fichiers uniques
 
 # Dataset pour les tuiles pré-découpées avec identification simplifiée des matrices sources
 class PreTiledCodeMatrixDataset(Dataset):
-    def __init__(self, tile_paths, group_by_matrix=True):
+    def __init__(self, tile_paths, group_by_matrix=True, default_label=None):
         self.tile_paths = tile_paths
+        self.default_label = default_label
         
         # Extraire les métadonnées des noms de fichiers
         self.tile_info = []
@@ -35,13 +36,40 @@ class PreTiledCodeMatrixDataset(Dataset):
             matrix_id = parts[0].rstrip("_")  # Enlever le dernier underscore
             
             # Déterminer l'étiquette à partir du nom de la matrice
-            if "gen" in matrix_id.lower() or "var" in matrix_id.lower() or "ia" in matrix_id.lower():
+            if self.default_label is not None:
+                # Utiliser l'étiquette par défaut si spécifiée
+                label = float(self.default_label)
+            # Identifier les codes générés par IA - Chercher aussi "var" et "gen" dans le nom du fichier complet
+            elif ("gen" in matrix_id.lower() or "var" in matrix_id.lower() or 
+                  "ia" in matrix_id.lower() or "ai" in matrix_id.lower() or 
+                  "gen" in filename.lower() or "var" in filename.lower()):
                 label = 1.0  # Code généré par IA
-            elif "human" in matrix_id.lower():
+            # Identifier les codes humains
+            elif "human" in matrix_id.lower() or "original" in matrix_id.lower():
                 label = 0.0  # Code écrit par humain
+            # Reconnaître les formats spécifiques mat_* 
+            elif matrix_id.startswith("mat_"):
+                # Analyser le nom après le préfixe mat_
+                base_name = matrix_id[4:]  # Enlever "mat_"
+                
+                # Déterminer le type de code basé sur le nom du fichier original
+                if ("gen" in base_name.lower() or "var" in base_name.lower() or 
+                    "ia" in base_name.lower() or "ai" in base_name.lower() or
+                    "gen" in filename.lower() or "var" in filename.lower()):
+                    label = 1.0  # Code généré par IA
+                elif ("human" in base_name.lower() or "original" in base_name.lower() or 
+                      "codenet" in base_name.lower() and not "ai" in base_name.lower()):
+                    label = 0.0  # Code écrit par humain
+                else:
+                    # Par défaut, considérer comme du code humain
+                    label = 0.0
+            # Reconnaissance des formats spécifiques à CodeNet
+            elif "_s" in matrix_id.lower() and "batch" in matrix_id.lower():
+                # Pour les matrices de CodeNet (s = solution), on suppose que c'est un code humain
+                label = 0.0  # Code humain (CodeNet)
             else:
-                print(f"Type de code non reconnu pour {filename}, ignoré")
-                continue
+                # Par défaut, considérer tous les autres fichiers comme du code humain
+                label = 0.0
             
             # Déterminer la position de la tuile (utile pour la visualisation)
             position_part = parts[1]  # Devrait être quelque chose comme "0_0.npy"
@@ -393,61 +421,88 @@ def main():
                        help="Taux d'apprentissage")
     parser.add_argument('--model_save_dir', type=str, default="models",
                        help="Dossier où sauvegarder les modèles")
+    parser.add_argument('--default_label', type=float, default=None,
+                       help="Étiquette par défaut à utiliser pour toutes les tuiles (0=humain, 1=IA)")
     
     args = parser.parse_args()
     
     # Paramètres
-    batch_directory = args.batch_directory
+    batch_dir = args.batch_directory
     batch_size = args.batch_size
     num_epochs = args.num_epochs
     learning_rate = args.learning_rate
     model_save_dir = args.model_save_dir
+    default_label = args.default_label
     
-    # Extraire le nom du batch (pour les noms de fichiers)
-    batch_name = os.path.basename(batch_directory)
-    
-    # Créer le dossier pour sauvegarder les modèles s'il n'existe pas
-    os.makedirs(model_save_dir, exist_ok=True)
-    
-    # Chemin vers le dossier des tuiles
-    tiles_folder = os.path.join(batch_directory, "tiles")
-    
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
+    # Détection du dispositif
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Utilisation de: {device}")
-    print(f"Dossier batch: {batch_directory}")
-    print(f"Dossier des tuiles: {tiles_folder}")
-    print(f"Sauvegarde des modèles dans: {model_save_dir}")
+    
+    # Trouver toutes les tuiles dans le dossier de batch
+    print(f"Dossier batch: {batch_dir}")
+    
+    # Chercher d'abord dans le dossier de tuiles s'il existe
+    tiles_dir = os.path.join(batch_dir, "tiles")
+    if not os.path.exists(tiles_dir):
+        # Sinon, utiliser directement le dossier batch
+        tiles_dir = batch_dir
+    
+    print(f"Dossier des tuiles: {tiles_dir}")
     
     # Trouver toutes les tuiles
-    tile_paths = glob.glob(os.path.join(tiles_folder, "*.npy"))
-    
-    if not tile_paths:
-        print(f"Aucune tuile trouvée dans {tiles_folder}")
-        return
-        
+    tile_paths = glob.glob(os.path.join(tiles_dir, "*tuile_*.npy"))
     print(f"Trouvé {len(tile_paths)} tuiles")
     
-    # Créer le dataset avec toutes les tuiles
-    dataset = PreTiledCodeMatrixDataset(tile_paths)
+    if len(tile_paths) == 0:
+        print("Aucune tuile trouvée. Vérifiez le dossier et le format des noms de fichiers.")
+        return
     
-    # Obtenir les indices uniques des matrices
-    unique_matrix_indices = list(dataset.matrix_to_tiles.keys())
+    # Créer le dataset avec les tuiles pré-découpées
+    dataset = PreTiledCodeMatrixDataset(tile_paths, group_by_matrix=True, default_label=default_label)
     
-    # Diviser les matrices en ensembles d'entraînement et de validation
-    # C'est crucial que cette division se fasse au niveau des matrices, pas des tuiles
+    # S'assurer qu'il y a des tuiles valides
+    if len(dataset) == 0:
+        print("Aucune tuile valide trouvée. Vérifiez les noms de fichiers ou utilisez --default_label pour spécifier le type de code.")
+        return
+    
+    print(f"Nombre total de tuiles valides après traitement: {len(dataset)}")
+    print(f"Nombre de matrices uniques: {len(dataset.unique_matrices)}")
+    
+    # Division en ensembles d'entraînement et de validation (au niveau des matrices)
+    unique_matrix_indices = list(range(len(dataset.unique_matrices)))
     train_matrices, val_matrices = train_test_split(
         unique_matrix_indices, test_size=0.2, random_state=42
     )
     
+    print(f"Matrices d'entraînement: {len(train_matrices)}")
+    print(f"Matrices de validation: {len(val_matrices)}")
+    
     # Obtenir les indices des tuiles pour chaque ensemble
     train_tile_indices = []
     for matrix_key in train_matrices:
-        train_tile_indices.extend(dataset.matrix_to_tiles[matrix_key])
+        train_tile_indices.extend(dataset.matrix_to_tiles[dataset.unique_matrices[matrix_key]])
     
     val_tile_indices = []
     for matrix_key in val_matrices:
-        val_tile_indices.extend(dataset.matrix_to_tiles[matrix_key])
+        val_tile_indices.extend(dataset.matrix_to_tiles[dataset.unique_matrices[matrix_key]])
+    
+    print(f"Indices des tuiles d'entraînement: {len(train_tile_indices)}")
+    print(f"Indices des tuiles de validation: {len(val_tile_indices)}")
+    
+    # Vérifier qu'il y a des échantillons dans les ensembles d'entraînement et de validation
+    if len(train_tile_indices) == 0:
+        print("ERREUR: Aucune tuile dans l'ensemble d'entraînement. Vérifiez le mapping des matrices aux tuiles.")
+        # Afficher quelques exemples pour le débogage
+        for i, matrix_id in enumerate(dataset.unique_matrices):
+            if i < 5:  # Limiter à 5 exemples
+                print(f"Matrice {i}: {matrix_id} -> {len(dataset.matrix_to_tiles[matrix_id])} tuiles")
+        return
+    
+    if len(val_tile_indices) == 0:
+        print("ERREUR: Aucune tuile dans l'ensemble de validation. Utilisation de 10% des tuiles d'entraînement comme validation.")
+        # Solution de secours: diviser les tuiles d'entraînement
+        train_size = int(0.9 * len(train_tile_indices))
+        train_tile_indices, val_tile_indices = train_tile_indices[:train_size], train_tile_indices[train_size:]
     
     # Créer des sous-ensembles pour l'entraînement et la validation
     from torch.utils.data import Subset
@@ -456,6 +511,11 @@ def main():
     
     print(f"Tuiles d'entraînement: {len(train_dataset)}")
     print(f"Tuiles de validation: {len(val_dataset)}")
+    
+    # Vérification finale avant de créer les dataloaders
+    if len(train_dataset) == 0 or len(val_dataset) == 0:
+        print("ERREUR CRITIQUE: Dataset vide après subdivision. Impossible de continuer l'entraînement.")
+        return
     
     # Création des dataloaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -470,12 +530,12 @@ def main():
     print(f"Début de l'entraînement...")
     model, best_val_acc, best_epoch, best_model_filename = train_model_with_tiles(
         model, train_loader, val_loader, criterion, optimizer, 
-        num_epochs, device, model_save_dir, batch_name
+        num_epochs, device, model_save_dir, batch_dir
     )
     
     # Sauvegarder le modèle final
     final_model_filename = generate_model_filename(
-        batch_name, "final", num_epochs, batch_size
+        batch_dir, "final", num_epochs, batch_size
     )
     final_model_path = os.path.join(model_save_dir, final_model_filename)
     torch.save(model.state_dict(), final_model_path)
@@ -484,9 +544,9 @@ def main():
     # Évaluer le modèle final
     final_val_acc, _ = evaluate_model(model, val_loader, device)
     
-  # Sauvegarder les métadonnées d'entraînement
+    # Sauvegarder les métadonnées d'entraînement
     metadata = {
-        'batch_directory': batch_directory,
+        'batch_directory': batch_dir,
         'num_epochs': num_epochs,
         'batch_size': batch_size,
         'learning_rate': learning_rate,
@@ -504,7 +564,11 @@ def main():
     }
     
     # Générer un nom pour le fichier de métadonnées
-    metadata_filename = f"training_metadata_{batch_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    # Extraire uniquement le nom du dossier batch, pas le chemin complet
+    batch_name = os.path.basename(batch_dir)
+    # Sanitiser le nom pour éviter les caractères invalides
+    batch_name_safe = ''.join(c if c.isalnum() else '_' for c in batch_name)
+    metadata_filename = f"training_metadata_{batch_name_safe}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     metadata_path = os.path.join(model_save_dir, metadata_filename)
     
     with open(metadata_path, 'w') as f:
@@ -533,8 +597,11 @@ class UNetForCodeDetection(nn.Module):
         self.upconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
         self.dec1 = self.conv_block(128, 64)
         
-        # Classification head
-        self.final_conv = nn.Conv2d(64, 32, kernel_size=1)
+        # Classification heads pour chaque niveau d'encodeur
+        self.final_conv = nn.Conv2d(64, 32, kernel_size=1)  # Pour e1 et d1
+        self.final_conv_e2 = nn.Conv2d(128, 32, kernel_size=1)  # Pour e2
+        self.final_conv_e3 = nn.Conv2d(256, 32, kernel_size=1)  # Pour e3
+        
         self.classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
@@ -556,43 +623,62 @@ class UNetForCodeDetection(nn.Module):
         )
     
     def forward(self, x):
+        # Récupérer les dimensions spatiales d'entrée
+        _, _, h, w = x.shape
+        
         # Encoder
         e1 = self.enc1(x)
-        p1 = self.pool(e1)
+        # Appliquer le pooling seulement si les dimensions sont suffisantes
+        if h > 1 and w > 1:
+            p1 = self.pool(e1)
+            
+            e2 = self.enc2(p1)
+            # Vérifier à nouveau les dimensions
+            _, _, h2, w2 = e2.shape
+            if h2 > 1 and w2 > 1:
+                p2 = self.pool(e2)
+                
+                e3 = self.enc3(p2)
+                # Vérifier à nouveau les dimensions
+                _, _, h3, w3 = e3.shape
+                if h3 > 1 and w3 > 1:
+                    p3 = self.pool(e3)
+                    
+                    # Bottleneck
+                    e4 = self.enc4(p3)
+                    
+                    # Decoder avec skip connections complets
+                    d3 = self.upconv3(e4)
+                    if d3.size() != e3.size():
+                        d3 = F.interpolate(d3, size=e3.size()[2:], mode='bilinear', align_corners=True)
+                    d3 = torch.cat([d3, e3], dim=1)
+                    d3 = self.dec3(d3)
+                    
+                    d2 = self.upconv2(d3)
+                    if d2.size() != e2.size():
+                        d2 = F.interpolate(d2, size=e2.size()[2:], mode='bilinear', align_corners=True)
+                    d2 = torch.cat([d2, e2], dim=1)
+                    d2 = self.dec2(d2)
+                    
+                    d1 = self.upconv1(d2)
+                    if d1.size() != e1.size():
+                        d1 = F.interpolate(d1, size=e1.size()[2:], mode='bilinear', align_corners=True)
+                    d1 = torch.cat([d1, e1], dim=1)
+                    d1 = self.dec1(d1)
+                    
+                    # Classification avec le chemin complet
+                    x = self.final_conv(d1)
+                else:
+                    # Si trop petit après le 2e pooling, utiliser directement e3
+                    x = self.final_conv_e3(e3)
+            else:
+                # Si trop petit après le 1er pooling, utiliser directement e2
+                x = self.final_conv_e2(e2)
+        else:
+            # Si déjà trop petit pour le 1er pooling, utiliser directement e1
+            x = self.final_conv(e1)
         
-        e2 = self.enc2(p1)
-        p2 = self.pool(e2)
-        
-        e3 = self.enc3(p2)
-        p3 = self.pool(e3)
-        
-        # Bottleneck
-        e4 = self.enc4(p3)
-        
-        # Decoder avec gestion des dimensions
-        d3 = self.upconv3(e4)
-        # Vérifier et ajuster les dimensions si nécessaire
-        if d3.size() != e3.size():
-            d3 = F.interpolate(d3, size=e3.size()[2:], mode='bilinear', align_corners=True)
-        d3 = torch.cat([d3, e3], dim=1)
-        d3 = self.dec3(d3)
-        
-        d2 = self.upconv2(d3)
-        # Vérifier et ajuster les dimensions si nécessaire
-        if d2.size() != e2.size():
-            d2 = F.interpolate(d2, size=e2.size()[2:], mode='bilinear', align_corners=True)
-        d2 = torch.cat([d2, e2], dim=1)
-        d2 = self.dec2(d2)
-        
-        d1 = self.upconv1(d2)
-        # Vérifier et ajuster les dimensions si nécessaire
-        if d1.size() != e1.size():
-            d1 = F.interpolate(d1, size=e1.size()[2:], mode='bilinear', align_corners=True)
-        d1 = torch.cat([d1, e1], dim=1)
-        d1 = self.dec1(d1)
-        
-        # Classification
-        x = self.final_conv(d1)
+        # Final classification (global pooling + MLP)
         output = self.classifier(x)
         return output
 

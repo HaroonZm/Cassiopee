@@ -1,0 +1,31 @@
+def work(item):
+    if recipe.has_key(item):
+        price = 0
+        for i in recipe[item]: price += work(i)
+        p_list[item] = min(price, p_list[item])
+        del recipe[item]
+    return p_list[item]
+
+while True:
+    p_list = {}
+    recipe = {}
+
+    n = input()
+    if n == 0: break
+
+    for i in range(n):
+        item, price = raw_input().split()
+        p_list[item] = int(price)
+
+    m = input()
+    for i in range(m):
+        data = raw_input().split()
+        recipe[data[0]] = []
+        for j in range(int(data[1])):
+            recipe[data[0]].append(data[j + 2])
+
+    if m == 0:
+        print p_list[raw_input()]
+    else:
+        price = work(raw_input())
+        print price

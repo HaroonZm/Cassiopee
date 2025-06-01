@@ -1,0 +1,30 @@
+def solve():
+    c = list(map(int, input().split()))
+    c = [min(10, e) for e in c]
+    if c == [0]:
+        return 1
+    if len(c) > 21:
+        print(0)
+        return 0
+    ans = 0
+    for bit in range(1 << len(c)):
+        s = 0
+        for i in range(len(c)):
+            if c[i] != 1:
+                s += c[i]
+            else:
+                if bit >> i & 1:
+                    s += 11
+                else:
+                    s += 1
+        if s <= 21:
+            ans = max(ans, s)
+    print(ans)
+    return 0
+
+def main():
+    while solve() == 0:
+        pass
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+
+import array
+from fractions import Fraction
+import functools
+import itertools
+import math
+import os
+import sys
+
+def main():
+    N, M = read_ints()
+    A = read_ints()
+    B = [(l, r) for l, r in [read_ints() for _ in range(M)]]
+    print(solve(N, M, A, B))
+
+def solve(N, M, A, B):
+    B.sort()
+    bi = 0
+    dp = [0] * (N + 1)
+    range_counts = []
+    range_starts = []
+    ri = 0
+    range_map = {}
+    end_map = {}
+    for i in range(1, N + 1):
+        while bi < len(B) and B[bi][0] == i:
+            l, r = B[bi]
+            if l not in range_map:
+                range_map[l] = len(range_counts)
+                range_counts.append(0)
+                range_starts.append(l)
+            range_counts[range_map[l]] += 1
+            if r not in end_map:
+                end_map[r] = []
+            end_map[r].append(range_map[l])
+            bi += 1
+
+        li = i - 1
+        if ri < len(range_counts):
+            li = range_starts[ri] - 1
+        dp[i] = max(dp[i - 1], dp[li] + A[i - 1])
+
+        if i in end_map:
+            for rangei in end_map[i]:
+                range_counts[rangei] -= 1
+        while ri < len(range_counts) and range_counts[ri] == 0:
+            ri += 1
+
+    return dp[-1]
+
+###############################################################################
+# AUXILIARY FUNCTIONS
+
+DEBUG = 'DEBUG' in os.environ
+
+def inp():
+    return sys.stdin.readline().rstrip()
+
+def read_int():
+    return int(inp())
+
+def read_ints():
+    return [int(e) for e in inp().split()]
+
+def dprint(*value, sep=' ', end='\n'):
+    if DEBUG:
+        print(*value, sep=sep, end=end)
+
+if __name__ == '__main__':
+    main()

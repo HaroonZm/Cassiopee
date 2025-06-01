@@ -1,0 +1,15 @@
+while True:
+    try:
+        n = input()
+        n = int(n)
+        x = 0
+        if n < 50:
+            for a in range(10):
+                for b in range(10):
+                    for c in range(10):
+                        for d in range(10):
+                            if a + b + c + d == n:
+                                x += 1
+        print(x)
+    except EOFError:
+        break

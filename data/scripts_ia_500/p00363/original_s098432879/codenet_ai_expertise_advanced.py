@@ -1,0 +1,2 @@
+w, h, a = *map(int, input().split()[:2]), input().split()[2]
+print(*(f"+{'-'*(w-2)}+" if i in {0, h-1} else f"|{'.'*((w-3)//2)}{a}{'.'*((w-2)//2)}|" if i==h//2 else f"|{'.'*(w-2)}|" for i in range(h)), sep='\n')

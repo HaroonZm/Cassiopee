@@ -1,0 +1,91 @@
+import math
+
+while True:
+    m, n = map(int, input().split())
+    
+    if m==0 and n==0:
+        break
+    
+    num = pow(m, n)
+    
+    A = []
+    a = num//pow(10, 68)
+    A.append(a)
+    b = num%pow(10, 68)
+    
+    a = b//pow(10, 64)
+    A.append(a)
+    b = b%pow(10, 64)
+    
+    a = b//pow(10, 60)
+    A.append(a)
+    b = b%pow(10, 60)
+    
+    a = b//pow(10, 56)
+    A.append(a)
+    b = b%pow(10, 56)
+    
+    a = b//pow(10, 52)
+    A.append(a)
+    b = b%pow(10, 52)
+    
+    a = b//pow(10, 48)
+    A.append(a)
+    b = b%pow(10, 48)
+    
+    a = b//pow(10, 44)
+    A.append(a)
+    b = b%pow(10, 44)
+    
+    a = b//pow(10, 40)
+    A.append(a)
+    b = b%pow(10, 40)
+    
+    a = b//pow(10, 36)
+    A.append(a)
+    b = b%pow(10, 36)
+    
+    a = b//pow(10, 32)
+    A.append(a)
+    b = b%pow(10, 32)
+    
+    a = b//pow(10, 28)
+    A.append(a)
+    b = b%pow(10, 28)
+    
+    a = b//pow(10, 24)
+    A.append(a)
+    b = b%pow(10, 24)
+    
+    a = b//pow(10, 20)
+    A.append(a)
+    b = b%pow(10, 20)
+    
+    a = b//pow(10, 16)
+    A.append(a)
+    b = b%pow(10, 16)
+    
+    a = b//pow(10, 12)
+    A.append(a)
+    b = b%pow(10, 12)
+    
+    a = b//pow(10, 8)
+    A.append(a)
+    b = b%pow(10, 8)
+    
+    a = b//pow(10, 4)
+    A.append(a)
+    b = b%pow(10, 4)
+    A.append(b)
+    
+    LIST = ['Mts','Fks','Nyt','Asg','Ggs','Gok','Sai','Sei',
+            'Kan','Ko','Jou','Jo','Gai','Kei','Cho','Oku','Man','']
+    
+    for i in range(len(A)):
+        if A[i]==0:
+            print(end='')
+        else:
+            print(A[i],end='')
+            print(LIST[i],end='')
+    
+    print('')

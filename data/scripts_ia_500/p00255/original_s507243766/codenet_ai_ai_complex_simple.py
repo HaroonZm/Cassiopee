@@ -1,0 +1,2 @@
+def f():import sys as s;s=s.stdin.readline;exec('n=int(s())\nif n==0:exit()\np=list(map(int,s().split()))\nsu=sum(p)\nj=sorted(map(int,s().split()),reverse=1)\na=su*n\nfor i,v in enumerate(j[:-1]):su+=v;a=max(a,su*(n-1-i))\nprint(a)\n'*99)  
+f()

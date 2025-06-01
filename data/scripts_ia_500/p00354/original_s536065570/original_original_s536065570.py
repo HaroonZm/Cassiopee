@@ -1,0 +1,1 @@
+print(["thu","fri","sat","sun","mon","tue","wed"][int(input())%7])

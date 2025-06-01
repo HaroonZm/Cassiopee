@@ -1,8 +1,9 @@
-
 import sys
 import os
 import subprocess
 import tempfile
+import glob
+import json
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget,
@@ -10,9 +11,9 @@ from PyQt5.QtWidgets import (
     QFileDialog, QProgressBar, QSpinBox, QCheckBox,
     QComboBox, QListWidget, QMessageBox, QLineEdit,
     QGroupBox, QRadioButton, QTextEdit, QScrollArea,
-    QListWidgetItem
+    QListWidgetItem, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMimeData, QTimer
 from PyQt5.QtGui import QDragEnterEvent, QDropEvent
 
 import matplotlib.pyplot as plt
@@ -29,62 +30,49 @@ except ImportError:
     print("Warning: Modules de visualisation non trouvés. Certaines fonctionnalités seront désactivées.")
 
 
-
-class MatrixGenerationTab(QWidget):
-    """Onglet pour la génération des matrices"""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.initUI()
-        
-    def initUI(self):
-        layout = QVBoxLayout()
-        
-        # Mode de sélection (fichier unique ou dossier batch)
-        mode_group = QGroupBox("Mode de génération")
-        mode_layout = QVBoxLayout()
-        
-        self.file_mode_radio = QRadioButton("Analyser un fichier unique")
-        self.dir_mode_radio = QRadioButton("Analyser un dossier batch complet")
-        self.file_mode_radio.setChecked(True)
-        self.file_mode_radio.toggled.connect(self.toggle_mode)
-        self.dir_mode_radio.toggled.connect(self.toggle_mode)
-        
-        mode_layout.addWidget(self.file_mode_radio)
-        mode_layout.addWidget(self.dir_mode_radio)
-        mode_group.setLayout(mode_layout)
-        
 class ProcessThread(QThread):
-    """Thread pour exécuter les scripts sans bloquer l'interface"""
+    """Thread pour exécuter des commandes système en arrière-plan"""
     update_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(bool, str)
     
     def __init__(self, command):
         super().__init__()
         self.command = command
-        
+    
     def run(self):
         try:
-            process = subprocess.Popen(self.command, 
-                                      stdout=subprocess.PIPE, 
-                                      stderr=subprocess.STDOUT,
-                                      shell=True,
-                                      text=True,
-                                      bufsize=1)
+            # Exécuter la commande avec capture de sortie en temps réel
+            process = subprocess.Popen(
+                self.command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1
+            )
             
-            for line in iter(process.stdout.readline, ''):
-                self.update_signal.emit(line.strip())
+            # Lire la sortie ligne par ligne
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    self.update_signal.emit(output.strip())
             
-            exit_code = process.wait()
-            success = exit_code == 0
-            self.finished_signal.emit(success, "Terminé avec succès" if success else f"Échec (code {exit_code})")
+            # Attendre la fin du processus
+            return_code = process.poll()
+            
+            if return_code == 0:
+                self.finished_signal.emit(True, "Processus terminé avec succès")
+            else:
+                self.finished_signal.emit(False, f"Processus terminé avec erreur (code: {return_code})")
+                
         except Exception as e:
-            self.update_signal.emit(f"Erreur: {str(e)}")
-            self.finished_signal.emit(False, str(e))
+            self.finished_signal.emit(False, f"Erreur lors de l'exécution: {str(e)}")
 
 
-class ScriptsGeneratorTab(QWidget):
-    """Onglet pour la génération de scripts Python"""
+class ScriptGenerationTab(QWidget):
+    """Onglet pour la génération de code IA"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -93,131 +81,160 @@ class ScriptsGeneratorTab(QWidget):
     def initUI(self):
         layout = QVBoxLayout()
         
-        # Sélection du dataset
-        dataset_group = QGroupBox("Dataset d'entrée")
-        dataset_layout = QVBoxLayout()
-        
-        self.codenet_radio = QRadioButton("CodeNet")
-        self.thestack_radio = QRadioButton("The Stack")
-        self.codenet_radio.setChecked(True)
-        
-        dataset_layout.addWidget(self.codenet_radio)
-        dataset_layout.addWidget(self.thestack_radio)
-        
-        # Sélection du chemin d'entrée
+        # Sélection du dataset d'entrée
+        input_group = QGroupBox("Dataset d'entrée")
         input_layout = QHBoxLayout()
+        
         self.input_path = QLineEdit()
-        self.input_path.setPlaceholderText("Chemin vers le dataset d'entrée")
+        self.input_path.setPlaceholderText("Chemin vers le dataset (CodeNet ou The Stack)")
         input_button = QPushButton("Parcourir...")
         input_button.clicked.connect(self.browse_input)
+        
         input_layout.addWidget(self.input_path)
         input_layout.addWidget(input_button)
+        input_group.setLayout(input_layout)
         
-        # Sélection du chemin de sortie
+        # Dossier de sortie
+        output_group = QGroupBox("Dossier de sortie")
         output_layout = QHBoxLayout()
+        
         self.output_path = QLineEdit()
-        self.output_path.setPlaceholderText("Chemin de sortie pour les fichiers générés")
+        self.output_path.setPlaceholderText("Chemin de sortie pour les scripts générés (obligatoire)")
         output_button = QPushButton("Parcourir...")
         output_button.clicked.connect(self.browse_output)
+        
         output_layout.addWidget(self.output_path)
         output_layout.addWidget(output_button)
+        output_group.setLayout(output_layout)
         
-        dataset_layout.addLayout(input_layout)
-        dataset_group.setLayout(dataset_layout)
+        # Configuration de génération
+        config_group = QGroupBox("Configuration")
+        config_layout = QVBoxLayout()
         
-        # Configuration des paramètres
-        params_group = QGroupBox("Paramètres de génération")
-        params_layout = QVBoxLayout()
+        # Mode API
+        api_layout = QHBoxLayout()
+        self.batch_mode_checkbox = QCheckBox("Utiliser l'API Batch (50% moins cher)")
+        self.batch_mode_checkbox.setChecked(True)
+        api_layout.addWidget(self.batch_mode_checkbox)
         
-        folders_layout = QHBoxLayout()
-        folders_layout.addWidget(QLabel("Nombre de sous-dossiers:"))
-        self.folders_spinbox = QSpinBox()
-        self.folders_spinbox.setRange(1, 1000)
-        self.folders_spinbox.setValue(5)
-        folders_layout.addWidget(self.folders_spinbox)
+        # Modèle
+        model_layout = QHBoxLayout()
+        model_layout.addWidget(QLabel("Modèle:"))
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(["gpt-4.1-mini", "gpt-4o-mini", "gpt-4o", "gpt-4.1"])
+        model_layout.addWidget(self.model_combo)
         
+        # Variations et générations
         variations_layout = QHBoxLayout()
-        variations_layout.addWidget(QLabel("Variations par script:"))
+        variations_layout.addWidget(QLabel("Variations par fichier/problème:"))
         self.variations_spinbox = QSpinBox()
         self.variations_spinbox.setRange(1, 10)
         self.variations_spinbox.setValue(3)
         variations_layout.addWidget(self.variations_spinbox)
         
         generations_layout = QHBoxLayout()
-        generations_layout.addWidget(QLabel("Générations par problème:"))
+        generations_layout.addWidget(QLabel("Générations depuis zéro (CodeNet):"))
         self.generations_spinbox = QSpinBox()
-        self.generations_spinbox.setRange(1, 10)
+        self.generations_spinbox.setRange(0, 5)
         self.generations_spinbox.setValue(2)
         generations_layout.addWidget(self.generations_spinbox)
         
-        batch_layout = QHBoxLayout()
-        batch_layout.addWidget(QLabel("Taille des batches:"))
-        self.batch_spinbox = QSpinBox()
-        self.batch_spinbox.setRange(100, 50000)
-        self.batch_spinbox.setValue(1000)
-        self.batch_spinbox.setSingleStep(100)
-        batch_layout.addWidget(self.batch_spinbox)
+        # Taille des batches (seulement pour mode batch)
+        batch_size_layout = QHBoxLayout()
+        batch_size_layout.addWidget(QLabel("Taille des batches:"))
+        self.batch_size_spinbox = QSpinBox()
+        self.batch_size_spinbox.setRange(100, 50000)
+        self.batch_size_spinbox.setValue(1000)
+        batch_size_layout.addWidget(self.batch_size_spinbox)
         
-        interval_layout = QHBoxLayout()
-        interval_layout.addWidget(QLabel("Intervalle de vérification (s):"))
-        self.interval_spinbox = QSpinBox()
-        self.interval_spinbox.setRange(10, 300)
-        self.interval_spinbox.setValue(60)
-        interval_layout.addWidget(self.interval_spinbox)
+        # Limite de dossiers/problèmes
+        folders_layout = QHBoxLayout()
+        folders_layout.addWidget(QLabel("Limite de dossiers/problèmes:"))
+        self.folders_spinbox = QSpinBox()
+        self.folders_spinbox.setRange(0, 10000)
+        self.folders_spinbox.setValue(0)  # 0 = pas de limite
+        self.folders_spinbox.setSpecialValueText("Pas de limite")
+        folders_layout.addWidget(self.folders_spinbox)
         
-        # Options
-        self.test_checkbox = QCheckBox("Mode test (petit échantillon)")
-        self.no_batch_checkbox = QCheckBox("Désactiver l'API Batch (appels synchrones)")
-        self.wait_completion_checkbox = QCheckBox("Attendre la complétion des batchs")
+        # Contrôle du volume de génération
+        volume_group = QGroupBox("Contrôle du volume de génération")
+        volume_layout = QVBoxLayout()
         
-        # API Key
-        apikey_layout = QHBoxLayout()
-        apikey_layout.addWidget(QLabel("Clé API OpenAI:"))
-        self.apikey_input = QLineEdit()
-        self.apikey_input.setPlaceholderText("Laissez vide pour utiliser la variable d'environnement")
-        apikey_layout.addWidget(self.apikey_input)
+        # Nombre maximum de batches
+        max_batches_layout = QHBoxLayout()
+        max_batches_layout.addWidget(QLabel("Nombre max de batches:"))
+        self.max_batches_spinbox = QSpinBox()
+        self.max_batches_spinbox.setRange(0, 100)
+        self.max_batches_spinbox.setValue(0)  # 0 = pas de limite
+        self.max_batches_spinbox.setSpecialValueText("Pas de limite")
+        max_batches_layout.addWidget(self.max_batches_spinbox)
         
-        params_layout.addLayout(folders_layout)
-        params_layout.addLayout(variations_layout)
-        params_layout.addLayout(generations_layout)
-        params_layout.addLayout(batch_layout)
-        params_layout.addLayout(interval_layout)
-        params_layout.addWidget(self.test_checkbox)
-        params_layout.addWidget(self.no_batch_checkbox)
-        params_layout.addWidget(self.wait_completion_checkbox)
-        params_layout.addLayout(apikey_layout)
+        # Estimation du volume
+        estimate_button = QPushButton("Estimer le volume de génération")
+        estimate_button.clicked.connect(self.estimate_volume)
         
-        params_group.setLayout(params_layout)
+        self.volume_info = QLabel("Sélectionnez un dataset pour voir l'estimation")
+        self.volume_info.setStyleSheet("color: blue; font-style: italic;")
         
-        # Output console
-        console_group = QGroupBox("Sortie du programme")
+        volume_layout.addLayout(max_batches_layout)
+        volume_layout.addWidget(estimate_button)
+        volume_layout.addWidget(self.volume_info)
+        
+        # Options avancées
+        advanced_group = QGroupBox("Options avancées")
+        advanced_layout = QVBoxLayout()
+        
+        self.test_mode_checkbox = QCheckBox("Mode test (petit échantillon)")
+        self.validate_first_only_checkbox = QCheckBox("Valider seulement le premier batch (pour tester)")
+        self.wait_completion_checkbox = QCheckBox("Attendre la complétion (mode batch)")
+        
+        advanced_layout.addWidget(self.test_mode_checkbox)
+        advanced_layout.addWidget(self.validate_first_only_checkbox)
+        advanced_layout.addWidget(self.wait_completion_checkbox)
+        
+        config_layout.addLayout(api_layout)
+        config_layout.addLayout(model_layout)
+        config_layout.addLayout(variations_layout)
+        config_layout.addLayout(generations_layout)
+        config_layout.addLayout(batch_size_layout)
+        config_layout.addLayout(folders_layout)
+        config_layout.addWidget(volume_group)
+        config_layout.addWidget(advanced_group)
+        
+        # Fermer les groupes de layout
+        volume_group.setLayout(volume_layout)
+        advanced_group.setLayout(advanced_layout)
+        config_group.setLayout(config_layout)
+        
+        # Bouton de génération
+        self.generate_button = QPushButton("Générer les scripts IA")
+        self.generate_button.clicked.connect(self.generate_scripts)
+        
+        # Console de sortie
+        console_group = QGroupBox("Sortie du processus")
         console_layout = QVBoxLayout()
-        self.console_output = QTextEdit()
-        self.console_output.setReadOnly(True)
-        console_layout.addWidget(self.console_output)
+        self.console = QTextEdit()
+        self.console.setReadOnly(True)
+        console_layout.addWidget(self.console)
         console_group.setLayout(console_layout)
         
-        # Execute button
-        self.execute_button = QPushButton("Exécuter la génération de scripts")
-        self.execute_button.clicked.connect(self.execute_script)
-        
-        # Progress bar
+        # Barre de progression
         self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 0)  # Indeterminate
+        self.progress_bar.setRange(0, 0)
         self.progress_bar.hide()
         
-        # Construct main layout
-        layout.addWidget(dataset_group)
-        layout.addLayout(output_layout)
-        layout.addWidget(params_group)
+        # Construction du layout principal
+        layout.addWidget(input_group)
+        layout.addWidget(output_group)
+        layout.addWidget(config_group)
+        layout.addWidget(self.generate_button)
         layout.addWidget(console_group)
-        layout.addWidget(self.execute_button)
         layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
     
     def browse_input(self):
-        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier d'entrée")
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dataset d'entrée")
         if folder:
             self.input_path.setText(folder)
     
@@ -226,483 +243,124 @@ class ScriptsGeneratorTab(QWidget):
         if folder:
             self.output_path.setText(folder)
     
-    def execute_script(self):
-        # Valider les entrées
-        if not self.input_path.text() or not self.output_path.text():
-            QMessageBox.warning(self, "Erreur", "Les chemins d'entrée et de sortie sont requis.")
+    def estimate_volume(self):
+        """Estime le volume de génération basé sur les paramètres actuels"""
+        if not self.input_path.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez d'abord sélectionner un dataset d'entrée.")
+            return
+        
+        if not os.path.exists(self.input_path.text()):
+            QMessageBox.warning(self, "Erreur", "Le chemin du dataset n'existe pas.")
+            return
+        
+        try:
+            import pathlib
+            dataset_path = pathlib.Path(self.input_path.text())
+            
+            # Compter les sous-dossiers
+            subfolders = [f for f in dataset_path.iterdir() if f.is_dir()]
+            total_subfolders = len(subfolders)
+            
+            # Appliquer la limite de dossiers si spécifiée
+            folders_limit = self.folders_spinbox.value() if self.folders_spinbox.value() > 0 else total_subfolders
+            effective_folders = min(folders_limit, total_subfolders)
+            
+            # Estimer le nombre de requêtes
+            variations = self.variations_spinbox.value()
+            generations = self.generations_spinbox.value()
+            
+            # Estimation grossière (à adapter selon le type de dataset)
+            estimated_requests_per_folder = variations + generations
+            total_estimated_requests = effective_folders * estimated_requests_per_folder
+            
+            # Calculer le nombre de batches
+            batch_size = self.batch_size_spinbox.value()
+            estimated_batches = max(1, (total_estimated_requests + batch_size - 1) // batch_size)
+            
+            # Appliquer la limite de batches si spécifiée
+            max_batches = self.max_batches_spinbox.value()
+            if max_batches > 0:
+                effective_batches = min(max_batches, estimated_batches)
+                effective_requests = effective_batches * batch_size
+            else:
+                effective_batches = estimated_batches
+                effective_requests = total_estimated_requests
+            
+            # Estimation du coût (approximatif)
+            cost_per_request = 0.0001  # Estimation en dollars
+            estimated_cost = effective_requests * cost_per_request
+            
+            # Mise à jour du label d'information
+            info_text = f"""📊 Estimation du volume:
+• Dossiers trouvés: {total_subfolders} (limite: {folders_limit})
+• Dossiers effectifs: {effective_folders}
+• Requêtes estimées: {effective_requests:,}
+• Batches estimés: {effective_batches}
+• Coût approximatif: ${estimated_cost:.2f}
+• Mode test: {'Activé' if self.test_mode_checkbox.isChecked() else 'Désactivé'}"""
+            
+            self.volume_info.setText(info_text)
+            self.volume_info.setStyleSheet("color: green; font-family: monospace;")
+            
+        except Exception as e:
+            self.volume_info.setText(f"Erreur lors de l'estimation: {str(e)}")
+            self.volume_info.setStyleSheet("color: red;")
+    
+    def generate_scripts(self):
+        # Vérifier les entrées
+        if not self.input_path.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dataset d'entrée.")
+            return
+        
+        if not self.output_path.text():
+            QMessageBox.warning(self, "Erreur", "Un dossier de sortie est requis.")
             return
         
         # Construire la commande
         cmd = ['python', 'scripts_generation/ia_scripts_generator.py']
-        cmd.append('--input')
-        cmd.append(self.input_path.text())
-        cmd.append('--output')
-        cmd.append(self.output_path.text())
+        cmd.extend(['--input', self.input_path.text()])
+        cmd.extend(['--output', self.output_path.text()])  # Toujours inclure le dossier de sortie
+        
+        if self.batch_mode_checkbox.isChecked():
+            cmd.extend(['--batch-size', str(self.batch_size_spinbox.value())])
+            if self.wait_completion_checkbox.isChecked():
+                cmd.append('--wait-completion')
+        else:
+            cmd.append('--no-batch')
+        
+        cmd.extend(['--model', self.model_combo.currentText()])
+        cmd.extend(['--variations', str(self.variations_spinbox.value())])
+        cmd.extend(['--generations', str(self.generations_spinbox.value())])
         
         if self.folders_spinbox.value() > 0:
             cmd.extend(['--folders', str(self.folders_spinbox.value())])
         
-        cmd.extend(['--variations', str(self.variations_spinbox.value())])
-        cmd.extend(['--generations', str(self.generations_spinbox.value())])
-        cmd.extend(['--batch-size', str(self.batch_spinbox.value())])
-        cmd.extend(['--poll-interval', str(self.interval_spinbox.value())])
+        if self.max_batches_spinbox.value() > 0:
+            cmd.extend(['--max-batches', str(self.max_batches_spinbox.value())])
         
-        if self.test_checkbox.isChecked():
+        if self.test_mode_checkbox.isChecked():
             cmd.append('--test')
         
-        if self.no_batch_checkbox.isChecked():
-            cmd.append('--no-batch')
-        
-        if self.wait_completion_checkbox.isChecked():
-            cmd.append('--wait-completion')
-        
-        if self.apikey_input.text():
-            cmd.extend(['--api-key', self.apikey_input.text()])
+        if self.validate_first_only_checkbox.isChecked():
+            cmd.append('--validate-first-only')
         
         # Préparer l'interface
-        self.console_output.clear()
-        self.progress_bar.show()
-        self.execute_button.setEnabled(False)
-        
-        # Exécuter dans un thread
-        self.thread = ProcessThread(' '.join(cmd))
-        self.thread.update_signal.connect(self.update_console)
-        self.thread.finished_signal.connect(self.process_finished)
-        self.thread.start()
-    
-    def update_console(self, text):
-        self.console_output.append(text)
-        # Scroll to bottom
-        scrollbar = self.console_output.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-    
-    def process_finished(self, success, message):
-        self.progress_bar.hide()
-        self.execute_button.setEnabled(True)
-        status = "Succès" if success else "Échec"
-        QMessageBox.information(self, status, message)
-
-
-class BatchManagerTab(QWidget):
-    """Onglet pour la gestion des batches OpenAI"""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.initUI()
-        
-    def initUI(self):
-        layout = QVBoxLayout()
-        
-        # Configuration générale
-        config_group = QGroupBox("Configuration")
-        config_layout = QVBoxLayout()
-        
-        api_layout = QHBoxLayout()
-        api_layout.addWidget(QLabel("Clé API OpenAI:"))
-        self.api_key = QLineEdit()
-        self.api_key.setPlaceholderText("Laissez vide pour utiliser la variable d'environnement")
-        api_layout.addWidget(self.api_key)
-        
-        self.output_dir = QLineEdit()
-        self.output_dir.setPlaceholderText("../data/batches")
-        self.output_browse_button = QPushButton("...")
-        self.output_browse_button.clicked.connect(self.browse_output)
-
-        
-        dest_layout = QHBoxLayout()
-        dest_layout.addWidget(QLabel("Destination des résultats:"))
-        self.destination_path = QLineEdit()
-        self.destination_path.setPlaceholderText("Par defaut data/batches")
-        self.browse_dest_button = QPushButton("...")
-        self.browse_dest_button.clicked.connect(self.browse_destination)
-        dest_layout.addWidget(self.destination_path)
-        dest_layout.addWidget(self.browse_dest_button) 
-        config_layout.addLayout(api_layout)
-        config_layout.addLayout(dest_layout)
-        config_group.setLayout(config_layout)
-        
-        # Commande "list"
-        list_group = QGroupBox("Lister les batches")
-        list_layout = QHBoxLayout()
-        
-        self.refresh_button = QPushButton("Rafraîchir la liste")
-        self.refresh_button.clicked.connect(self.refresh_batches)
-        
-        list_layout.addWidget(self.refresh_button)
-        list_layout.addWidget(QLabel("Limite:"))
-        self.batch_limit = QSpinBox()
-        self.batch_limit.setRange(1, 1000)
-        self.batch_limit.setValue(100)  # défaut selon le guide
-        list_layout.addWidget(self.batch_limit)
-        
-        list_group.setLayout(list_layout)
-        
-        # Liste des batches
-        batch_group = QGroupBox("Batches disponibles")
-        batch_layout = QVBoxLayout()
-        self.batch_list = QListWidget()
-        self.batch_list.setSelectionMode(QListWidget.ExtendedSelection)
-        batch_layout.addWidget(self.batch_list)
-        batch_group.setLayout(batch_layout)
-        
-        # Commandes et actions
-        actions_group = QGroupBox("Actions sur les batches")
-        actions_layout = QVBoxLayout()
-        
-        # Commande "status"
-        status_layout = QHBoxLayout()
-        self.get_status_button = QPushButton("Vérifier l'état du batch")
-        self.get_status_button.clicked.connect(self.get_batch_status)
-        status_layout.addWidget(self.get_status_button)
-        
-        # Commande "fetch"
-        fetch_layout = QHBoxLayout()
-        self.fetch_button = QPushButton("Récupérer les résultats")
-        self.fetch_button.clicked.connect(self.fetch_batch)
-        
-        fetch_layout.addWidget(self.fetch_button)
-        
-        # Commande "fetch-range"
-        range_layout = QHBoxLayout()
-        self.fetch_range_button = QPushButton("Récupérer N batches récents")
-        self.fetch_range_button.clicked.connect(self.fetch_range)
-        range_layout.addWidget(self.fetch_range_button)
-        range_layout.addWidget(QLabel("Nombre de batches:"))
-        self.range_spinbox = QSpinBox()
-        self.range_spinbox.setRange(1, 100000)
-        self.range_spinbox.setValue(5)
-        range_layout.addWidget(self.range_spinbox)
-        
-        actions_layout.addLayout(status_layout)
-        actions_layout.addLayout(fetch_layout)
-        actions_layout.addLayout(range_layout)
-        actions_group.setLayout(actions_layout)
-        
-        # Zone d'affichage des détails
-        details_group = QGroupBox("Détails du batch")
-        details_layout = QVBoxLayout()
-        self.details_text = QTextEdit()
-        self.details_text.setReadOnly(True)
-        details_layout.addWidget(self.details_text)
-        details_group.setLayout(details_layout)
-        
-        # Console de sortie
-        console_group = QGroupBox("Sortie du programme")
-        console_layout = QVBoxLayout()
-        self.console = QTextEdit()
-        self.console.setReadOnly(True)
-        console_layout.addWidget(self.console)
-        console_group.setLayout(console_layout)
-        
-        # Barre de progression
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 0)
-        self.progress_bar.hide()
-        
-        # Construction du layout principal
-        layout.addWidget(config_group)
-        layout.addWidget(list_group)
-        layout.addWidget(batch_group)
-        layout.addWidget(actions_group)
-        layout.addWidget(details_group)
-        layout.addWidget(console_group)
-        layout.addWidget(self.progress_bar)
-        
-        self.setLayout(layout)
-    
-    def browse_output(self):
-        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le répertoire de base")
-        if folder:
-            self.output_dir.setText(folder)
-    
-    def browse_destination(self):
-        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de destination")
-        if folder:
-            self.destination_path.setText(folder)
-    
-    def refresh_batches(self):
-        """Liste les batchs disponibles via l'API OpenAI"""
-        cmd = ['python', 'utils/batch_manager.py', 'list']
-        
-        # Ajouter les options selon le guide
-        if self.batch_limit.value() > 0:
-            cmd.extend(['--limit', str(self.batch_limit.value())])
-        
-        if self.output_dir.text():
-            cmd.extend(['--output', self.output_dir.text()])
-        
-        if self.api_key.text():
-            cmd.extend(['--api-key', self.api_key.text()])
-        
-        self.batch_list.clear()
-        self.console.clear()
-        self.details_text.clear()
-        self.progress_bar.show()
-        
-        # Exécuter dans un thread
-        self.thread = ProcessThread(' '.join(cmd))
-        self.thread.update_signal.connect(self.update_console)
-        self.thread.finished_signal.connect(self.update_batch_list)
-        self.thread.start()
-    
-    def update_console(self, text):
-        self.console.append(text)
-        scrollbar = self.console.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-    
-    def update_batch_list(self, success, message):
-        self.progress_bar.hide()
-        if success:
-            # Analyser la sortie pour extraire les IDs de batch
-            console_text = self.console.toPlainText()
-            lines = console_text.split('\n')
-            
-            batch_count = 0
-            # Utiliser une expression plus souple pour détecter les IDs de batch
-            for line in lines:
-                # Chercher les lignes contenant un ID de batch au format batch_xxx
-                if 'batch_' in line:
-                    # Extraire le batch ID (peut apparaître sous différentes formes)
-                    parts = line.split()
-                    for part in parts:
-                        if part.startswith('batch_'):
-                            # Nettoyer l'ID des caractères potentiellement indésirables
-                            batch_id = part.strip(',.:;()[]{}')
-                            self.batch_list.addItem(batch_id)
-                            batch_count += 1
-                            break
-                # Autre format possible: ligne contenant "ID:" suivi d'un ID de batch
-                elif 'ID:' in line or 'Id:' in line or 'id:' in line:
-                    parts = line.split('ID:' if 'ID:' in line else 'Id:' if 'Id:' in line else 'id:')
-                    if len(parts) > 1:
-                        batch_id = parts[1].strip().split()[0]
-                        if batch_id.startswith('batch_'):
-                            self.batch_list.addItem(batch_id)
-                            batch_count += 1
-            
-            self.console.append("----------------------------------")
-            self.console.append(f"Nombre de batches trouvés: {batch_count}")
-        
-            if batch_count == 0:
-                self.console.append("Aucun batch trouvé dans la sortie du programme.")
-                self.console.append("Vérifiez que le script 'simple_batch_manager.py' fonctionne correctement.")
-                self.console.append("Voici la sortie complète pour analyse:")
-                self.console.append("----------------------------------")
-                self.console.append(console_text)
-            else:
-                self.console.append("Sélectionnez un batch dans la liste pour voir ses détails.")
-        else:
-            self.console.append(f"Erreur lors de la récupération des batches: {message}")
-    
-    def get_batch_status(self):
-        """Vérifie l'état d'un batch spécifique"""
-        selected = self.batch_list.selectedItems()
-        if not selected:
-            QMessageBox.warning(self, "Attention", "Veuillez sélectionner un batch.")
-            return
-        
-        batch_id = selected[0].text()
-        cmd = ['python', 'utils/batch_manager.py', 'status', batch_id]
-        
-        if self.api_key.text():
-            cmd.extend(['--api-key', self.api_key.text()])
-        
-        self.details_text.clear()
-        self.progress_bar.show()
-        
-        # Exécuter dans un thread
-        self.thread = ProcessThread(' '.join(cmd))
-        self.thread.update_signal.connect(self.update_details)
-        self.thread.finished_signal.connect(lambda success, message: self.progress_bar.hide())
-        self.thread.start()
-    
-    def update_details(self, text):
-        self.details_text.append(text)
-        scrollbar = self.details_text.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-    
-    def fetch_batch(self):
-        """Récupère les résultats d'un ou plusieurs batches"""
-        selected = self.batch_list.selectedItems()
-        if not selected:
-            QMessageBox.warning(self, "Attention", "Veuillez sélectionner un ou plusieurs batches.")
-            return
-        
-        for item in selected:
-            batch_id = item.text()
-            cmd = ['python', 'utils/batch_manager.py', 'fetch', batch_id]
-            
-            # Toujours ajouter l'option --save
-            cmd.append('--save')
-            
-            if self.destination_path.text():
-                cmd.extend(['--destination', self.destination_path.text()])
-            
-            if self.api_key.text():
-                cmd.extend(['--api-key', self.api_key.text()])
-            
-            self.console.append(f"Récupération du batch {batch_id}...")
-            self.progress_bar.show()
-            
-            # Exécuter dans un thread
-            self.thread = ProcessThread(' '.join(cmd))
-            self.thread.update_signal.connect(self.update_console)
-            self.thread.finished_signal.connect(lambda success, message, bid=batch_id: 
-                                              self.console.append(f"Batch {bid} : {'Succès' if success else 'Échec'} - {message}"))
-            self.thread.start()
-    
-    def fetch_range(self):
-        """Récupère les résultats des N batches les plus récents"""
-        n = self.range_spinbox.value()
-        cmd = ['python', 'utils/batch_manager.py', 'fetch-range', str(n)]
-        
-        # Ajouter les options selon le guide
-        if self.batch_limit.value() > 0:
-            cmd.extend(['--limit', str(self.batch_limit.value())])
-        
-        # Toujours ajouter l'option --save
-        cmd.append('--save')
-        
-        if self.destination_path.text():
-            cmd.extend(['--destination', self.destination_path.text()])
-        
-        if self.api_key.text():
-            cmd.extend(['--api-key', self.api_key.text()])
-        
-        self.console.clear()
-        self.console.append(f"Récupération des {n} batches les plus récents...")
-        self.progress_bar.show()
-        
-        # Exécuter dans un thread
-        self.thread = ProcessThread(' '.join(cmd))
-        self.thread.update_signal.connect(self.update_console)
-        self.thread.finished_signal.connect(self.on_fetch_range_finished)
-        self.thread.start()
-    
-    def on_fetch_range_finished(self, success, message):
-        """Appelé lorsque la récupération des batches par rang est terminée"""
-        self.progress_bar.hide()
-        if success:
-            self.console.append("----------------------------------")
-            self.console.append("Récupération des batches terminée avec succès.")
-            if self.destination_path.text():
-                self.console.append(f"Résultats sauvegardés dans: {self.destination_path.text()}")
-        else:
-            self.console.append(f"Erreur lors de la récupération des batches: {message}")
-class BatchCompletionTab(QWidget):
-    """Onglet pour la complétion des batches"""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.initUI()
-        
-    def initUI(self):
-        layout = QVBoxLayout()
-        
-        # Sélection du batch
-        batch_group = QGroupBox("Sélection du batch")
-        batch_layout = QHBoxLayout()
-        
-        self.batch_path = QLineEdit()
-        self.batch_path.setPlaceholderText("Chemin du dossier batch")
-        batch_button = QPushButton("Parcourir...")
-        batch_button.clicked.connect(self.browse_batch)
-        
-        batch_layout.addWidget(self.batch_path)
-        batch_layout.addWidget(batch_button)
-        batch_group.setLayout(batch_layout)
-        
-        # Source des données
-        source_group = QGroupBox("Source des données")
-        source_layout = QVBoxLayout()
-        
-        self.codenet_radio = QRadioButton("Dataset CodeNet")
-        self.thestack_radio = QRadioButton("Dataset The Stack")
-        self.codenet_radio.setChecked(True)
-        
-        source_layout.addWidget(self.codenet_radio)
-        source_layout.addWidget(self.thestack_radio)
-        source_group.setLayout(source_layout)
-        
-        # Prévisualisation
-        preview_group = QGroupBox("Prévisualisation des fichiers")
-        preview_layout = QVBoxLayout()
-        self.preview_list = QListWidget()
-        preview_button = QPushButton("Charger l'aperçu")
-        preview_button.clicked.connect(self.load_preview)
-        
-        preview_layout.addWidget(self.preview_list)
-        preview_layout.addWidget(preview_button)
-        preview_group.setLayout(preview_layout)
-        
-        # Bouton d'exécution
-        self.execute_button = QPushButton("Compléter le batch")
-        self.execute_button.clicked.connect(self.execute_completion)
-        
-        # Console de sortie
-        console_group = QGroupBox("Sortie")
-        console_layout = QVBoxLayout()
-        self.console = QTextEdit()
-        self.console.setReadOnly(True)
-        console_layout.addWidget(self.console)
-        console_group.setLayout(console_layout)
-        
-        # Barre de progression
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 0)
-        self.progress_bar.hide()
-        
-        # Construction du layout principal
-        layout.addWidget(batch_group)
-        layout.addWidget(source_group)
-        layout.addWidget(preview_group)
-        layout.addWidget(self.execute_button)
-        layout.addWidget(console_group)
-        layout.addWidget(self.progress_bar)
-        
-        self.setLayout(layout)
-    
-    def browse_batch(self):
-        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier batch")
-        if folder:
-            self.batch_path.setText(folder)
-    
-    def load_preview(self):
-        if not self.batch_path.text():
-            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier batch.")
-            return
-        
-        # Ici, vous pourriez analyser les fichiers disponibles et les afficher dans la liste
-        # Pour simplifier, on va juste simuler quelques fichiers
-        self.preview_list.clear()
-        
-        # Dans une implémentation réelle, vous pourriez:
-        # 1. Vérifier les scripts existants dans le batch
-        # 2. Comparer avec la source (CodeNet ou The Stack)
-        # 3. Lister les fichiers qui seraient ajoutés
-        
-        self.preview_list.addItem("Fichier original 1.py")
-        self.preview_list.addItem("Fichier original 2.py")
-        self.preview_list.addItem("Fichier original 3.py")
-    
-    def execute_completion(self):
-        if not self.batch_path.text():
-            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier batch.")
-            return
-        
-        cmd = ['python', 'utils/complete_batch.py', self.batch_path.text()]
-        
-        if self.codenet_radio.isChecked():
-            cmd.append('--codenet')
-        elif self.thestack_radio.isChecked():
-            cmd.append('--thestack')
-        
         self.console.clear()
         self.progress_bar.show()
-        self.execute_button.setEnabled(False)
+        self.generate_button.setEnabled(False)
+        
+        # Afficher les informations de volume si disponibles
+        if "Estimation du volume" in self.volume_info.text():
+            self.console.append("=== ESTIMATION DU VOLUME ===")
+            self.console.append(self.volume_info.text().replace("📊 ", ""))
+            self.console.append("=" * 40 + "\n")
+        
+        # Afficher la commande
+        command_str = ' '.join(cmd)
+        self.console.append(f"Exécution de la commande: {command_str}\n")
         
         # Exécuter dans un thread
-        self.thread = ProcessThread(' '.join(cmd))
+        self.thread = ProcessThread(command_str)
         self.thread.update_signal.connect(self.update_console)
         self.thread.finished_signal.connect(self.process_finished)
         self.thread.start()
@@ -714,7 +372,7 @@ class BatchCompletionTab(QWidget):
     
     def process_finished(self, success, message):
         self.progress_bar.hide()
-        self.execute_button.setEnabled(True)
+        self.generate_button.setEnabled(True)
         status = "Succès" if success else "Échec"
         QMessageBox.information(self, status, message)
 
@@ -729,18 +387,35 @@ class MatrixGenerationTab(QWidget):
     def initUI(self):
         layout = QVBoxLayout()
         
+        # Méthode de génération
+        method_group = QGroupBox("Méthode de génération")
+        method_layout = QVBoxLayout()
+        
+        self.batch_method_radio = QRadioButton("Méthode par batch (recommandée)")
+        self.direct_method_radio = QRadioButton("Méthode directe (pour petits fichiers)")
+        self.batch_method_radio.setChecked(True)
+        self.batch_method_radio.toggled.connect(self.toggle_method)
+        self.direct_method_radio.toggled.connect(self.toggle_method)
+        
+        method_layout.addWidget(self.batch_method_radio)
+        method_layout.addWidget(self.direct_method_radio)
+        method_group.setLayout(method_layout)
+        
         # Mode de sélection (fichier unique ou dossier batch)
         mode_group = QGroupBox("Mode de génération")
         mode_layout = QVBoxLayout()
         
         self.file_mode_radio = QRadioButton("Analyser un fichier unique")
-        self.dir_mode_radio = QRadioButton("Analyser un dossier batch complet")
+        self.dir_mode_radio = QRadioButton("Analyser un dossier complet")
+        self.batch_id_mode_radio = QRadioButton("Reprendre un batch existant")
         self.file_mode_radio.setChecked(True)
         self.file_mode_radio.toggled.connect(self.toggle_mode)
         self.dir_mode_radio.toggled.connect(self.toggle_mode)
+        self.batch_id_mode_radio.toggled.connect(self.toggle_mode)
         
         mode_layout.addWidget(self.file_mode_radio)
         mode_layout.addWidget(self.dir_mode_radio)
+        mode_layout.addWidget(self.batch_id_mode_radio)
         mode_group.setLayout(mode_layout)
         
         # Sélection du fichier
@@ -756,25 +431,45 @@ class MatrixGenerationTab(QWidget):
         file_layout.addWidget(file_button)
         self.file_group.setLayout(file_layout)
         
-        # Sélection du dossier batch
-        self.dir_group = QGroupBox("Sélection du dossier batch")
+        # Sélection du dossier
+        self.dir_group = QGroupBox("Sélection du dossier")
         dir_layout = QVBoxLayout()
         
         dir_select_layout = QHBoxLayout()
         self.dir_path = QLineEdit()
-        self.dir_path.setPlaceholderText("Chemin du dossier batch (doit contenir un sous-dossier 'scripts')")
+        self.dir_path.setPlaceholderText("Chemin du dossier contenant les scripts Python")
         dir_button = QPushButton("Parcourir...")
         dir_button.clicked.connect(self.browse_directory)
         dir_select_layout.addWidget(self.dir_path)
         dir_select_layout.addWidget(dir_button)
         
-        info_label = QLabel("Le script analysera les fichiers Python dans le sous-dossier 'scripts' du dossier sélectionné")
+        # Option pour la récursivité
+        self.recursive_checkbox = QCheckBox("Analyser également les sous-dossiers")
+        self.recursive_checkbox.setChecked(True)
+        
+        info_label = QLabel("Le script analysera tous les fichiers Python dans le dossier")
         info_label.setStyleSheet("color: gray;")
         
         dir_layout.addLayout(dir_select_layout)
+        dir_layout.addWidget(self.recursive_checkbox)
         dir_layout.addWidget(info_label)
         self.dir_group.setLayout(dir_layout)
         self.dir_group.hide()  # Caché par défaut
+        
+        # ID de batch
+        self.batch_id_group = QGroupBox("ID de batch existant")
+        batch_id_layout = QVBoxLayout()
+        
+        self.batch_id = QLineEdit()
+        self.batch_id.setPlaceholderText("Entrez l'ID du batch à reprendre (ex: batch_xyz123)")
+        
+        info_batch_id = QLabel("Permet de reprendre l'analyse d'un batch existant interrompu")
+        info_batch_id.setStyleSheet("color: gray;")
+        
+        batch_id_layout.addWidget(self.batch_id)
+        batch_id_layout.addWidget(info_batch_id)
+        self.batch_id_group.setLayout(batch_id_layout)
+        self.batch_id_group.hide()  # Caché par défaut
         
         # Modèles utilisés
         models_group = QGroupBox("Modèles")
@@ -796,11 +491,21 @@ class MatrixGenerationTab(QWidget):
         models_layout.addLayout(pred_layout)
         models_group.setLayout(models_layout)
         
-        # Options de batch
-        batch_group = QGroupBox("Options de batch")
-        batch_layout = QVBoxLayout()
+        # Type d'API (pour matrix_generator_classic.py)
+        self.api_group = QGroupBox("Type d'API")
+        api_layout = QVBoxLayout()
         
-        self.no_batch_checkbox = QCheckBox("Mode sans batch (une requête par token)")
+        self.completions_api_radio = QRadioButton("API Completions (traditionnel)")
+        self.chat_api_radio = QRadioButton("API Chat (avec prompt spécifique)")
+        self.completions_api_radio.setChecked(True)
+        
+        api_layout.addWidget(self.completions_api_radio)
+        api_layout.addWidget(self.chat_api_radio)
+        self.api_group.setLayout(api_layout)
+        
+        # Options de batch (seulement pour méthode batch)
+        self.batch_group = QGroupBox("Options de batch")
+        batch_layout = QVBoxLayout()
         
         batch_size_layout = QHBoxLayout()
         batch_size_layout.addWidget(QLabel("Taille du batch:"))
@@ -817,21 +522,69 @@ class MatrixGenerationTab(QWidget):
         self.poll_interval.setValue(20)
         poll_layout.addWidget(self.poll_interval)
         
-        batch_layout.addWidget(self.no_batch_checkbox)
+        max_batches_layout = QHBoxLayout()
+        max_batches_layout.addWidget(QLabel("Nombre max de batches:"))
+        self.max_batches = QSpinBox()
+        self.max_batches.setRange(1, 100)
+        self.max_batches.setValue(1)
+        max_batches_layout.addWidget(self.max_batches)
+        
+        wait_unlimited_layout = QHBoxLayout()
+        self.wait_unlimited = QCheckBox("Attente illimitée (recommandé)")
+        self.wait_unlimited.setChecked(True)
+        wait_unlimited_layout.addWidget(self.wait_unlimited)
+        
+        # Option de tentatives de reconnexion
+        connection_retries_layout = QHBoxLayout()
+        connection_retries_layout.addWidget(QLabel("Tentatives de reconnexion:"))
+        self.connection_retries = QSpinBox()
+        self.connection_retries.setRange(1, 20)
+        self.connection_retries.setValue(5)
+        self.connection_retries.setToolTip("Nombre de tentatives de reconnexion en cas d'erreur réseau")
+        connection_retries_layout.addWidget(self.connection_retries)
+        
+        # Option pour continuer en cas d'erreur
+        continue_on_error_layout = QHBoxLayout()
+        self.continue_on_error = QCheckBox("Continuer en cas d'erreur")
+        self.continue_on_error.setChecked(True)
+        self.continue_on_error.setToolTip("Si coché, le traitement continue même si un fichier échoue")
+        continue_on_error_layout.addWidget(self.continue_on_error)
+        
         batch_layout.addLayout(batch_size_layout)
         batch_layout.addLayout(poll_layout)
-        batch_group.setLayout(batch_layout)
+        batch_layout.addLayout(max_batches_layout)
+        batch_layout.addLayout(wait_unlimited_layout)
+        batch_layout.addLayout(connection_retries_layout)
+        batch_layout.addLayout(continue_on_error_layout)
+        self.batch_group.setLayout(batch_layout)
         
-        # Répertoire de sortie
-        output_group = QGroupBox("Répertoire de sortie")
+        # Répertoires de sortie et d'archivage
+        paths_group = QGroupBox("Répertoires")
+        paths_layout = QVBoxLayout()
+        
+        # Dossier de sortie
         output_layout = QHBoxLayout()
+        output_layout.addWidget(QLabel("Dossier de sortie:"))
         self.output_dir = QLineEdit()
-        self.output_dir.setPlaceholderText("Laissez vide pour utiliser le dossier du batch avec sous-dossier 'matrixes'")
+        self.output_dir.setPlaceholderText("Dossier pour les résultats (tokens, matrices)")
         output_button = QPushButton("Parcourir...")
         output_button.clicked.connect(self.browse_output)
         output_layout.addWidget(self.output_dir)
         output_layout.addWidget(output_button)
-        output_group.setLayout(output_layout)
+        
+        # Dossier d'archivage (seulement pour méthode batch)
+        archive_layout = QHBoxLayout()
+        archive_layout.addWidget(QLabel("Dossier d'archivage:"))
+        self.archive_dir = QLineEdit()
+        self.archive_dir.setPlaceholderText("Dossier pour archiver les scripts traités")
+        archive_button = QPushButton("Parcourir...")
+        archive_button.clicked.connect(self.browse_archive)
+        archive_layout.addWidget(self.archive_dir)
+        archive_layout.addWidget(archive_button)
+        
+        paths_layout.addLayout(output_layout)
+        paths_layout.addLayout(archive_layout)
+        paths_group.setLayout(paths_layout)
         
         # Bouton d'exécution
         self.execute_button = QPushButton("Générer les matrices")
@@ -851,26 +604,63 @@ class MatrixGenerationTab(QWidget):
         self.progress_bar.hide()
         
         # Construction du layout principal
+        layout.addWidget(method_group)
         layout.addWidget(mode_group)
         layout.addWidget(self.file_group)
         layout.addWidget(self.dir_group)
+        layout.addWidget(self.batch_id_group)
         layout.addWidget(models_group)
-        layout.addWidget(batch_group)
-        layout.addWidget(output_group)
+        layout.addWidget(self.api_group)
+        layout.addWidget(self.batch_group)
+        layout.addWidget(paths_group)
         layout.addWidget(self.execute_button)
         layout.addWidget(console_group)
         layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
     
+    def toggle_method(self):
+        """Change l'interface en fonction de la méthode sélectionnée"""
+        is_batch_method = self.batch_method_radio.isChecked()
+        
+        # Avec matrix_batch_generator.py, on peut analyser un fichier unique en mode batch
+        # On n'a plus besoin de désactiver le groupe de fichiers en mode batch
+        self.batch_group.setEnabled(is_batch_method)
+        
+        # Les options d'API sont uniquement pour la méthode directe
+        self.api_group.setEnabled(not is_batch_method)
+        
+        # Le dossier d'archivage est moins important avec le nouveau générateur de matrices
+        archive_widgets = self.findChildren(QWidget)
+        for widget in archive_widgets:
+            if hasattr(widget, 'parent') and "archivage" in str(widget.parent()):
+                widget.setEnabled(not is_batch_method)  # Désactiver pour matrix_batch_generator
+                if is_batch_method:
+                    widget.hide()  # Cacher les widgets d'archivage en mode batch
+                else:
+                    widget.show()  # Les montrer en mode direct
+    
     def toggle_mode(self):
         """Change l'interface en fonction du mode sélectionné"""
-        if self.file_mode_radio.isChecked():
-            self.file_group.show()
-            self.dir_group.hide()
+        is_file_mode = self.file_mode_radio.isChecked()
+        is_dir_mode = self.dir_mode_radio.isChecked()
+        is_batch_id_mode = self.batch_id_mode_radio.isChecked()
+        is_batch_method = self.batch_method_radio.isChecked()
+        
+        # Montrer/cacher les groupes appropriés
+        self.file_group.setVisible(is_file_mode)
+        self.dir_group.setVisible(is_dir_mode)
+        self.batch_id_group.setVisible(is_batch_id_mode)
+        
+        # Rendre certains éléments visibles ou invisibles en fonction du mode
+        self.token_model.setEnabled(not is_batch_id_mode)
+        self.pred_model.setEnabled(not is_batch_id_mode)
+        
+        # Dans le mode batch_id, seul le dossier de sortie est nécessaire
+        if is_batch_id_mode:
+            self.batch_group.setEnabled(False)
         else:
-            self.file_group.hide()
-            self.dir_group.show()
+            self.batch_group.setEnabled(is_batch_method)
     
     def browse_file(self):
         file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un script Python", "", "Fichiers Python (*.py)")
@@ -878,25 +668,8 @@ class MatrixGenerationTab(QWidget):
             self.file_path.setText(file)
     
     def browse_directory(self):
-        folder = QFileDialog.getExistingDirectory(self, "Sélectionner un dossier batch")
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner un dossier")
         if folder:
-            # Vérifier si le sous-dossier 'scripts' existe
-            scripts_dir = os.path.join(folder, "scripts")
-            if not os.path.exists(scripts_dir):
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Warning)
-                msg.setText(f"Attention: Le sous-dossier 'scripts' n'existe pas dans {folder}")
-                msg.setInformativeText("Le script matrix_generator_classic.py cherchera les fichiers Python dans ce sous-dossier.\nVoulez-vous créer ce sous-dossier maintenant?")
-                msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-                result = msg.exec_()
-                
-                if result == QMessageBox.Yes:
-                    try:
-                        os.makedirs(scripts_dir)
-                        self.console.append(f"Sous-dossier 'scripts' créé dans {folder}")
-                    except Exception as e:
-                        self.console.append(f"Erreur lors de la création du sous-dossier: {str(e)}")
-            
             self.dir_path.setText(folder)
     
     def browse_output(self):
@@ -904,37 +677,178 @@ class MatrixGenerationTab(QWidget):
         if folder:
             self.output_dir.setText(folder)
     
+    def browse_archive(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le répertoire d'archivage")
+        if folder:
+            self.archive_dir.setText(folder)
+    
     def execute_generation(self):
         # Vérifier que les chemins requis sont fournis
         if self.file_mode_radio.isChecked() and not self.file_path.text():
             QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un script Python.")
             return
         elif self.dir_mode_radio.isChecked() and not self.dir_path.text():
-            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier batch.")
+            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier.")
+            return
+        elif self.batch_id_mode_radio.isChecked() and not self.batch_id.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez entrer un ID de batch existant.")
             return
         
-        cmd = ['python', 'matrix_generation/matrix_generator.py']
+        if not self.output_dir.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier de sortie.")
+            return
+        
+        # Déterminer la méthode à utiliser
+        if self.batch_method_radio.isChecked():
+            # Méthode batch avec matrix_batch_generator.py
+            self._execute_batch_method()
+        else:
+            # Méthode directe (matrix_generator_classic)
+            self._execute_direct_method()
+    
+    def _execute_batch_method(self):
+        """Exécute la génération de matrices en utilisant l'approche batch"""
+        # Vérifier le mode sélectionné
+        if self.file_mode_radio.isChecked():
+            # Utiliser matrix_batch_generator.py avec un fichier unique
+            cmd_generator = ['python', 'matrix_generation/matrix_batch_generator.py']
+            
+            # Ajouter les arguments selon la documentation du script
+            cmd_generator.extend(['--file', self.file_path.text()])
+            cmd_generator.extend(['--output', self.output_dir.text()])
+            cmd_generator.extend(['--model', self.pred_model.currentText()])
+            cmd_generator.extend(['--poll-interval', str(self.poll_interval.value())])
+            
+            # Options de maximum d'essais
+            cmd_generator.extend(['--max-attempts', '1000'])
+            
+            # Option d'attente illimitée
+            if not self.wait_unlimited.isChecked():
+                cmd_generator.append('--no-wait-unlimited')
+            
+            # Options de gestion des erreurs réseau
+            cmd_generator.extend(['--max-connection-retries', str(self.connection_retries.value())])
+            if self.continue_on_error.isChecked():
+                cmd_generator.append('--continue-on-error')
+            
+            self.console.clear()
+            self.progress_bar.show()
+            self.execute_button.setEnabled(False)
+            
+            # Afficher la commande qui sera exécutée
+            command_str = ' '.join(cmd_generator)
+            self.console.append(f"Génération de matrice avec matrix_batch_generator.py")
+            self.console.append(f"Exécution de la commande: {command_str}\n")
+            
+            # Exécuter dans un thread
+            self.thread = ProcessThread(command_str)
+            self.thread.update_signal.connect(self.update_console)
+            self.thread.finished_signal.connect(self.process_finished)
+            self.thread.start()
+        elif self.dir_mode_radio.isChecked():
+            # Utiliser matrix_batch_generator.py avec un dossier
+            cmd_generator = ['python', 'matrix_generation/matrix_batch_generator.py']
+            
+            # Ajouter les arguments pour le dossier
+            cmd_generator.extend(['--directory', self.dir_path.text()])
+            cmd_generator.extend(['--output', self.output_dir.text()])
+            cmd_generator.extend(['--model', self.pred_model.currentText()])
+            cmd_generator.extend(['--poll-interval', str(self.poll_interval.value())])
+            
+            # Options de maximum d'essais
+            cmd_generator.extend(['--max-attempts', '1000'])
+            
+            # Option d'attente illimitée
+            if not self.wait_unlimited.isChecked():
+                cmd_generator.append('--no-wait-unlimited')
+            
+            # Option de récursivité
+            if self.recursive_checkbox.isChecked():
+                cmd_generator.append('--recursive')
+            
+            # Options de gestion des erreurs réseau
+            cmd_generator.extend(['--max-connection-retries', str(self.connection_retries.value())])
+            if self.continue_on_error.isChecked():
+                cmd_generator.append('--continue-on-error')
+            
+            self.console.clear()
+            self.progress_bar.show()
+            self.execute_button.setEnabled(False)
+            
+            # Afficher la commande qui sera exécutée
+            command_str = ' '.join(cmd_generator)
+            self.console.append(f"Traitement du dossier avec matrix_batch_generator.py")
+            self.console.append(f"Exécution de la commande: {command_str}\n")
+            
+            # Exécuter dans un thread
+            self.thread = ProcessThread(command_str)
+            self.thread.update_signal.connect(self.update_console)
+            self.thread.finished_signal.connect(self.process_finished)
+            self.thread.start()
+        elif self.batch_id_mode_radio.isChecked():
+            # Utiliser matrix_batch_generator.py avec un ID de batch existant
+            cmd_generator = ['python', 'matrix_generation/matrix_batch_generator.py']
+            
+            # Ajouter les arguments pour le batch existant
+            cmd_generator.extend(['--batch-id', self.batch_id.text()])
+            cmd_generator.extend(['--output', self.output_dir.text()])
+            cmd_generator.extend(['--poll-interval', str(self.poll_interval.value())])
+            
+            # Options de maximum d'essais
+            cmd_generator.extend(['--max-attempts', '1000'])
+            
+            # Option d'attente illimitée
+            if not self.wait_unlimited.isChecked():
+                cmd_generator.append('--no-wait-unlimited')
+            
+            # Options de gestion des erreurs réseau
+            cmd_generator.extend(['--max-connection-retries', str(self.connection_retries.value())])
+            
+            self.console.clear()
+            self.progress_bar.show()
+            self.execute_button.setEnabled(False)
+            
+            # Afficher la commande qui sera exécutée
+            command_str = ' '.join(cmd_generator)
+            self.console.append(f"Reprise d'un batch existant avec matrix_batch_generator.py")
+            self.console.append(f"Exécution de la commande: {command_str}\n")
+            
+            # Exécuter dans un thread
+            self.thread = ProcessThread(command_str)
+            self.thread.update_signal.connect(self.update_console)
+            self.thread.finished_signal.connect(self.process_finished)
+            self.thread.start()
+        else:
+            QMessageBox.warning(self, "Erreur", "Mode de génération non reconnu.")
+            return
+    
+    def _execute_direct_method(self):
+        """Exécute la génération de matrices en utilisant l'approche directe"""
+        cmd = ['python', 'matrix_generation/matrix_generator_classic.py']
         
         # Paramètres spécifiques au mode
         if self.file_mode_radio.isChecked():
-            cmd.extend(['--file', self.file_path.text()])
+            # Le script attend --file avec juste le nom du fichier, pas le chemin complet
+            file_path = self.file_path.text()
+            file_name = os.path.basename(file_path)
+            file_dir = os.path.dirname(file_path)
+            
+            cmd.extend(['--file', file_name])
+            cmd.extend(['--directory', file_dir])
         else:
             cmd.extend(['--directory', self.dir_path.text()])
+            cmd.append('--all')  # Analyser tous les fichiers du dossier
+            
+            # Ajouter l'option récursive si la case est cochée
+            if self.recursive_checkbox.isChecked():
+                cmd.append('--recursive')
         
-        # Modèles
-        cmd.extend(['--token-model', self.token_model.currentText()])
-        cmd.extend(['--pred-model', self.pred_model.currentText()])
+        # Répertoire de sortie
+        cmd.extend(['--output', self.output_dir.text()])
         
-        # Options de batch
-        if self.no_batch_checkbox.isChecked():
-            cmd.append('--no-batch')
-        
-        cmd.extend(['--batch-size', str(self.batch_size.value())])
-        cmd.extend(['--poll-interval', str(self.poll_interval.value())])
-        
-        # Répertoire de sortie (optionnel)
-        if self.output_dir.text():
-            cmd.extend(['--output-dir', self.output_dir.text()])
+        # Ajout du type d'API (chat ou completions)
+        api_type = "chat" if self.chat_api_radio.isChecked() else "completions"
+        cmd.extend(['--api', api_type])
         
         self.console.clear()
         self.progress_bar.show()
@@ -951,7 +865,17 @@ class MatrixGenerationTab(QWidget):
         self.thread.start()
     
     def update_console(self, text):
-        self.console.append(text)
+        # Ajouter une coloration pour les erreurs de connexion
+        if "Erreur de connexion" in text or "Connection error" in text:
+            self.console.append("<span style='color: #FFA500; font-weight: bold;'>" + text + "</span>")
+        elif "erreur" in text.lower() or "error" in text.lower():
+            self.console.append("<span style='color: red;'>" + text + "</span>")
+        elif "tentative" in text.lower() or "retry" in text.lower():
+            self.console.append("<span style='color: #66CDAA;'>" + text + "</span>")
+        else:
+            self.console.append(text)
+        
+        # Faire défiler vers le bas
         scrollbar = self.console.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
     
@@ -985,6 +909,18 @@ class MatrixTilingTab(QWidget):
         input_layout.addWidget(input_button)
         input_group.setLayout(input_layout)
         
+        # Sélection du dossier de sortie
+        output_group = QGroupBox("Dossier de sortie")
+        output_layout = QHBoxLayout()
+        
+        self.output_dir = QLineEdit()
+        self.output_dir.setPlaceholderText("Chemin vers le dossier de sortie pour les tuiles")
+        output_button = QPushButton("Parcourir...")
+        output_button.clicked.connect(self.browse_output)
+        
+        output_layout.addWidget(self.output_dir)
+        output_layout.addWidget(output_button)
+        output_group.setLayout(output_layout)
         
         # Configuration des tuiles
         tile_group = QGroupBox("Configuration des tuiles")
@@ -992,15 +928,22 @@ class MatrixTilingTab(QWidget):
         
         tile_layout.addWidget(QLabel("Lignes:"))
         self.rows_spinbox = QSpinBox()
-        self.rows_spinbox.setRange(1, 10)
+        self.rows_spinbox.setRange(1, 1000)  # Augmentation de la limite maximale à 1000
         self.rows_spinbox.setValue(3)
+        self.rows_spinbox.setSingleStep(1)  # Pas de 1
         tile_layout.addWidget(self.rows_spinbox)
         
         tile_layout.addWidget(QLabel("Colonnes:"))
         self.cols_spinbox = QSpinBox()
-        self.cols_spinbox.setRange(1, 10)
+        self.cols_spinbox.setRange(1, 1000)  # Augmentation de la limite maximale à 1000
         self.cols_spinbox.setValue(3)
+        self.cols_spinbox.setSingleStep(1)  # Pas de 1
         tile_layout.addWidget(self.cols_spinbox)
+        
+        # Note: Le padding est toujours activé avec valeur 100 par défaut dans le script
+        info_label = QLabel("Note: Le padding est automatiquement ajouté si nécessaire (valeur: 100)")
+        info_label.setStyleSheet("color: #666; font-style: italic;")
+        tile_layout.addWidget(info_label)
         
         tile_group.setLayout(tile_layout)
         
@@ -1031,6 +974,7 @@ class MatrixTilingTab(QWidget):
         
         # Construction du layout principal
         layout.addWidget(input_group)
+        layout.addWidget(output_group)
         layout.addWidget(tile_group)
         layout.addWidget(self.execute_button)
         layout.addWidget(metadata_group)
@@ -1038,21 +982,35 @@ class MatrixTilingTab(QWidget):
         layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
+        
+        # Suppression de la ligne qui cause l'erreur
     
     def browse_input(self):
         folder = QFileDialog.getExistingDirectory(self, "Sélectionner le batch")
         if folder:
             self.input_dir.setText(folder)
-
+            
+    def browse_output(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie")
+        if folder:
+            self.output_dir.setText(folder)
+            
     def execute_tiling(self):
-        if not self.input_dir.text():
+        if not self.input_dir.text() or not self.output_dir.text():
             QMessageBox.warning(self, "Erreur", "Les dossiers d'entrée et de sortie sont requis.")
             return
         
         cmd = ['python', 'matrix_generation/matrix_tiling.py']
-        cmd.append(self.input_dir.text()+"/matrixes")
-        cmd.append(self.input_dir.text()+"/tiles")
+        # Ajouter les arguments positionnels dans le bon ordre
+        cmd.append(self.input_dir.text())
+        cmd.append(self.output_dir.text())
+        # Retirer l'argument archive qui n'existe pas dans le script
+        
+        # Utiliser le bon format pour les dimensions des tuiles
         cmd.extend(['--taille_tuile', str(self.rows_spinbox.value()), str(self.cols_spinbox.value())])
+        
+        # Les options de padding ne sont pas dans le script matrix_tiling.py
+        # Le padding est toujours activé avec valeur 100 par défaut
         
         self.console.clear()
         self.metadata_text.clear()
@@ -1372,35 +1330,6 @@ class UNetTrainingTab(QWidget):
             QMessageBox.warning(self, "Erreur", f"Entraînement terminé avec erreur: {message}")
 
 
-
-class ProcessThread(QThread):
-    """Thread pour exécuter le script test_unet.py sans bloquer l'interface"""
-    update_signal = pyqtSignal(str)
-    finished_signal = pyqtSignal(bool, str)
-    
-    def __init__(self, command):
-        super().__init__()
-        self.command = command
-        
-    def run(self):
-        try:
-            process = subprocess.Popen(self.command, 
-                                      stdout=subprocess.PIPE, 
-                                      stderr=subprocess.STDOUT,
-                                      shell=True,
-                                      text=True,
-                                      bufsize=1)
-            
-            for line in iter(process.stdout.readline, ''):
-                self.update_signal.emit(line.strip())
-            
-            exit_code = process.wait()
-            success = exit_code == 0
-            self.finished_signal.emit(success, "Terminé avec succès" if success else f"Échec (code {exit_code})")
-        except Exception as e:
-            self.update_signal.emit(f"Erreur: {str(e)}")
-            self.finished_signal.emit(False, str(e))
-
 class UNetTestingTab(QWidget):
     """Onglet pour le test du modèle U-Net"""
     
@@ -1410,6 +1339,9 @@ class UNetTestingTab(QWidget):
         
     def initUI(self):
         layout = QVBoxLayout()
+        
+        # Partie supérieure (contrôles)
+        upper_layout = QVBoxLayout()
         
         # Sélection du modèle
         model_group = QGroupBox("Sélection du modèle")
@@ -1434,6 +1366,7 @@ class UNetTestingTab(QWidget):
         self.dir_mode_radio = QRadioButton("Analyser un dossier")
         self.file_mode_radio.setChecked(True)
         self.file_mode_radio.toggled.connect(self.toggle_mode)
+        self.dir_mode_radio.toggled.connect(self.toggle_mode)
         
         mode_layout.addWidget(self.file_mode_radio)
         mode_layout.addWidget(self.dir_mode_radio)
@@ -1442,45 +1375,77 @@ class UNetTestingTab(QWidget):
         file_layout = QHBoxLayout()
         self.file_path = QLineEdit()
         self.file_path.setPlaceholderText("Chemin vers le fichier Python à analyser")
-        file_button = QPushButton("Parcourir...")
-        file_button.clicked.connect(self.browse_file)
+        self.file_button = QPushButton("Parcourir...")
+        self.file_button.clicked.connect(self.browse_file)
         
         file_layout.addWidget(self.file_path)
-        file_layout.addWidget(file_button)
+        file_layout.addWidget(self.file_button)
         
         # Sélection de dossier
         dir_layout = QHBoxLayout()
         self.dir_path = QLineEdit()
         self.dir_path.setPlaceholderText("Chemin vers le dossier contenant des fichiers Python")
         self.dir_path.setEnabled(False)
-        dir_button = QPushButton("Parcourir...")
-        dir_button.clicked.connect(self.browse_directory)
-        dir_button.setEnabled(False)
-        
-        self.recursive_checkbox = QCheckBox("Rechercher également dans les sous-dossiers")
-        self.recursive_checkbox.setEnabled(False)
+        self.dir_button = QPushButton("Parcourir...")
+        self.dir_button.clicked.connect(self.browse_directory)
+        self.dir_button.setEnabled(False)
         
         dir_layout.addWidget(self.dir_path)
-        dir_layout.addWidget(dir_button)
+        dir_layout.addWidget(self.dir_button)
         
         # Instructions pour le glisser-déposer
         drop_label = QLabel("Ou glissez-déposez des fichiers/dossiers ici")
         drop_label.setAlignment(Qt.AlignCenter)
-        drop_label.setStyleSheet("background-color: #f0f0f0; padding: 20px; border: 1px dashed #aaa;")
+        drop_label.setStyleSheet("background-color: #f0f0f0; padding: 15px; border: 1px dashed #aaa;")
         
         input_layout.addLayout(mode_layout)
         input_layout.addLayout(file_layout)
         input_layout.addLayout(dir_layout)
-        input_layout.addWidget(self.recursive_checkbox)
         input_layout.addWidget(drop_label)
         input_group.setLayout(input_layout)
         
-        # Activer la fonctionnalité de glisser-déposer
-        self.setAcceptDrops(True)
+        # Options de visualisation
+        viz_group = QGroupBox("Options de visualisation")
+        viz_layout = QVBoxLayout()
+        
+        # Option pour visualiser les tuiles
+        self.visualize_tiles_checkbox = QCheckBox("Visualiser les tuiles")
+        self.visualize_tiles_checkbox.setChecked(False)
+        viz_layout.addWidget(self.visualize_tiles_checkbox)
+        
+        # Option pour visualiser les activations
+        self.visualize_activations_checkbox = QCheckBox("Visualiser les activations")
+        self.visualize_activations_checkbox.setChecked(False)
+        viz_layout.addWidget(self.visualize_activations_checkbox)
+        
+        # Dossier de sortie pour les visualisations
+        output_layout = QHBoxLayout()
+        output_layout.addWidget(QLabel("Dossier de sortie:"))
+        self.viz_output_dir = QLineEdit()
+        self.viz_output_dir.setPlaceholderText("Dossier pour sauvegarder les visualisations")
+        output_button = QPushButton("...")
+        output_button.clicked.connect(self.browse_viz_output)
+        output_layout.addWidget(self.viz_output_dir)
+        output_layout.addWidget(output_button)
+        viz_layout.addLayout(output_layout)
+        
+        viz_group.setLayout(viz_layout)
         
         # Bouton d'analyse
         self.test_button = QPushButton("Analyser")
         self.test_button.clicked.connect(self.analyze_code)
+        
+        # Ajouter les contrôles à la partie supérieure
+        upper_layout.addWidget(model_group)
+        upper_layout.addWidget(input_group)
+        upper_layout.addWidget(viz_group)
+        upper_layout.addWidget(self.test_button)
+        
+        # Partie inférieure avec deux colonnes
+        lower_layout = QHBoxLayout()
+        
+        # Colonne de gauche: résultats et détails
+        left_column = QVBoxLayout()
         
         # Liste des résultats
         results_group = QGroupBox("Résultats d'analyse")
@@ -1501,13 +1466,21 @@ class UNetTestingTab(QWidget):
         details_layout.addWidget(self.details_text)
         details_group.setLayout(details_layout)
         
+        left_column.addWidget(results_group, 1)
+        left_column.addWidget(details_group, 1)
+        
+        # Colonne de droite: visualisation et console
+        right_column = QVBoxLayout()
+        
         # Visualisation
         viz_group = QGroupBox("Visualisation")
         viz_layout = QVBoxLayout()
         
-        # Graphique pour montrer les scores de confiance
-        self.figure = Figure(figsize=(5, 4), dpi=100)
+        # Figure plus grande
+        self.figure = Figure(figsize=(8, 6), dpi=100)
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.setMinimumHeight(300)
+        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         viz_layout.addWidget(self.canvas)
         
         viz_group.setLayout(viz_layout)
@@ -1521,36 +1494,55 @@ class UNetTestingTab(QWidget):
         console_layout.addWidget(self.console)
         console_group.setLayout(console_layout)
         
+        right_column.addWidget(viz_group, 2)
+        right_column.addWidget(console_group, 1)
+        
+        # Équilibrer les colonnes
+        lower_layout.addLayout(left_column, 40)
+        lower_layout.addLayout(right_column, 60)
+        
         # Barre de progression
         self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 0)  # Indéterminé
+        self.progress_bar.setRange(0, 0)
         self.progress_bar.hide()
         
         # Construction du layout principal
-        layout.addWidget(model_group)
-        layout.addWidget(input_group)
-        layout.addWidget(self.test_button)
-        layout.addWidget(results_group)
-        layout.addWidget(details_group)
-        layout.addWidget(viz_group)
-        layout.addWidget(console_group)
+        layout.addLayout(upper_layout)
+        layout.addLayout(lower_layout, 1)
         layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
         
         # Stockage des résultats
         self.all_results = []
-    
+        
+    def browse_viz_output(self):
+        """Ouvre une boîte de dialogue pour sélectionner le dossier de sortie des visualisations"""
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie pour les visualisations")
+        if folder:
+            self.viz_output_dir.setText(folder)
+            
     def toggle_mode(self):
         """Change l'interface en fonction du mode sélectionné"""
-        if self.file_mode_radio.isChecked():
-            self.file_path.setEnabled(True)
-            self.dir_path.setEnabled(False)
-            self.recursive_checkbox.setEnabled(False)
+        is_file_mode = self.file_mode_radio.isChecked()
+        is_dir_mode = self.dir_mode_radio.isChecked()
+        is_batch_id_mode = self.batch_id_mode_radio.isChecked()
+        is_batch_method = self.batch_method_radio.isChecked()
+        
+        # Montrer/cacher les groupes appropriés
+        self.file_group.setVisible(is_file_mode)
+        self.dir_group.setVisible(is_dir_mode)
+        self.batch_id_group.setVisible(is_batch_id_mode)
+        
+        # Rendre certains éléments visibles ou invisibles en fonction du mode
+        self.token_model.setEnabled(not is_batch_id_mode)
+        self.pred_model.setEnabled(not is_batch_id_mode)
+        
+        # Dans le mode batch_id, seul le dossier de sortie est nécessaire
+        if is_batch_id_mode:
+            self.batch_group.setEnabled(False)
         else:
-            self.file_path.setEnabled(False)
-            self.dir_path.setEnabled(True)
-            self.recursive_checkbox.setEnabled(True)
+            self.batch_group.setEnabled(is_batch_method)
     
     def browse_model(self):
         """Ouvre une boîte de dialogue pour sélectionner le modèle"""
@@ -1569,6 +1561,7 @@ class UNetTestingTab(QWidget):
         folder = QFileDialog.getExistingDirectory(self, "Sélectionner un dossier contenant des fichiers Python")
         if folder:
             self.dir_path.setText(folder)
+            self.dir_path.setEnabled(True)  # S'assurer que le champ reste activé après la sélection
     
     def dragEnterEvent(self, event: QDragEnterEvent):
         """Gère l'entrée d'un élément glissé-déposé"""
@@ -1588,6 +1581,7 @@ class UNetTestingTab(QWidget):
             # C'est un fichier Python
             self.file_mode_radio.setChecked(True)
             self.file_path.setText(path)
+            self.toggle_mode()
         elif os.path.isdir(path):
             # C'est un dossier
             self.dir_mode_radio.setChecked(True)
@@ -1607,13 +1601,6 @@ class UNetTestingTab(QWidget):
             if not self.file_path.text() or not os.path.isfile(self.file_path.text()):
                 QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un fichier valide.")
                 return
-            
-            # Vérifier l'extension du fichier
-            file_ext = os.path.splitext(self.file_path.text())[1].lower()
-            if file_ext not in ['.py', '.npy']:
-                QMessageBox.warning(self, "Erreur", "Le fichier doit être au format .py ou .npy")
-                return
-                
             input_path = self.file_path.text()
         else:
             if not self.dir_path.text() or not os.path.isdir(self.dir_path.text()):
@@ -1624,9 +1611,16 @@ class UNetTestingTab(QWidget):
         # Construire la commande pour appeler test_unet.py
         cmd = ['python', 'unet/test_unet.py', '--model', self.model_path.text(), '--input', input_path]
         
-        # Ajouter l'option récursive si nécessaire
-        if self.dir_mode_radio.isChecked() and self.recursive_checkbox.isChecked():
-            cmd.append('--recursive')
+        # Ajouter les options de visualisation si demandées
+        if self.visualize_tiles_checkbox.isChecked():
+            cmd.append('--visualize-tiles')
+            if self.viz_output_dir.text():
+                cmd.extend(['--viz-output', self.viz_output_dir.text()])
+                
+        if self.visualize_activations_checkbox.isChecked():
+            cmd.append('--visualize-activations')
+            if self.viz_output_dir.text():
+                cmd.extend(['--viz-output', self.viz_output_dir.text()])
         
         # Préparer l'interface pour l'exécution
         self.console.clear()
@@ -1646,6 +1640,11 @@ class UNetTestingTab(QWidget):
         self.process_thread.update_signal.connect(self.update_console)
         self.process_thread.finished_signal.connect(self.analysis_finished)
         self.process_thread.start()
+        
+        # Configurer un timer pour vérifier régulièrement les résultats
+        self.check_timer = QTimer()
+        self.check_timer.timeout.connect(self.parse_result_from_output)
+        self.check_timer.start(1000)  # Vérifier toutes les secondes
     
     def update_console(self, text):
         """Met à jour la console avec la sortie du script"""
@@ -1656,40 +1655,49 @@ class UNetTestingTab(QWidget):
         scrollbar.setValue(scrollbar.maximum())
         
         # Analyser la sortie pour extraire les résultats
-        if "Résultat pour:" in text:
+        if "Résultat pour:" in text or "Résultat global pour:" in text:
             self.parse_result_from_output()
     
     def parse_result_from_output(self):
         """Extrait les informations de résultat de la sortie de la console"""
         text = self.console.toPlainText()
-        sections = text.split("=" * 60)
+        
+        # Rechercher les sections de résultat entre les délimiteurs "=" répétés
+        sections = text.split("="*60)
+        results_found = False
         
         for section in sections:
-            if "Résultat pour:" in section and "Prédiction:" in section:
+            if ("Résultat pour:" in section or "Résultat global pour:" in section) and ("Prédiction:" in section or "predicted_class" in section):
                 # C'est une section de résultat
+                results_found = True
                 lines = section.strip().split("\n")
                 result = {}
                 
                 for line in lines:
                     line = line.strip()
-                    if line.startswith("Résultat pour:"):
+                    if "Résultat pour:" in line:
                         result['file'] = line.split("Résultat pour:")[1].strip()
-                    elif line.startswith("Classe réelle:"):
+                    elif "Résultat global pour:" in line:
+                        result['file'] = line.split("Résultat global pour:")[1].strip()
+                    elif "Classe réelle:" in line:
                         result['true_class'] = line.split("Classe réelle:")[1].strip()
-                    elif line.startswith("Prédiction:"):
+                    elif "Prédiction:" in line:
                         result['predicted_class'] = line.split("Prédiction:")[1].strip()
-                    elif line.startswith("Score brut:"):
+                    elif "Score brut:" in line:
                         try:
                             result['score'] = float(line.split("Score brut:")[1].strip())
                         except ValueError:
-                            # En cas d'erreur de conversion, utiliser une valeur par défaut
                             result['score'] = 0.5
-                    elif line.startswith("Confiance:"):
+                    elif "Score moyen:" in line:
+                        try:
+                            result['score'] = float(line.split("Score moyen:")[1].strip())
+                        except ValueError:
+                            result['score'] = 0.5
+                    elif "Confiance:" in line:
                         try:
                             confidence_str = line.split("Confiance:")[1].strip()
                             result['confidence'] = float(confidence_str.replace("%", "")) / 100
                         except ValueError:
-                            # En cas d'erreur de conversion, utiliser une valeur par défaut
                             result['confidence'] = 0.5
                 
                 # Vérifier si ce résultat existe déjà dans la liste
@@ -1711,13 +1719,20 @@ class UNetTestingTab(QWidget):
                         self.all_results.append(result)
                         self.add_result_to_list(result)
                         
-                        # Afficher dans la console pour le débogage
-                        print(f"Ajout du résultat pour {result['file']} à la liste")
+                        self.console.append(f"Ajout du résultat pour {result['file']} à la liste")
+        
+        return results_found
     
     def add_result_to_list(self, result):
         """Ajoute un résultat à la liste des résultats"""
-        filename = result['file']
-        predicted_class = result['predicted_class']
+        # Extraire le nom de fichier du chemin complet si nécessaire
+        if 'file' in result:
+            # Obtenir juste le nom de fichier sans le chemin
+            filename = os.path.basename(result['file'])
+        else:
+            filename = "Inconnu"
+            
+        predicted_class = result.get('predicted_class', 'Inconnu')
         confidence = result.get('confidence', 0) * 100
         
         item_text = f"{filename} - {predicted_class} ({confidence:.1f}%)"
@@ -1789,6 +1804,10 @@ class UNetTestingTab(QWidget):
         self.progress_bar.hide()
         self.test_button.setEnabled(True)
         
+        # Arrêter le timer de vérification
+        if hasattr(self, 'check_timer'):
+            self.check_timer.stop()
+        
         # Faire une dernière tentative de parse des résultats
         self.parse_result_from_output()
         
@@ -1846,7 +1865,7 @@ class VisualizationTab(QWidget):
         viz_type_layout = QHBoxLayout()
         
         self.viz_type = QComboBox()
-        self.viz_type.addItems(["Matrices", "Tuiles", "Heatmaps", "Activations"])
+        self.viz_type.addItems(["Matrices", "Activations"])
         self.viz_type.currentIndexChanged.connect(self.update_viz_options)
         
         viz_type_layout.addWidget(QLabel("Type:"))
@@ -1860,47 +1879,66 @@ class VisualizationTab(QWidget):
         
         # Sélection de fichier/dossier
         select_group = QGroupBox("Sélection de fichier/dossier")
-        select_layout = QHBoxLayout()
+        select_layout = QVBoxLayout()
         
+        self.file_layout = QHBoxLayout()
         self.file_path = QLineEdit()
         self.file_path.setPlaceholderText("Chemin du fichier ou dossier à visualiser")
-        select_button = QPushButton("Parcourir...")
-        select_button.clicked.connect(self.browse_file)
+        self.select_button = QPushButton("Parcourir...")
+        self.select_button.clicked.connect(self.browse_file)
         
-        select_layout.addWidget(self.file_path)
-        select_layout.addWidget(select_button)
+        self.file_layout.addWidget(self.file_path)
+        self.file_layout.addWidget(self.select_button)
+        select_layout.addLayout(self.file_layout)
+        
+        # Options supplémentaires pour les activations
+        self.model_layout = QHBoxLayout()
+        self.model_label = QLabel("Modèle:")
+        self.model_path = QLineEdit()
+        self.model_path.setPlaceholderText("Chemin du modèle UNet (.pth)")
+        self.model_button = QPushButton("Parcourir...")
+        self.model_button.clicked.connect(self.browse_model)
+        
+        self.model_layout.addWidget(self.model_label)
+        self.model_layout.addWidget(self.model_path)
+        self.model_layout.addWidget(self.model_button)
+        select_layout.addLayout(self.model_layout)
+        
+        self.matrix_layout = QHBoxLayout()
+        self.matrix_label = QLabel("ID Matrice:")
+        self.matrix_id = QLineEdit()
+        self.matrix_id.setPlaceholderText("ID de la matrice (optionnel)")
+        
+        self.matrix_layout.addWidget(self.matrix_label)
+        self.matrix_layout.addWidget(self.matrix_id)
+        select_layout.addLayout(self.matrix_layout)
+        
         select_group.setLayout(select_layout)
         
         # Bouton de visualisation
         self.visualize_button = QPushButton("Visualiser")
         self.visualize_button.clicked.connect(self.visualize)
         
-        # Zone de visualisation
-        viz_area_group = QGroupBox("Visualisation")
-        viz_area_layout = QVBoxLayout()
+        # Zone de sortie
+        output_group = QGroupBox("Sortie du processus")
+        output_layout = QVBoxLayout()
+        self.output_text = QTextEdit()
+        self.output_text.setReadOnly(True)
+        output_layout.addWidget(self.output_text)
+        output_group.setLayout(output_layout)
         
-        # Créer un widget Matplotlib pour l'affichage
-        self.figure = Figure(figsize=(6, 5), dpi=100)
-        self.canvas = FigureCanvas(self.figure)
-        viz_area_layout.addWidget(self.canvas)
-        
-        viz_area_group.setLayout(viz_area_layout)
-        
-        # Informations sur la visualisation
-        info_group = QGroupBox("Informations")
-        info_layout = QVBoxLayout()
-        self.info_text = QTextEdit()
-        self.info_text.setReadOnly(True)
-        info_layout.addWidget(self.info_text)
-        info_group.setLayout(info_layout)
+        # Barre de progression
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0)  # Indéterminé
+        self.progress_bar.hide()
         
         # Construction du layout principal
         layout.addWidget(viz_type_group)
         layout.addWidget(self.options_group)
         layout.addWidget(select_group)
         layout.addWidget(self.visualize_button)
-        layout.addWidget(viz_area_group)
-        layout.addWidget(info_group)
+        layout.addWidget(output_group)
+        layout.addWidget(self.progress_bar)
         
         self.setLayout(layout)
         
@@ -1917,226 +1955,598 @@ class VisualizationTab(QWidget):
         viz_type = self.viz_type.currentText()
         
         if viz_type == "Matrices":
-            # Options pour les matrices
-            color_layout = QHBoxLayout()
-            color_layout.addWidget(QLabel("Palette de couleurs:"))
-            self.colormap = QComboBox()
-            self.colormap.addItems(["viridis", "plasma", "inferno", "magma", "cividis", "hot", "cool"])
-            color_layout.addWidget(self.colormap)
-            self.options_layout.addLayout(color_layout)
+            # Options pour visualize_matrix.py
+            # Mode de visualisation
+            mode_layout = QHBoxLayout()
+            mode_layout.addWidget(QLabel("Mode:"))
+            self.viz_mode = QComboBox()
+            self.viz_mode.addItems(["heatmap", "categorical"])
+            mode_layout.addWidget(self.viz_mode)
+            self.options_layout.addLayout(mode_layout)
             
-            norm_layout = QHBoxLayout()
-            self.normalize_checkbox = QCheckBox("Normaliser les valeurs")
-            self.normalize_checkbox.setChecked(True)
-            norm_layout.addWidget(self.normalize_checkbox)
-            self.options_layout.addLayout(norm_layout)
-        
-        elif viz_type == "Tuiles":
-            # Options pour les tuiles
-            grid_layout = QHBoxLayout()
-            grid_layout.addWidget(QLabel("Disposition de la grille:"))
-            self.grid_rows = QSpinBox()
-            self.grid_rows.setRange(1, 10)
-            self.grid_rows.setValue(3)
-            grid_layout.addWidget(self.grid_rows)
-            grid_layout.addWidget(QLabel("x"))
-            self.grid_cols = QSpinBox()
-            self.grid_cols.setRange(1, 10)
-            self.grid_cols.setValue(3)
-            grid_layout.addWidget(self.grid_cols)
-            self.options_layout.addLayout(grid_layout)
+            # Options console
+            self.console_checkbox = QCheckBox("Afficher dans la console")
+            self.options_layout.addWidget(self.console_checkbox)
             
-            self.show_borders_checkbox = QCheckBox("Afficher les bordures des tuiles")
-            self.show_borders_checkbox.setChecked(True)
-            self.options_layout.addWidget(self.show_borders_checkbox)
-        
-        elif viz_type == "Heatmaps":
-            # Options pour les heatmaps
-            color_layout = QHBoxLayout()
-            color_layout.addWidget(QLabel("Palette de couleurs:"))
-            self.heatmap_colormap = QComboBox()
-            self.heatmap_colormap.addItems(["viridis", "plasma", "inferno", "magma", "cividis", "hot", "cool"])
-            color_layout.addWidget(self.heatmap_colormap)
-            self.options_layout.addLayout(color_layout)
+            self.values_checkbox = QCheckBox("Afficher les valeurs numériques")
+            self.options_layout.addWidget(self.values_checkbox)
             
-            self.show_values_checkbox = QCheckBox("Afficher les valeurs")
-            self.show_values_checkbox.setChecked(False)
-            self.options_layout.addWidget(self.show_values_checkbox)
-        
+            # Option de sauvegarde
+            self.save_checkbox = QCheckBox("Sauvegarder en PNG")
+            self.options_layout.addWidget(self.save_checkbox)
+            
+            output_layout = QHBoxLayout()
+            output_layout.addWidget(QLabel("Dossier de sortie:"))
+            self.output_dir = QLineEdit()
+            self.output_dir.setPlaceholderText("Laisser vide pour utiliser le dossier de la matrice")
+            output_button = QPushButton("...")
+            output_button.clicked.connect(self.browse_output)
+            output_layout.addWidget(self.output_dir)
+            output_layout.addWidget(output_button)
+            self.options_layout.addLayout(output_layout)
+            
+            # Masquer les options spécifiques aux activations
+            self.model_label.setVisible(False)
+            self.model_path.setVisible(False)
+            self.model_button.setVisible(False)
+            self.matrix_label.setVisible(False)
+            self.matrix_id.setVisible(False)
+            
         elif viz_type == "Activations":
-            # Options pour les activations
-            layer_layout = QHBoxLayout()
-            layer_layout.addWidget(QLabel("Couche:"))
-            self.layer_spinbox = QSpinBox()
-            self.layer_spinbox.setRange(1, 10)
-            self.layer_spinbox.setValue(1)
-            layer_layout.addWidget(self.layer_spinbox)
-            self.options_layout.addLayout(layer_layout)
+            # Options pour visualize_activation.py
+            # Afficher les options spécifiques aux activations
+            self.model_label.setVisible(True)
+            self.model_path.setVisible(True)
+            self.model_button.setVisible(True)
+            self.matrix_label.setVisible(True)
+            self.matrix_id.setVisible(True)
             
-            filter_layout = QHBoxLayout()
-            filter_layout.addWidget(QLabel("Filtre:"))
-            self.filter_spinbox = QSpinBox()
-            self.filter_spinbox.setRange(1, 64)
-            self.filter_spinbox.setValue(1)
-            filter_layout.addWidget(self.filter_spinbox)
-            self.options_layout.addLayout(filter_layout)
+            # Option device
+            device_layout = QHBoxLayout()
+            device_layout.addWidget(QLabel("Device:"))
+            self.device_combo = QComboBox()
+            self.device_combo.addItems(["auto", "cuda", "cpu"])
+            device_layout.addWidget(self.device_combo)
+            self.options_layout.addLayout(device_layout)
+            
+            # Option padding
+            padding_layout = QHBoxLayout()
+            padding_layout.addWidget(QLabel("Valeur de padding:"))
+            self.padding_value = QLineEdit("100")
+            padding_layout.addWidget(self.padding_value)
+            self.options_layout.addLayout(padding_layout)
+            
+            # Dossier de sortie
+            output_layout = QHBoxLayout()
+            output_layout.addWidget(QLabel("Dossier de sortie:"))
+            self.activation_output_dir = QLineEdit("activation_maps")
+            output_button = QPushButton("...")
+            output_button.clicked.connect(self.browse_activation_output)
+            output_layout.addWidget(self.activation_output_dir)
+            output_layout.addWidget(output_button)
+            self.options_layout.addLayout(output_layout)
     
     def browse_file(self):
         viz_type = self.viz_type.currentText()
         
-        if viz_type in ["Tuiles", "Heatmaps"]:
-            # Sélectionner un dossier
-            folder = QFileDialog.getExistingDirectory(self, "Sélectionner un dossier")
-            if folder:
-                self.file_path.setText(folder)
-        else:
-            # Sélectionner un fichier
-            file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier", "", "Tous les fichiers (*)")
-            if file:
-                self.file_path.setText(file)
+        if viz_type == "Matrices":
+            file, _ = QFileDialog.getOpenFileName(self, "Sélectionner une matrice", "", "Fichiers NumPy (*.npy)")
+        else:  # Activations
+            # Pour les activations, permettre de sélectionner un fichier ou un dossier
+            dialog = QFileDialog(self)
+            dialog.setFileMode(QFileDialog.AnyFile)
+            dialog.setNameFilter("Tous les fichiers (*)")
+            dialog.setWindowTitle("Sélectionner une tuile ou un dossier")
+            dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+            
+            # Ajouter un bouton pour sélectionner un dossier
+            for btn in dialog.findChildren(QPushButton):
+                if btn.text() == 'Open' or btn.text() == "Ouvrir":
+                    btn.setText("Sélectionner")
+            
+            if dialog.exec_():
+                selected_files = dialog.selectedFiles()
+                file = selected_files[0] if selected_files else None
+            else:
+                file = None
+        
+        if file:
+            self.file_path.setText(file)
+    
+    def browse_model(self):
+        file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un modèle UNet", "", "Modèles PyTorch (*.pth *.pt)")
+        if file:
+            self.model_path.setText(file)
+    
+    def browse_output(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie")
+        if folder:
+            self.output_dir.setText(folder)
+    
+    def browse_activation_output(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie pour les activations")
+        if folder:
+            self.activation_output_dir.setText(folder)
     
     def visualize(self):
+        """Appelle le script de visualisation approprié en fonction du type sélectionné"""
+        viz_type = self.viz_type.currentText()
+        
         if not self.file_path.text():
             QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un fichier ou dossier.")
             return
         
-        viz_type = self.viz_type.currentText()
+        # Préparer l'interface
+        self.output_text.clear()
+        self.progress_bar.show()
+        self.visualize_button.setEnabled(False)
         
-        # Effacer la figure actuelle
-        self.figure.clear()
-        
-        # Simuler différentes visualisations
+        # Construire la commande en fonction du type de visualisation
         if viz_type == "Matrices":
-            self.visualize_matrix()
-        elif viz_type == "Tuiles":
-            self.visualize_tiles()
-        elif viz_type == "Heatmaps":
-            self.visualize_heatmap()
-        elif viz_type == "Activations":
-            self.visualize_activations()
-        
-        # Mettre à jour le canvas
-        self.canvas.draw()
-    
-    def visualize_matrix(self):
-        # Simuler l'affichage d'une matrice
-        import numpy as np
-        
-        # Dans une implémentation réelle, vous chargeriez la matrice depuis le fichier
-        # Pour la simulation, on génère une matrice aléatoire
-        matrix = np.random.rand(20, 20)
-        
-        ax = self.figure.add_subplot(111)
-        cmap = self.colormap.currentText()
-        normalize = self.normalize_checkbox.isChecked()
-        
-        if normalize:
-            im = ax.imshow(matrix, cmap=cmap)
-        else:
-            im = ax.imshow(matrix, cmap=cmap, vmin=0, vmax=1)
-        
-        ax.set_title("Matrice de similarité")
-        self.figure.colorbar(im)
-        
-        self.info_text.clear()
-        self.info_text.append(f"Fichier: {self.file_path.text()}")
-        self.info_text.append(f"Dimensions: {matrix.shape[0]}x{matrix.shape[1]}")
-        self.info_text.append(f"Min: {matrix.min():.4f}, Max: {matrix.max():.4f}")
-        self.info_text.append(f"Moyenne: {matrix.mean():.4f}, Écart-type: {matrix.std():.4f}")
-    
-    def visualize_tiles(self):
-        # Simuler l'affichage d'une grille de tuiles
-        import numpy as np
-        
-        rows = self.grid_rows.value()
-        cols = self.grid_cols.value()
-        show_borders = self.show_borders_checkbox.isChecked()
-        
-        # Créer un ensemble de tuiles simulées
-        tiles = [np.random.rand(3, 3) for _ in range(rows * cols)]
-        
-        # Afficher les tuiles dans une grille
-        for i in range(min(rows * cols, len(tiles))):
-            ax = self.figure.add_subplot(rows, cols, i+1)
-            im = ax.imshow(tiles[i], cmap="viridis")
-            ax.set_title(f"Tuile {i+1}")
-            ax.set_xticks([])
-            ax.set_yticks([])
+            cmd = ['python', 'visualization/visualize_matrix.py']
             
-            if show_borders:
-                ax.set_frame_on(True)
+            # Ajouter les options
+            cmd.extend(['--file', self.file_path.text()])
+            
+            if hasattr(self, 'viz_mode') and self.viz_mode.currentText():
+                cmd.extend(['--mode', self.viz_mode.currentText()])
+                
+            if hasattr(self, 'console_checkbox') and self.console_checkbox.isChecked():
+                cmd.append('--console')
+                
+            if hasattr(self, 'values_checkbox') and self.values_checkbox.isChecked():
+                cmd.append('--values')
+                
+            if hasattr(self, 'save_checkbox') and self.save_checkbox.isChecked():
+                cmd.append('--save')
+                
+            if hasattr(self, 'output_dir') and self.output_dir.text():
+                cmd.extend(['--output-dir', self.output_dir.text()])
+                
+        else:  # Activations
+            if not self.model_path.text():
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un modèle UNet.")
+                self.progress_bar.hide()
+                self.visualize_button.setEnabled(True)
+                return
+                
+            cmd = ['python', 'visualization/visualize_activation.py']
+            
+            # Ajouter les options
+            cmd.extend(['--model', self.model_path.text()])
+            cmd.extend(['--input', self.file_path.text()])
+            
+            if self.matrix_id.text():
+                cmd.extend(['--matrix', self.matrix_id.text()])
+                
+            if hasattr(self, 'activation_output_dir') and self.activation_output_dir.text():
+                cmd.extend(['--output', self.activation_output_dir.text()])
+                
+            if hasattr(self, 'device_combo') and self.device_combo.currentText() != "auto":
+                cmd.extend(['--device', self.device_combo.currentText()])
+                
+            if hasattr(self, 'padding_value') and self.padding_value.text():
+                try:
+                    float(self.padding_value.text())  # Vérifier que c'est bien un nombre
+                    cmd.extend(['--padding', self.padding_value.text()])
+                except ValueError:
+                    QMessageBox.warning(self, "Erreur", "La valeur de padding doit être un nombre.")
+                    self.progress_bar.hide()
+                    self.visualize_button.setEnabled(True)
+                    return
+        
+        # Afficher la commande exécutée
+        command_str = ' '.join(cmd)
+        self.output_text.append(f"Exécution de la commande: {command_str}")
+        self.output_text.append("-" * 60)
+        
+        # Exécuter dans un thread
+        self.thread = ProcessThread(command_str)
+        self.thread.update_signal.connect(self.update_output)
+        self.thread.finished_signal.connect(self.process_finished)
+        self.thread.start()
+    
+    def update_output(self, text):
+        """Met à jour la zone de sortie avec la sortie du script"""
+        self.output_text.append(text)
+        # Faire défiler vers le bas
+        scrollbar = self.output_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+    
+    def process_finished(self, success, message):
+        """Appelé lorsque le processus est terminé"""
+        self.progress_bar.hide()
+        self.visualize_button.setEnabled(True)
+        
+        if success:
+            self.output_text.append("-" * 60)
+            self.output_text.append("Visualisation terminée avec succès!")
+            
+            if self.viz_type.currentText() == "Matrices":
+                # Pour les matrices, indiquer où l'image a été sauvegardée
+                if hasattr(self, 'save_checkbox') and self.save_checkbox.isChecked():
+                    output_dir = (hasattr(self, 'output_dir') and self.output_dir.text()) or os.path.dirname(self.file_path.text())
+                    filename = os.path.basename(self.file_path.text()).replace(".npy", ".png")
+                    img_path = os.path.join(output_dir, filename)
+                    
+                    if os.path.exists(img_path):
+                        self.output_text.append(f"Image sauvegardée dans: {img_path}")
             else:
-                ax.set_frame_on(False)
-        
-        self.figure.tight_layout()
-        
-        self.info_text.clear()
-        self.info_text.append(f"Dossier: {self.file_path.text()}")
-        self.info_text.append(f"Nombre de tuiles affichées: {min(rows * cols, len(tiles))}")
-        self.info_text.append(f"Dimensions des tuiles: 3x3")
+                # Pour les activations, indiquer où les images ont été sauvegardées
+                output_dir = (hasattr(self, 'activation_output_dir') and self.activation_output_dir.text()) or "activation_maps"
+                self.output_text.append(f"Images sauvegardées dans le dossier: {output_dir}")
+        else:
+            self.output_text.append("-" * 60)
+            self.output_text.append(f"Erreur lors de la visualisation: {message}")
+
+class BatchRetrievalTab(QWidget):
+    """Onglet pour récupérer les résultats des batches OpenAI"""
     
-    def visualize_heatmap(self):
-        # Simuler l'affichage d'une heatmap
-        import numpy as np
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.initUI()
         
-        # Générer des données simulées
-        data = np.random.rand(10, 10)
+    def initUI(self):
+        layout = QVBoxLayout()
         
-        ax = self.figure.add_subplot(111)
-        cmap = self.heatmap_colormap.currentText()
-        show_values = self.show_values_checkbox.isChecked()
+        # Type de batch
+        type_group = QGroupBox("Type de batch")
+        type_layout = QHBoxLayout()
         
-        im = ax.imshow(data, cmap=cmap)
-        ax.set_title("Heatmap")
+        self.ia_scripts_radio = QRadioButton("Scripts IA (ia_scripts_generator)")
+        self.matrices_radio = QRadioButton("Matrices (matrix_batch_sender)")
+        self.ia_scripts_radio.setChecked(True)
+        self.ia_scripts_radio.toggled.connect(self.update_interface)
+        self.matrices_radio.toggled.connect(self.update_interface)
         
-        # Ajouter les étiquettes des axes
-        ax.set_xticks(range(10))
-        ax.set_yticks(range(10))
-        ax.set_xticklabels([f"X{i+1}" for i in range(10)])
-        ax.set_yticklabels([f"Y{i+1}" for i in range(10)])
+        type_layout.addWidget(self.ia_scripts_radio)
+        type_layout.addWidget(self.matrices_radio)
+        type_group.setLayout(type_layout)
         
-        # Afficher les valeurs dans les cellules si demandé
-        if show_values:
-            for i in range(10):
-                for j in range(10):
-                    text = ax.text(j, i, f"{data[i, j]:.2f}",
-                                  ha="center", va="center", 
-                                  color="white" if data[i, j] > 0.5 else "black",
-                                  fontsize=8)
+        # Méthode de récupération
+        method_group = QGroupBox("Méthode de récupération")
+        method_layout = QVBoxLayout()
         
-        self.figure.colorbar(im)
+        self.single_batch_radio = QRadioButton("Récupérer un batch spécifique")
+        self.list_batches_radio = QRadioButton("Lister et récupérer plusieurs batches")
+        self.single_batch_radio.setChecked(True)
+        self.single_batch_radio.toggled.connect(self.toggle_method)
+        self.list_batches_radio.toggled.connect(self.toggle_method)
         
-        self.info_text.clear()
-        self.info_text.append(f"Dossier: {self.file_path.text()}")
-        self.info_text.append(f"Dimensions: 10x10")
-        self.info_text.append(f"Min: {data.min():.4f}, Max: {data.max():.4f}")
-        self.info_text.append(f"Moyenne: {data.mean():.4f}")
+        method_layout.addWidget(self.single_batch_radio)
+        method_layout.addWidget(self.list_batches_radio)
+        method_group.setLayout(method_layout)
+        
+        # Saisie du batch ID
+        self.batch_id_group = QGroupBox("Batch ID")
+        batch_id_layout = QHBoxLayout()
+        
+        self.batch_id_input = QLineEdit()
+        self.batch_id_input.setPlaceholderText("batch_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        batch_id_layout.addWidget(QLabel("Batch ID:"))
+        batch_id_layout.addWidget(self.batch_id_input)
+        self.batch_id_group.setLayout(batch_id_layout)
+        
+        # Liste des batches
+        self.batches_list_group = QGroupBox("Batches disponibles")
+        batches_list_layout = QVBoxLayout()
+        
+        refresh_button = QPushButton("Rafraîchir la liste des batches")
+        refresh_button.clicked.connect(self.refresh_batches_list)
+        
+        self.batches_list = QListWidget()
+        self.batches_list.setSelectionMode(QListWidget.MultiSelection)
+        
+        limit_layout = QHBoxLayout()
+        limit_layout.addWidget(QLabel("Limite:"))
+        self.batches_limit = QSpinBox()
+        self.batches_limit.setRange(10, 1000)
+        self.batches_limit.setValue(50)
+        limit_layout.addWidget(self.batches_limit)
+        
+        batches_list_layout.addWidget(refresh_button)
+        batches_list_layout.addLayout(limit_layout)
+        batches_list_layout.addWidget(self.batches_list)
+        self.batches_list_group.setLayout(batches_list_layout)
+        self.batches_list_group.hide()
+        
+        # Dossier de sortie
+        output_group = QGroupBox("Dossier de sortie")
+        output_layout = QHBoxLayout()
+        
+        self.output_dir = QLineEdit()
+        self.output_dir.setPlaceholderText("Dossier où sauvegarder les résultats")
+        output_button = QPushButton("Parcourir...")
+        output_button.clicked.connect(self.browse_output)
+        
+        output_layout.addWidget(self.output_dir)
+        output_layout.addWidget(output_button)
+        output_group.setLayout(output_layout)
+        
+        # Options de récupération
+        options_group = QGroupBox("Options")
+        options_layout = QVBoxLayout()
+        
+        self.force_checkbox = QCheckBox("Forcer la récupération (même si non terminé)")
+        self.save_raw_checkbox = QCheckBox("Sauvegarder les résultats bruts (JSONL)")
+        self.save_processed_checkbox = QCheckBox("Sauvegarder les résultats traités")
+        self.save_processed_checkbox.setChecked(True)
+        
+        # Options spécifiques aux matrices
+        self.save_tokens_json_checkbox = QCheckBox("Sauvegarder les tokens JSON (pour matrices)")
+        self.auto_construct_matrices_checkbox = QCheckBox("Construire automatiquement les matrices après récupération")
+        
+        options_layout.addWidget(self.force_checkbox)
+        options_layout.addWidget(self.save_raw_checkbox)
+        options_layout.addWidget(self.save_processed_checkbox)
+        options_layout.addWidget(self.save_tokens_json_checkbox)
+        options_layout.addWidget(self.auto_construct_matrices_checkbox)
+        options_group.setLayout(options_layout)
+        
+        # Boutons d'action
+        actions_layout = QHBoxLayout()
+        
+        self.check_status_button = QPushButton("Vérifier le statut")
+        self.check_status_button.clicked.connect(self.check_status)
+        
+        self.retrieve_button = QPushButton("Récupérer les résultats")
+        self.retrieve_button.clicked.connect(self.retrieve_results)
+        
+        actions_layout.addWidget(self.check_status_button)
+        actions_layout.addWidget(self.retrieve_button)
+        
+        # Console de sortie
+        console_group = QGroupBox("Sortie")
+        console_layout = QVBoxLayout()
+        self.console = QTextEdit()
+        self.console.setReadOnly(True)
+        console_layout.addWidget(self.console)
+        console_group.setLayout(console_layout)
+        
+        # Barre de progression
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.hide()
+        
+        # Construction du layout principal
+        layout.addWidget(type_group)
+        layout.addWidget(method_group)
+        layout.addWidget(self.batch_id_group)
+        layout.addWidget(self.batches_list_group)
+        layout.addWidget(output_group)
+        layout.addWidget(options_group)
+        layout.addLayout(actions_layout)
+        layout.addWidget(console_group)
+        layout.addWidget(self.progress_bar)
+        
+        self.setLayout(layout)
+        
+        # Initialiser l'interface
+        self.update_interface()
     
-    def visualize_activations(self):
-        # Simuler l'affichage des activations d'un modèle
-        import numpy as np
+    def update_interface(self):
+        """Met à jour l'interface selon le type de batch sélectionné"""
+        is_matrices = self.matrices_radio.isChecked()
         
-        layer = self.layer_spinbox.value()
-        filter_num = self.filter_spinbox.value()
+        # Les options spécifiques aux matrices ne sont visibles que pour les matrices
+        self.save_tokens_json_checkbox.setVisible(is_matrices)
+        self.auto_construct_matrices_checkbox.setVisible(is_matrices)
         
-        # Générer des activations simulées (16x16)
-        activation = np.random.rand(16, 16)
+        # Mettre à jour les placeholders
+        if is_matrices:
+            self.output_dir.setPlaceholderText("Dossier pour les résultats de matrices (tokens JSON)")
+        else:
+            self.output_dir.setPlaceholderText("Dossier pour les scripts IA générés")
+    
+    def toggle_method(self):
+        """Change l'interface selon la méthode de récupération"""
+        if self.single_batch_radio.isChecked():
+            self.batch_id_group.show()
+            self.batches_list_group.hide()
+        else:
+            self.batch_id_group.hide()
+            self.batches_list_group.show()
+    
+    def browse_output(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sortie")
+        if folder:
+            self.output_dir.setText(folder)
+    
+    def update_console(self, text):
+        """Met à jour la console avec du texte"""
+        self.console.append(text)
+        # Faire défiler automatiquement vers le bas
+        scrollbar = self.console.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+    
+    def refresh_batches_list(self):
+        """Rafraîchit la liste des batches disponibles"""
+        if not self.output_dir.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez d'abord spécifier un dossier de sortie.")
+            return
         
-        ax = self.figure.add_subplot(111)
-        im = ax.imshow(activation, cmap="viridis")
-        ax.set_title(f"Activation de la couche {layer}, filtre {filter_num}")
-        self.figure.colorbar(im)
+        self.console.clear()
+        self.console.append(f"Recherche des batches dans: {self.output_dir.text()}")
+        self.batches_list.clear()
         
-        self.info_text.clear()
-        self.info_text.append(f"Modèle: {self.file_path.text()}")
-        self.info_text.append(f"Couche: {layer}")
-        self.info_text.append(f"Filtre: {filter_num}")
-        self.info_text.append(f"Dimensions: {activation.shape[0]}x{activation.shape[1]}")
-        self.info_text.append(f"Activation minimale: {activation.min():.4f}")
-        self.info_text.append(f"Activation maximale: {activation.max():.4f}")
-        self.info_text.append(f"Activation moyenne: {activation.mean():.4f}")
+        # Chercher les fichiers de métadonnées dans le dossier
+        metadata_dir = os.path.join(self.output_dir.text(), "metadata")
+        if os.path.exists(metadata_dir):
+            # Lister les fichiers batch_*.json
+            import glob
+            import json
+            batch_files = glob.glob(os.path.join(metadata_dir, "batch_*.json"))
+            
+            for batch_file in batch_files:
+                try:
+                    with open(batch_file, 'r') as f:
+                        batch_data = json.load(f)
+                    
+                    batch_id = batch_data.get('batch_id', 'Unknown')
+                    status = batch_data.get('status', 'Unknown')
+                    created_at = batch_data.get('created_at', 'Unknown')
+                    
+                    # Ajouter à la liste
+                    item_text = f"{batch_id} - Status: {status} - Créé: {created_at}"
+                    self.batches_list.addItem(item_text)
+                    
+                except Exception as e:
+                    self.console.append(f"Erreur lors de la lecture de {batch_file}: {str(e)}")
+            
+            if len(batch_files) == 0:
+                self.console.append("Aucun fichier de batch trouvé dans le dossier metadata.")
+            else:
+                self.console.append(f"{len(batch_files)} batch(es) trouvé(s).")
+        else:
+            # Si pas de dossier metadata, utiliser l'ancienne méthode avec batch_manager.py
+            cmd = ['python', 'utils/batch_manager.py', 'list']
+            cmd.extend(['--output', self.output_dir.text()])
+            cmd.extend(['--limit', str(self.batches_limit.value())])
+            
+            self.console.append(f"Commande: {' '.join(cmd)}\n")
+            
+            # Exécuter dans un thread
+            self.thread = ProcessThread(' '.join(cmd))
+            self.thread.update_signal.connect(self.update_console)
+            self.thread.finished_signal.connect(self.on_list_finished)
+            self.thread.start()
+    
+    def on_list_finished(self, success, message):
+        """Traite les résultats de la liste des batches"""
+        if success:
+            # Parser la sortie pour extraire les IDs de batch
+            # (Cette partie pourrait être améliorée avec un parsing plus sophistiqué)
+            self.console.append("Liste récupérée avec succès.")
+        else:
+            self.console.append(f"Erreur lors de la récupération: {message}")
+    
+    def check_status(self):
+        """Vérifie le statut d'un ou plusieurs batches"""
+        if not self.output_dir.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez spécifier un dossier de sortie.")
+            return
+        
+        if self.single_batch_radio.isChecked():
+            if not self.batch_id_input.text():
+                QMessageBox.warning(self, "Erreur", "Veuillez saisir un batch ID.")
+                return
+            
+            batch_ids = [self.batch_id_input.text()]
+        else:
+            selected_items = self.batches_list.selectedItems()
+            if not selected_items:
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner au moins un batch.")
+                return
+            
+            batch_ids = [item.text().split()[0] for item in selected_items]  # Extraire l'ID du texte
+        
+        self.console.clear()
+        self.progress_bar.show()
+        
+        for batch_id in batch_ids:
+            cmd = ['python', 'utils/batch_manager.py', 'status', batch_id]
+            cmd.extend(['--output', self.output_dir.text()])
+            
+            self.console.append(f"Vérification du statut de {batch_id}...")
+            self.console.append(f"Commande: {' '.join(cmd)}\n")
+            
+            # Exécuter dans un thread
+            self.thread = ProcessThread(' '.join(cmd))
+            self.thread.update_signal.connect(self.update_console)
+            self.thread.finished_signal.connect(self.on_status_finished)
+            self.thread.start()
+            break  # Pour l'instant, traiter un seul batch à la fois
+    
+    def retrieve_results(self):
+        """Récupère les résultats d'un ou plusieurs batches"""
+        if not self.output_dir.text():
+            QMessageBox.warning(self, "Erreur", "Veuillez spécifier un dossier de sortie.")
+            return
+        
+        if self.single_batch_radio.isChecked():
+            if not self.batch_id_input.text():
+                QMessageBox.warning(self, "Erreur", "Veuillez saisir un batch ID.")
+                return
+            
+            batch_ids = [self.batch_id_input.text()]
+        else:
+            selected_items = self.batches_list.selectedItems()
+            if not selected_items:
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner au moins un batch.")
+                return
+            
+            batch_ids = [item.text().split()[0] for item in selected_items]
+        
+        self.console.clear()
+        self.progress_bar.show()
+        self.retrieve_button.setEnabled(False)
+        
+        for batch_id in batch_ids:
+            cmd = ['python', 'utils/batch_manager.py', 'fetch', batch_id]
+            cmd.extend(['--output', self.output_dir.text()])
+            
+            if self.output_dir.text():
+                cmd.extend(['--destination', self.output_dir.text()])
+            
+            if self.force_checkbox.isChecked():
+                cmd.append('--force')
+            
+            if self.save_processed_checkbox.isChecked():
+                cmd.append('--save')
+            
+            if self.save_raw_checkbox.isChecked():
+                cmd.append('--save-raw')
+            
+            if self.matrices_radio.isChecked() and self.save_tokens_json_checkbox.isChecked():
+                cmd.append('--save-tokens-json')
+            
+            self.console.append(f"Récupération des résultats de {batch_id}...")
+            self.console.append(f"Commande: {' '.join(cmd)}\n")
+            
+            # Exécuter dans un thread
+            self.thread = ProcessThread(' '.join(cmd))
+            self.thread.update_signal.connect(self.update_console)
+            self.thread.finished_signal.connect(self.on_retrieve_finished)
+            self.thread.start()
+            break  # Pour l'instant, traiter un seul batch à la fois
+    
+    def on_status_finished(self, success, message):
+        """Appelé quand la vérification de statut est terminée"""
+        self.progress_bar.hide()
+        if success:
+            self.console.append("Vérification terminée.")
+        else:
+            self.console.append(f"Erreur: {message}")
+    
+    def on_retrieve_finished(self, success, message):
+        """Appelé quand la récupération est terminée"""
+        self.progress_bar.hide()
+        self.retrieve_button.setEnabled(True)
+        
+        if success:
+            self.console.append("Récupération terminée avec succès!")
+            
+            # Si on récupère des matrices ET qu'on veut construire automatiquement
+            if (self.matrices_radio.isChecked() and 
+                self.auto_construct_matrices_checkbox.isChecked() and
+                self.save_tokens_json_checkbox.isChecked()):
+                
+                self.console.append("\nConstruction automatique des matrices...")
+                self._construct_matrices_automatically()
+        else:
+            self.console.append(f"Erreur lors de la récupération: {message}")
+    
+    def _construct_matrices_automatically(self):
+        """Construit automatiquement les matrices après récupération des tokens JSON"""
+        # Une approche plus simple: utiliser directement matrix_batch_generator.py avec le fichier source
+        self.console.append("\nPour générer les matrices, veuillez:")
+        self.console.append("1. Aller dans l'onglet 'Génération des Matrices'")
+        self.console.append("2. Sélectionner le fichier source original (pas le fichier tokens)")
+        self.console.append("3. Cliquer sur 'Générer les matrices'")
+        self.console.append("\nLe traitement automatique des matrices n'est pas disponible après récupération du batch.")
 
 
+# Placer la définition de MainWindow après toutes les autres classes
 class MainWindow(QMainWindow):
     """Fenêtre principale de l'application"""
     
@@ -2145,34 +2555,37 @@ class MainWindow(QMainWindow):
         self.initUI()
         
     def initUI(self):
-        self.setWindowTitle("Pipeline de Traitement de Code")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowTitle("Pipeline de Traitement de Code - Cassiopée")
+        self.setGeometry(100, 100, 1400, 900)
         
         # Créer les onglets
         self.tabs = QTabWidget()
         
-        # Ajouter chaque onglet
-        self.scripts_generator_tab = ScriptsGeneratorTab()
-        self.tabs.addTab(self.scripts_generator_tab, "Génération de Scripts")
+        # Onglet 1: Génération de scripts IA
+        self.script_generation_tab = ScriptGenerationTab()
+        self.tabs.addTab(self.script_generation_tab, "Génération de Code IA")
         
-        self.batch_manager_tab = BatchManagerTab()
-        self.tabs.addTab(self.batch_manager_tab, "Gestion des Batches")
+        # Onglet 2: Récupération des batches
+        self.batch_retrieval_tab = BatchRetrievalTab()
+        self.tabs.addTab(self.batch_retrieval_tab, "Récupération de Batches")
         
-        self.batch_completion_tab = BatchCompletionTab()
-        self.tabs.addTab(self.batch_completion_tab, "Complétion des Batches")
-        
+        # Onglet 3: Génération des matrices
         self.matrix_generation_tab = MatrixGenerationTab()
         self.tabs.addTab(self.matrix_generation_tab, "Génération des Matrices")
         
+        # Onglet 4: Génération des tuiles
         self.matrix_tiling_tab = MatrixTilingTab()
         self.tabs.addTab(self.matrix_tiling_tab, "Génération des Tuiles")
         
+        # Onglet 5: Entraînement U-Net
         self.unet_training_tab = UNetTrainingTab()
         self.tabs.addTab(self.unet_training_tab, "Entraînement U-Net")
         
+        # Onglet 6: Test U-Net
         self.unet_testing_tab = UNetTestingTab()
         self.tabs.addTab(self.unet_testing_tab, "Test U-Net")
         
+        # Onglet 7: Visualisation
         self.visualization_tab = VisualizationTab()
         self.tabs.addTab(self.visualization_tab, "Visualisation")
         

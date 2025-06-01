@@ -1,0 +1,25 @@
+def bs(v):
+    nc = 0
+    m = len(v)
+    while m > 0:
+        j=0 
+        while j < m-1:
+            if v[j] > v[j+1]:
+                x = v[j+1]
+                v[j+1] = v[j]
+                v[j] = x
+                nc += 1
+            j += 1
+        m -= 1
+    return(nc)
+
+while True:
+    n = int(input())
+    if n==0:
+        break
+    v = []    
+    for _ in range(n):
+        x = int(input())
+        v.append(x)
+
+    print(bs(v))

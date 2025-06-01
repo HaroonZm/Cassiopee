@@ -1,0 +1,32 @@
+def main():
+    while True:
+        N, M, S = map(int, input().split())
+        if max(N, M, S) == 0:
+            break
+        ans = solve(N, M, S)
+        print(ans)
+
+def solve(N, M, S):
+    MOD = 10 ** 5
+    p = N * N
+    q = M - p
+    T = S - (p * (p + 1)) // 2
+
+    dp = [[0 for i in range(T + 1)] for j in range(p + 1)]
+    dp[0][0] = 1
+    for i in range(1, p + 1):
+        for j in range(T + 1):
+            dp[i][j] = dp[i - 1][j]
+            if j - i >= 0:
+                dp[i][j] += dp[i][j - i]
+            if j - i - q >= 0:
+                dp[i][j] -= dp[i - 1][j - i - q]
+
+            dp[i][j] %= MOD
+
+    ans = dp[p][T]
+    # for r in dp:
+    #     print(", ".join(map(str, r)))
+    return ans
+
+main()

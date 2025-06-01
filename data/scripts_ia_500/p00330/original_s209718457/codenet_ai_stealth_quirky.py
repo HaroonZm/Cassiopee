@@ -1,0 +1,1 @@
+__import__('builtins').__dict__['p'+'r'+'i'+'n'+'t'](sum([int(i) for i in list(str(int(input())))]*32))

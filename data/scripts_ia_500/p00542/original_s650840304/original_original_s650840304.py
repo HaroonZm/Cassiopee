@@ -1,0 +1,13 @@
+a=int(input())
+b=int(input())
+c=int(input())
+d=int(input())
+e=int(input())
+f=int(input())
+x = (a,b,c,d)
+y = (e,f)
+z = min(x)
+w = sum(x)
+z = w-z
+g = z+max(y)
+print(g)

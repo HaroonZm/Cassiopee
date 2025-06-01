@@ -7,6 +7,16 @@ import numpy as np
 import os
 import argparse
 from pathlib import Path
+import random
+import logging
+
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
 def charger_script_depuis_fichier(nom_fichier):
     """
@@ -22,8 +32,41 @@ def charger_script_depuis_fichier(nom_fichier):
     with open(chemin_fichier, "r", encoding="utf-8") as f:
         return f.read()
 
-# Initialisation du client OpenAI
-client = OpenAI(api_key="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")
+# Initialisation du client OpenAI avec clé API depuis variable d'environnement
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "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"))
+
+# Dictionnaire des modèles et leur compatibilité avec les endpoints
+MODELES_COMPATIBLES = {
+    # Modèles compatibles avec chat/completions uniquement
+    "gpt-4o-mini": "chat",
+    "gpt-4o": "chat",
+    "gpt-4.1": "chat",
+    "gpt-4.1-mini": "chat",
+    "gpt-3.5-turbo": "chat",
+    # Modèles compatibles avec completions uniquement
+    "text-davinci-003": "completions",
+    "text-davinci-002": "completions",
+    # Modèles compatibles avec les deux endpoints
+    "gpt-3.5-turbo-instruct": "both"
+}
+
+def verifier_compatibilite_modele(modele, api_type):
+    """
+    Vérifie si le modèle est compatible avec le type d'API spécifié.
+    
+    Args:
+        modele (str): Le modèle à vérifier
+        api_type (str): Le type d'API ("chat" ou "completions")
+        
+    Returns:
+        bool: True si compatible, False sinon
+    """
+    if modele not in MODELES_COMPATIBLES:
+        logger.warning(f"Modèle {modele} non trouvé dans la liste de compatibilité, supposé compatible avec les deux endpoints.")
+        return True
+    
+    compat = MODELES_COMPATIBLES[modele]
+    return compat == "both" or compat == api_type
 
 def tokeniser_avec_tiktoken(texte, modele="gpt-4o-mini"):
     """
@@ -42,8 +85,8 @@ def tokeniser_avec_tiktoken(texte, modele="gpt-4o-mini"):
         encodeur = tiktoken.encoding_for_model(modele)
     except KeyError:
         # Si le modèle n'est pas disponible, utiliser l'encodeur cl100k_base (utilisé par gpt-4, gpt-3.5-turbo)
-        print(f"Encodeur pour {modele} non trouvé, utilisation de cl100k_base à la place.")
-        encodeur = tiktoken.get_encoding("cl200k_base")
+        logger.warning(f"Encodeur pour {modele} non trouvé, utilisation de cl100k_base à la place.")
+        encodeur = tiktoken.get_encoding("cl100k_base")
     
     # Encoder le texte en tokens (IDs numériques)
     token_ids = encodeur.encode(texte)
@@ -53,25 +96,168 @@ def tokeniser_avec_tiktoken(texte, modele="gpt-4o-mini"):
     
     return token_ids, tokens
 
-def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini"):
-    """Analyse les prédictions du modèle pour chaque token du script avec tokenisation via tiktoken"""
+def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1, max_delay=60):
+    """
+    Fonction utilitaire pour réessayer avec backoff exponentiel en cas d'erreur.
+    
+    Args:
+        func: La fonction à exécuter
+        max_retries: Nombre maximal de tentatives
+        initial_delay: Délai initial entre les tentatives (en secondes)
+        max_delay: Délai maximal entre les tentatives (en secondes)
+        
+    Returns:
+        Le résultat de la fonction si elle réussit
+        
+    Raises:
+        Exception: Si toutes les tentatives échouent
+    """
+    retries = 0
+    delay = initial_delay
+    
+    while True:
+        try:
+            return func()
+        except Exception as e:
+            retries += 1
+            if retries > max_retries:
+                logger.error(f"Échec après {max_retries} tentatives: {e}")
+                raise
+            
+            # Appliquer un jitter pour éviter les collisions
+            jitter = random.uniform(0, 0.1) * delay
+            sleep_time = min(delay + jitter, max_delay)
+            
+            logger.warning(f"Erreur: {e}. Nouvelle tentative dans {sleep_time:.2f}s (tentative {retries}/{max_retries})")
+            time.sleep(sleep_time)
+            
+            # Augmenter le délai pour la prochaine tentative
+            delay = min(delay * 2, max_delay)
+
+def analyser_avec_chat_completions(contexte_actuel, modele="gpt-4o-mini"):
+    """
+    Utilise l'API chat/completions pour prédire le prochain token.
+    
+    Args:
+        contexte_actuel (str): Contexte du code actuel
+        modele (str): Modèle à utiliser pour la prédiction
+        
+    Returns:
+        tuple: Token prédit, liste d'alternatives avec leurs logprobs
+    """
+    def make_request():
+        messages = [
+            {"role": "system", "content": "You are a code predictor that generates only the next token without any additional text. Pay attention to spaces, tabs, line breaks, and special symbols in the code."},
+            {"role": "user", "content": f"Code context: {contexte_actuel}"}
+        ]
+        
+        response = client.chat.completions.create(
+            model=modele,
+            messages=messages,
+            temperature=0,
+            max_tokens=1,
+            logprobs=True,
+            top_logprobs=10
+        )
+        
+        # Extraire le token prédit
+        token_predit = response.choices[0].message.content
+        
+        # Extraire les alternatives avec leurs logprobs
+        alternatives = []
+        if hasattr(response.choices[0], "logprobs") and response.choices[0].logprobs:
+            for logprob_obj in response.choices[0].logprobs.content:
+                for item in logprob_obj.top_logprobs:
+                    alternatives.append({
+                        "token": item.token,
+                        "logprob": item.logprob
+                    })
+        
+        return token_predit, alternatives
+    
+    return retry_with_exponential_backoff(make_request)
+
+def analyser_avec_completions(contexte_actuel, modele):
+    """
+    Utilise l'API completions pour prédire le prochain token.
+    
+    Args:
+        contexte_actuel (str): Contexte du code actuel
+        modele (str): Modèle à utiliser pour la prédiction
+        
+    Returns:
+        tuple: Token prédit, liste d'alternatives avec leurs logprobs
+    """
+    def make_request():
+        response = client.completions.create(
+            model=modele,
+            prompt=contexte_actuel,
+            max_tokens=1,
+            temperature=0.0,
+            top_p=0.1,
+            frequency_penalty=0.0,
+            presence_penalty=0.0,
+            logprobs=10,
+            echo=False
+        )
+        
+        # Extraire le token prédit
+        token_predit = response.choices[0].text
+        
+        # Extraction des logprobs
+        alternatives = []
+        if hasattr(response.choices[0], 'logprobs') and response.choices[0].logprobs and response.choices[0].logprobs.top_logprobs:
+            logprobs_data = response.choices[0].logprobs.top_logprobs[0]
+            alternatives = [{"token": token, "logprob": logprob} for token, logprob in logprobs_data.items()]
+        
+        return token_predit, alternatives
+    
+    return retry_with_exponential_backoff(make_request)
+
+def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini", api_type="completions"):
+    """
+    Analyse les prédictions du modèle pour chaque token du script.
+    
+    Args:
+        script (str): Le script à analyser
+        modele_tokenisation (str): Le modèle à utiliser pour la tokenisation
+        modele_prediction (str): Le modèle à utiliser pour la prédiction
+        api_type (str): Type d'API à utiliser ("completions" ou "chat")
+    
+    Returns:
+        tuple: Résultats d'analyse et tokens de référence
+    """
+    # Vérifier la compatibilité du modèle avec le type d'API
+    if not verifier_compatibilite_modele(modele_prediction, api_type):
+        original_type = api_type
+        # Déterminer le type d'API compatible avec ce modèle
+        for model, compatible_type in MODELES_COMPATIBLES.items():
+            if model == modele_prediction:
+                if compatible_type == "both":
+                    # Si compatible avec les deux, garder le type demandé
+                    pass
+                else:
+                    # Sinon, utiliser le type compatible
+                    api_type = compatible_type
+                    logger.warning(f"Le modèle {modele_prediction} n'est pas compatible avec l'API {original_type}. Utilisation de l'API {api_type} à la place.")
+                break
     
     # Tokeniser le script avec tiktoken
-    print(f"Tokenisation du script avec tiktoken ({modele_tokenisation})...")
+    logger.info(f"Tokenisation du script avec tiktoken ({modele_tokenisation})...")
     token_ids, tokens_reference = tokeniser_avec_tiktoken(script, modele_tokenisation)
     
-    print(f"Nombre de tokens dans la référence tiktoken: {len(tokens_reference)}")
-    print("Tokens identifiés:")
+    logger.info(f"Nombre de tokens dans la référence tiktoken: {len(tokens_reference)}")
+    logger.info("Tokens identifiés:")
     for i, token in enumerate(tokens_reference):
         token_display = repr(token)[1:-1]  # Utiliser repr pour voir les caractères spéciaux
-        print(f"{i}: '{token_display}' (ID: {token_ids[i]})")
+        logger.info(f"{i}: '{token_display}' (ID: {token_ids[i]})")
     
     # Nouvelle liste pour stocker les résultats d'analyse
     resultats_analyse = []
     
     # Ajuster dynamiquement le nombre de tokens d'amorce
     amorce_tokens = max(1, min(3, len(tokens_reference) // 3))
-    print(f"Utilisation de {amorce_tokens} tokens comme amorce sur {len(tokens_reference)} tokens au total")
+    logger.info(f"Utilisation de {amorce_tokens} tokens comme amorce sur {len(tokens_reference)} tokens au total")
     
     # Initialiser le contexte avec les tokens d'amorce
     contexte_initial = ""
@@ -90,7 +276,7 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
     contexte_actuel = contexte_initial
     
     # Analyser token par token à partir du premier token après l'amorce
-    print("Analyse des tokens un par un...")
+    logger.info(f"Analyse des tokens un par un en utilisant l'API {api_type}...")
     for i in tqdm(range(amorce_tokens, len(tokens_reference))):
         token_attendu = tokens_reference[i]
         token_id_attendu = token_ids[i]
@@ -103,36 +289,13 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
                 token_precedent_est_tabulation = token_precedent.strip() == "" and len(token_precedent) > 1
         
         try:
-            # Construire prompt pour Completions API
-            prompt = (
-                f"{contexte_actuel}"
-            )
-            
-            # Demander explicitement le token suivant avec ses alternatives
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",  # Better model for completions API
-                messages=[
-                    {"role": "system", "content": "Tu es un modèle de langage assistant. Réponds avec le prochain token le plus probable."},
-                    {"role": "user", "content": contexte_actuel}
-                ],
-                max_tokens=1,
-                temperature=0.0,
-                top_p=0.1,  # Slightly higher to consider more possibilities
-                frequency_penalty=0.0,
-                presence_penalty=0.0,
-                seed=42,  # For deterministic output
-                logprobs=True,
-                top_logprobs=10
-            )
-            
-            # Extraire le token prédit et ses alternatives
-            token_predit = response.choices[0].message.content
-            
-            # Extraction des logprobs (format différent de l'API completions)
-            alternatives = []
-            if hasattr(response.choices[0], 'logprobs') and response.choices[0].logprobs:
-                logprobs_data = response.choices[0].logprobs.content[0].top_logprobs
-                alternatives = [{"token": item.token, "logprob": item.logprob} for item in logprobs_data]
+            # Choisir l'API en fonction du paramètre
+            if api_type.lower() == "chat":
+                # Utiliser l'API chat/completions
+                token_predit, alternatives = analyser_avec_chat_completions(contexte_actuel, modele_prediction)
+            else:
+                # Utiliser l'API completions (méthode d'origine)
+                token_predit, alternatives = analyser_avec_completions(contexte_actuel, modele_prediction)
             
             # Initialiser les flags pour la correction standard et la correction adaptée
             correct = token_predit == token_attendu
@@ -174,7 +337,7 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
             time.sleep(0.5)
             
         except Exception as e:
-            print(f"Erreur lors de la requête pour le token {i}: {e}")
+            logger.error(f"Erreur lors de la requête pour le token {i}: {e}")
             
             # Stocker une prédiction avec erreur
             resultats_analyse.append({
@@ -193,7 +356,7 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
             # Continuer avec le token attendu
             contexte_actuel += token_attendu
     
-    print(contexte_actuel)
+    logger.info(contexte_actuel)
     return resultats_analyse, tokens_reference
 
 def construire_matrice_logprob(tokens_reference, resultats_analyse, top_k=10):
@@ -234,7 +397,7 @@ def construire_matrice_logprob(tokens_reference, resultats_analyse, top_k=10):
 
     # 4) Utiliser les dimensions dynamiques directement (sans forcer à 244x244)
     n_lignes, max_tokens = n_lignes_dyn, max_tokens_dyn
-    print(f"Construction d'une matrice avec dimensions dynamiques : {n_lignes} lignes × {max_tokens} colonnes (padding=100)")
+    logger.info(f"Construction d'une matrice avec dimensions dynamiques : {n_lignes} lignes × {max_tokens} colonnes (padding=100)")
 
     # 5) Initialiser la matrice de padding avec les dimensions dynamiques
     matrice = np.full((n_lignes, max_tokens), 100.0)
@@ -297,50 +460,50 @@ def afficher_matrice_brute(matrice, structure_tokens):
         matrice (numpy.ndarray): La matrice 2D de log probabilités
         structure_tokens (dict): Informations sur la structure de la matrice
     """
-    print("\nMATRICE BRUTE DE LOG PROBABILITÉS:")
-    print(f"Dimensions: {matrice.shape[0]} lignes x {matrice.shape[1]} colonnes")
+    logger.info("\nMATRICE BRUTE DE LOG PROBABILITÉS:")
+    logger.info(f"Dimensions: {matrice.shape[0]} lignes x {matrice.shape[1]} colonnes")
     
     # Calculer la largeur maximale pour l'affichage
     max_width = 10  # Largeur par défaut pour chaque valeur
     
     # Créer une ligne de séparation
     header_sep = "-" * (max_width * matrice.shape[1] + 10)
-    print(header_sep)
+    logger.info(header_sep)
     
     # Afficher les indices de colonnes
-    print("     ", end="")
+    logger.info("     ", end="")
     for j in range(matrice.shape[1]):
-        print(f"{j:^{max_width}}", end="")
-    print()  # Nouvelle ligne
+        logger.info(f"{j:^{max_width}}", end="")
+    logger.info()  # Nouvelle ligne
     
     # Ligne de séparation après les indices de colonnes
-    print("     " + "-" * (max_width * matrice.shape[1]))
+    logger.info("     " + "-" * (max_width * matrice.shape[1]))
     
     # Afficher chaque ligne avec son indice
     for i in range(matrice.shape[0]):
-        print(f"{i:3d} |", end="")
+        logger.info(f"{i:3d} |", end="")
         for j in range(matrice.shape[1]):
             val = matrice[i, j]
             if val == 100:
                 # Padding
-                print(f"{'PAD':^{max_width}}", end="")
+                logger.info(f"{'PAD':^{max_width}}", end="")
             elif val == -50:
                 # Anomalie
-                print(f"{'ANOM':^{max_width}}", end="")
+                logger.info(f"{'ANOM':^{max_width}}", end="")
             else:
                 # Log probabilité normale
-                print(f"{val:^{max_width}.4f}", end="")
-        print()  # Nouvelle ligne
+                logger.info(f"{val:^{max_width}.4f}", end="")
+        logger.info()  # Nouvelle ligne
     
     # Ligne de séparation finale
-    print(header_sep)
+    logger.info(header_sep)
     
     # Légende (une seule fois)
-    print("Légende:")
-    print("  - PAD  : Padding (valeur 100)")
-    print("  - ANOM : Anomalie (valeur -50)")
-    print("  - Autres valeurs : Log probabilités réelles")
-    print(header_sep)
+    logger.info("Légende:")
+    logger.info("  - PAD  : Padding (valeur 100)")
+    logger.info("  - ANOM : Anomalie (valeur -50)")
+    logger.info("  - Autres valeurs : Log probabilités réelles")
+    logger.info(header_sep)
 
 def sauvegarder_resultats(resultats_analyse, script, matrice, structure_tokens, modele_tokenisation="gpt-4o-mini", nom_fichier=None):
     """Sauvegarde les résultats d'analyse dans un fichier texte bien formaté"""
@@ -542,7 +705,7 @@ def sauvegarder_resultats(resultats_analyse, script, matrice, structure_tokens, 
         
         f.write("="*80 + "\n")
     
-    print(f"Résultats sauvegardés dans le fichier: {nom_fichier}")
+    logger.info(f"Résultats sauvegardés dans le fichier: {nom_fichier}")
     return nom_fichier
 
 def sauvegarder_matrice_numpy(matrice, nom_fichier="matrice_logprob.npy"):
@@ -554,16 +717,24 @@ def sauvegarder_matrice_numpy(matrice, nom_fichier="matrice_logprob.npy"):
         nom_fichier (str): Nom du fichier pour sauvegarder la matrice
     """
     np.save(nom_fichier, matrice)
-    print(f"Matrice sauvegardée au format numpy dans {nom_fichier}")
+    logger.info(f"Matrice sauvegardée au format numpy dans {nom_fichier}")
 
-def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini"):
+def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini", api_type="completions"):
     """Fonction principale qui exécute l'analyse"""
     
-    # Utiliser le script par défaut ou celui fourni en argument
-    script_to_analyze = script_input if script_input is not None else script
+    # Utiliser le script fourni en argument ou demander à l'utilisateur d'en saisir un
+    if script_input is None:
+        script_to_analyze = """
+def hello_world():
+    print("Hello, world!")
+    return 0
+        """
+        logger.info("Aucun script fourni, utilisation du script par défaut.")
+    else:
+        script_to_analyze = script_input
     
-    print(f"Démarrage de l'analyse token par token avec tokenisation tiktoken ({modele_tokenisation})...")
-    resultats_analyse, tokens_reference = analyser_predictions_token_par_token(script_to_analyze, modele_tokenisation, modele_prediction)
+    logger.info(f"Démarrage de l'analyse token par token avec tokenisation tiktoken ({modele_tokenisation})...")
+    resultats_analyse, tokens_reference = analyser_predictions_token_par_token(script_to_analyze, modele_tokenisation, modele_prediction, api_type)
     
     # Construire la matrice 2D de log probabilités
     matrice, structure_tokens = construire_matrice_logprob(tokens_reference, resultats_analyse)
@@ -575,7 +746,7 @@ def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction
     sauvegarder_matrice_numpy(matrice)
     
     # Sauvegarder les résultats dans un fichier
-    nom_fichier = "resultats.txt"
+    nom_fichier = f"resultats_{api_type}.txt"
     sauvegarder_resultats(resultats_analyse, script_to_analyze, matrice, structure_tokens, modele_tokenisation, nom_fichier)
     
     # Afficher un bref résumé dans la console
@@ -583,16 +754,16 @@ def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction
     correct_tokens = len([r for r in resultats_analyse if r.get("correct", False) and not r.get("amorce", False)])
     correct_top10_tokens = len([r for r in resultats_analyse if r.get("correct_top10", False) and not r.get("amorce", False)])
     
-    print(f"\nRésumé de l'analyse:")
-    print(f"Total des tokens analysés: {total_tokens}")
-    print(f"Tokens correctement prédits (1ère position): {correct_tokens}")
-    print(f"Tokens correctement prédits (top 10): {correct_top10_tokens}")
+    logger.info(f"\nRésumé de l'analyse ({api_type}):")
+    logger.info(f"Total des tokens analysés: {total_tokens}")
+    logger.info(f"Tokens correctement prédits (1ère position): {correct_tokens}")
+    logger.info(f"Tokens correctement prédits (top 10): {correct_top10_tokens}")
     
     if total_tokens > 0:
         precision = (correct_tokens / total_tokens) * 100
         precision_top10 = (correct_top10_tokens / total_tokens) * 100
-        print(f"Précision (1ère position): {precision:.2f}%")
-        print(f"Précision (top 10): {precision_top10:.2f}%")
+        logger.info(f"Précision (1ère position): {precision:.2f}%")
+        logger.info(f"Précision (top 10): {precision_top10:.2f}%")
        
     return matrice, structure_tokens
 
@@ -612,6 +783,11 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument(
+        "-r", "--recursive",
+        help="Rechercher les fichiers Python de manière récursive dans les sous-dossiers",
+        action="store_true",
+    )
+    parser.add_argument(
         "-d", "--directory", "--input",
         help="Dossier contenant les scripts à analyser",
         type=str,
@@ -622,6 +798,13 @@ if __name__ == "__main__":
         help="Dossier où sauvegarder les résultats",
         type=str,
         default=None,
+    )
+    parser.add_argument(
+        "--api",
+        help="Type d'API à utiliser: 'completions' (par défaut) ou 'chat'",
+        type=str,
+        choices=["completions", "chat"],
+        default="completions",
     )
     args = parser.parse_args()
 
@@ -636,21 +819,21 @@ if __name__ == "__main__":
         input_dir = projet_racine / "data" / "raw_scripts"
         if not input_dir.exists():
             input_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Dossier d'entrée créé: {input_dir}")
+            logger.info(f"Dossier d'entrée créé: {input_dir}")
 
     # Détermination du dossier de sortie
     if args.output:
         output_dir = Path(args.output)
         if not output_dir.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Dossier de sortie créé: {output_dir}")
+            logger.info(f"Dossier de sortie créé: {output_dir}")
     else:
         # Dossier par défaut
         projet_racine = Path(__file__).resolve().parent.parent
         output_dir = projet_racine / "data" / "resultats"
         if not output_dir.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Dossier de sortie créé: {output_dir}")
+            logger.info(f"Dossier de sortie créé: {output_dir}")
 
     # Créer les sous-dossiers dans le dossier de sortie
     matrix_dir = output_dir / "matrices"
@@ -659,10 +842,10 @@ if __name__ == "__main__":
     matrix_dir.mkdir(exist_ok=True)
     results_dir.mkdir(exist_ok=True)
     
-    print(f"Dossier d'entrée: {input_dir}")
-    print(f"Dossier de sortie: {output_dir}")
-    print(f"Dossier des matrices: {matrix_dir}")
-    print(f"Dossier des rapports: {results_dir}")
+    logger.info(f"Dossier d'entrée: {input_dir}")
+    logger.info(f"Dossier de sortie: {output_dir}")
+    logger.info(f"Dossier des matrices: {matrix_dir}")
+    logger.info(f"Dossier des rapports: {results_dir}")
 
     # Détermination des fichiers à traiter
     if args.file:
@@ -674,23 +857,31 @@ if __name__ == "__main__":
         fichiers = [chemin]
     else:
         # Par défaut ou avec --all, on traite tous les fichiers Python du dossier
-        fichiers = sorted(input_dir.glob("*.py"))
+        if args.recursive:
+            # Recherche récursive dans tous les sous-dossiers
+            fichiers = sorted(input_dir.glob("**/*.py"))
+            logger.info(f"Mode récursif activé: recherche dans tous les sous-dossiers de {input_dir}")
+        else:
+            # Recherche uniquement dans le dossier racine
+            fichiers = sorted(input_dir.glob("*.py"))
+            
         if not fichiers:
-            parser.error(f"Aucun fichier Python (.py) trouvé dans {input_dir}")
-        print(f"Traitement de {len(fichiers)} fichiers Python trouvés dans {input_dir}")
+            parser.error(f"Aucun fichier Python (.py) trouvé dans {input_dir}{' ou ses sous-dossiers' if args.recursive else ''}")
+        logger.info(f"Traitement de {len(fichiers)} fichiers Python trouvés dans {input_dir}{' et ses sous-dossiers' if args.recursive else ''}")
 
     # Boucle d'analyse
     for fpath in fichiers:
         stem = fpath.stem  # nom sans extension, ex: "gen_example"
 
-        print(f"\n--- Analyse de {fpath.name} ---")
+        logger.info(f"\n--- Analyse de {fpath.name} avec API {args.api} ---")
 
         # Chargement et exécution de l'analyse
         script = fpath.read_text(encoding="utf-8")
         resultats_analyse, tokens_reference = analyser_predictions_token_par_token(
             script,
             modele_tokenisation="gpt-4o-mini",
-            modele_prediction="gpt-4o-mini"
+            modele_prediction="gpt-4o-mini",
+            api_type=args.api
         )
         matrice, structure = construire_matrice_logprob(tokens_reference, resultats_analyse)
 
@@ -707,5 +898,5 @@ if __name__ == "__main__":
             nom_fichier=str(result_path)
         )
 
-        print(f"→ Matrice enregistrée : {matrix_path.name}")
-        print(f"→ Rapport enregistré  : {result_path.name}")
+        logger.info(f"→ Matrice enregistrée : {matrix_path.name}")
+        logger.info(f"→ Rapport enregistré  : {result_path.name}")

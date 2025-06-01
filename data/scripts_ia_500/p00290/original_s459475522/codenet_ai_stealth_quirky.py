@@ -1,0 +1,1 @@
+__import__('builtins').print(eval(__import__('builtins').input().__class__('').join(__import__('builtins').input().__class__('*').join(__import__('builtins').input().__class__(' ').split()))))

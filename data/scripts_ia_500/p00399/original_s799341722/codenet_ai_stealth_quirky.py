@@ -1,0 +1,1 @@
+_=_;O=print;X=[int(i)for i in input().split()];R,B,W,G=map(lambda _: _*1,X);O(sum([R,B,W,G]))

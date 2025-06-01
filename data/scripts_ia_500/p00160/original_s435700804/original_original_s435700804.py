@@ -1,0 +1,13 @@
+while 1:
+    n,v=int(input()),0
+    if n==0:break
+    for _ in range(n):
+        x,y,h,w=map(int,input().split())
+        x=x+y+h
+        if x<61 and w<3:v+=600
+        elif x<81 and w<6:v+=800
+        elif x<101 and w<11:v+=1000
+        elif x<121 and w<16:v+=1200
+        elif x<141 and w<21:v+=1400
+        elif x<161 and w<26:v+=1600
+    print(v)

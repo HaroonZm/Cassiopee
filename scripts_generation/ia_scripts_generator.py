@@ -13,6 +13,7 @@ import argparse
 import logging
 import random
 import tempfile
+import math
 from pathlib import Path
 from openai import OpenAI
 
@@ -91,7 +92,7 @@ GENERATION_TEMPLATES = {
 class BatchRequestItem:
     """Classe représentant une requête pour le traitement par lots"""
     
-    def __init__(self, custom_id, prompt_template, content, metadata=None):
+    def __init__(self, custom_id, prompt_template, content, metadata=None, model="gpt-4.1-mini"):
         """
         Initialise une requête batch.
         
@@ -100,11 +101,13 @@ class BatchRequestItem:
             prompt_template (str): Template de prompt à utiliser
             content (str): Contenu à traiter (code Python ou énoncé)
             metadata (dict, optional): Métadonnées associées à cette requête
+            model (str): Modèle OpenAI à utiliser
         """
         self.custom_id = custom_id
         self.prompt_template = prompt_template
         self.content = content
         self.metadata = metadata or {}
+        self.model = model
     
     def to_jsonl(self):
         """Convertit la requête en format JSONL pour l'API Batch"""
@@ -118,7 +121,7 @@ class BatchRequestItem:
             "method": "POST",
             "url": "/v1/chat/completions",
             "body": {
-                "model": "gpt-4.1-mini",
+                "model": self.model,
                 "messages": [
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": user_message}
@@ -132,7 +135,7 @@ class BatchRequestItem:
 class FlexibleBatchProcessor:
     """Processeur flexible pour les datasets de code Python"""
     
-    def __init__(self, input_path, output_path, api_key=None, poll_interval=60, batch_size=1000, use_batch=True):
+    def __init__(self, input_path, output_path, api_key=None, poll_interval=60, batch_size=1000, use_batch=True, model="gpt-4.1-mini"):
         """
         Initialise le processeur flexible.
         
@@ -141,14 +144,20 @@ class FlexibleBatchProcessor:
             output_path (str): Chemin de sortie pour les fichiers générés
             api_key (str, optional): Clé API OpenAI. Par défaut, utilise la variable définie dans le script.
             poll_interval (int): Intervalle en secondes entre chaque vérification de l'état du batch
-            batch_size (int): Taille maximale d'un lot de requêtes (max 50000)
+            batch_size (int): Nombre de requêtes par batch (maximum 50000 par l'API OpenAI)
             use_batch (bool): Utiliser l'API Batch (True) ou des appels synchrones (False)
+            model (str): Modèle OpenAI à utiliser
         """
         self.input_path = Path(input_path)
         self.output_path = Path(output_path)
         self.poll_interval = poll_interval
         self.batch_size = min(batch_size, 50000)  # OpenAI limite à 50000 requêtes par batch
         self.use_batch = use_batch
+        self.model = model
+        
+        # Extraire le nom du dataset à partir du chemin d'entrée
+        self.dataset_name = self.input_path.name
+        logger.info(f"Nom du dataset: {self.dataset_name}")
         
         # Initialiser le client OpenAI
         if OPENAI_API_KEY:
@@ -537,7 +546,7 @@ class FlexibleBatchProcessor:
                 
                 # Appel API synchrone
                 response = self.client.chat.completions.create(
-                    model="gpt-4.1-mini",
+                    model=self.model,
                     messages=[
                         {"role": "system", "content": system_message},
                         {"role": "user", "content": user_message}
@@ -638,10 +647,8 @@ class FlexibleBatchProcessor:
                 else:
                     solution_id = filename
                 
-                # Modification ici pour être cohérent avec le mode batch
-                # Avant: "{problem_id}_var_{solution_id}_{variation_key}.py"
-                # Après: "var_{problem_id}_{solution_id}_{variation_key}.py"
-                output_file = batch_output_dir / f"var_{problem_id}_{solution_id}_{variation_key}.py"
+                # Inclure le nom du dataset dans le nom du fichier
+                output_file = batch_output_dir / f"{self.dataset_name}_var_{problem_id}_{solution_id}_{variation_key}.py"
                 
                 # Sauvegarder le résultat dans le dossier batch
                 if self.write_file(output_file, code):
@@ -655,6 +662,7 @@ class FlexibleBatchProcessor:
                         "is_reformulation": True,
                         "batch_id": batch_id,
                         "custom_id": custom_id,
+                        "dataset_name": self.dataset_name,
                         "timestamp": time.time()
                     }
                     self.append_metadata(result_metadata)
@@ -675,7 +683,7 @@ class FlexibleBatchProcessor:
                             self.write_file(original_file, original_code)
                     
                     # Sauvegarder également dans la structure originale
-                    original_variation_file = original_output_dir / f"ai_{variation_key}.py"
+                    original_variation_file = original_output_dir / f"{self.dataset_name}_ai_{variation_key}.py"
                     self.write_file(original_variation_file, code)
             
             elif req_type == "generation" and self.dataset_type == "codenet":
@@ -687,10 +695,8 @@ class FlexibleBatchProcessor:
                     logger.warning(f"Métadonnées incomplètes pour {custom_id}")
                     continue
                 
-                # Modification ici pour être cohérent avec le mode batch
-                # Avant: "{problem_id}_gen_{template_key}.py"
-                # Après: "gen_{problem_id}_{template_key}.py"
-                output_file = batch_output_dir / f"gen_{problem_id}_{template_key}.py"
+                # Inclure le nom du dataset dans le nom du fichier
+                output_file = batch_output_dir / f"{self.dataset_name}_gen_{problem_id}_{template_key}.py"
                 
                 # Sauvegarder le résultat dans le dossier batch
                 if self.write_file(output_file, code):
@@ -702,6 +708,7 @@ class FlexibleBatchProcessor:
                         "output_path": str(output_file),
                         "batch_id": batch_id,
                         "custom_id": custom_id,
+                        "dataset_name": self.dataset_name,
                         "timestamp": time.time()
                     }
                     self.append_metadata(result_metadata)
@@ -715,10 +722,10 @@ class FlexibleBatchProcessor:
                     self.create_directories(original_output_dir)
                     
                     # Sauvegarder également dans la structure originale
-                    original_gen_file = original_output_dir / f"ai_generated_{template_key}.py"
+                    original_gen_file = original_output_dir / f"{self.dataset_name}_ai_generated_{template_key}.py"
                     self.write_file(original_gen_file, code)
         
-        logger.info(f"Sauvegarde terminée pour le batch {batch_id}: {processed_count}/{len(results)} résultats traités")
+        logger.info(f"Sauvegarde terminée pour le batch {batch.id}: {processed_count}/{len(results)} résultats traités")
         return processed_count
     
     def collect_codenet_requests(self, problems, variation_limit=3, generation_limit=2, test_mode=False):
@@ -786,7 +793,7 @@ class FlexibleBatchProcessor:
                             "problem_id": problem_id
                         }
                         
-                        request = BatchRequestItem(custom_id, prompt_template, solution_code, metadata)
+                        request = BatchRequestItem(custom_id, prompt_template, solution_code, metadata, self.model)
                         all_requests.append(request)
                 
                 # Sélectionner aléatoirement un sous-ensemble de templates de génération
@@ -807,7 +814,7 @@ class FlexibleBatchProcessor:
                         "template_key": template_key
                     }
                     
-                    request = BatchRequestItem(custom_id, prompt_template, prompt, metadata)
+                    request = BatchRequestItem(custom_id, prompt_template, prompt, metadata, self.model)
                     all_requests.append(request)
                 
                 self.stats["problems_processed"] += 1
@@ -879,7 +886,7 @@ class FlexibleBatchProcessor:
                         "subdirs": subdirs
                     }
                     
-                    request = BatchRequestItem(custom_id, prompt_template, code, metadata)
+                    request = BatchRequestItem(custom_id, prompt_template, code, metadata, self.model)
                     all_requests.append(request)
                 
                 self.stats["files_processed"] += 1
@@ -889,7 +896,57 @@ class FlexibleBatchProcessor:
         
         return all_requests
     
-    def process_dataset(self, variation_limit=3, generation_limit=2, test_mode=False, folder_limit=None, stop_after_submit=True):
+    def estimate_requests_per_folder(self, folders, sample_size=5, variation_limit=3, generation_limit=2):
+        """
+        Estime le nombre moyen de requêtes par dossier en analysant un échantillon.
+        
+        Args:
+            folders (list): Liste des dossiers à échantillonner
+            sample_size (int): Taille de l'échantillon
+            variation_limit (int): Nombre maximum de variations par solution/fichier
+            generation_limit (int): Nombre maximum de solutions générées par problème
+            
+        Returns:
+            float: Nombre moyen estimé de requêtes par dossier
+        """
+        if not folders:
+            return 0
+            
+        # Sélectionner un échantillon de dossiers
+        sample_folders = random.sample(folders, min(sample_size, len(folders)))
+        
+        total_requests = 0
+        
+        if self.dataset_type == "codenet":
+            # Pour CodeNet, estimer avec un échantillon de problèmes
+            sample_requests = self.collect_codenet_requests(
+                [f.name for f in sample_folders], 
+                variation_limit, 
+                generation_limit, 
+                test_mode=False
+            )
+            total_requests = len(sample_requests)
+        else:
+            # Pour The Stack, estimer avec un échantillon de fichiers par dossier
+            for folder in sample_folders:
+                python_files = list(folder.glob("**/*.py"))
+                if python_files:
+                    # Limiter l'échantillon à 10 fichiers maximum par dossier
+                    sample_files = random.sample(python_files, min(10, len(python_files)))
+                    sample_requests = self.collect_the_stack_requests(
+                        sample_files,
+                        variation_limit,
+                        test_mode=False
+                    )
+                    total_requests += len(sample_requests)
+        
+        # Calculer la moyenne
+        avg_requests_per_folder = total_requests / len(sample_folders) if sample_folders else 0
+        
+        logger.info(f"Estimation: {avg_requests_per_folder:.2f} requêtes par dossier en moyenne")
+        return avg_requests_per_folder
+    
+    def process_dataset(self, variation_limit=3, generation_limit=2, test_mode=False, folder_limit=None, stop_after_submit=True, max_batches=None, validate_first_only=False):
         """
         Traite l'ensemble du dataset.
         
@@ -899,14 +956,14 @@ class FlexibleBatchProcessor:
             test_mode (bool): Indique si le script est en mode test
             folder_limit (int, optional): Limite le nombre de sous-dossiers à traiter (pour les deux types de datasets)
             stop_after_submit (bool): S'arrêter après la soumission des batchs sans attendre leur complétion
+            max_batches (int, optional): Nombre maximum de batches à soumettre
+            validate_first_only (bool): S'arrêter après validation du premier batch uniquement
             
         Returns:
             dict: Statistiques de traitement
         """
         # Créer le répertoire de sortie principal
         self.create_directories(self.output_path)
-        
-        all_requests = []
         
         # Obtenir tous les sous-dossiers de premier niveau
         subfolders = [d for d in self.input_path.iterdir() if d.is_dir()]
@@ -920,6 +977,28 @@ class FlexibleBatchProcessor:
                 subfolders = subfolders[:1]  # Un seul sous-dossier en mode test
             variation_limit = min(variation_limit, 2)
             generation_limit = min(generation_limit, 2)
+        
+        # Si max_batches est spécifié, calculer le nombre de dossiers à traiter
+        if max_batches is not None and max_batches > 0 and self.use_batch:
+            logger.info(f"Limitation à {max_batches} batch(es) demandée")
+            
+            # Estimer le nombre de requêtes par dossier
+            avg_requests_per_folder = self.estimate_requests_per_folder(
+                subfolders[:10],  # Utiliser les 10 premiers dossiers pour estimer
+                sample_size=5,
+                variation_limit=variation_limit,
+                generation_limit=generation_limit
+            )
+            
+            if avg_requests_per_folder > 0:
+                # Calculer combien de dossiers peuvent être traités pour ne pas dépasser max_batches
+                folders_per_batch = self.batch_size / avg_requests_per_folder
+                max_folders = math.floor(folders_per_batch * max_batches)
+                
+                # Limiter le nombre de dossiers
+                if max_folders < len(subfolders):
+                    logger.info(f"Limitation à {max_folders} dossiers pour respecter la limite de {max_batches} batch(es)")
+                    folder_limit = max_folders
         
         # Limiter le nombre de sous-dossiers si demandé
         if folder_limit and len(subfolders) > folder_limit:
@@ -954,7 +1033,20 @@ class FlexibleBatchProcessor:
                 batch_requests = all_requests[i:i+self.batch_size]
                 batches.append(batch_requests)
             
+            # Calculer la taille moyenne des batches
+            avg_batch_size = len(all_requests) / len(batches) if batches else 0
+            
             logger.info(f"Mode Batch: {len(all_requests)} requêtes divisées en {len(batches)} batches")
+            logger.info(f"Taille de batch configurée: {self.batch_size}, taille moyenne effective: {avg_batch_size:.1f} requêtes/batch")
+            
+            # Limiter le nombre de batches si demandé
+            if max_batches is not None and len(batches) > max_batches:
+                logger.info(f"Limitation à {max_batches} batch(es) sur {len(batches)}")
+                batches = batches[:max_batches]
+            
+            # Afficher des informations détaillées sur chaque batch
+            for i, batch_requests in enumerate(batches):
+                logger.info(f"Batch {i+1}: {len(batch_requests)} requêtes ({len(batch_requests)/self.batch_size*100:.1f}% de la capacité configurée)")
             
             # Traiter chaque batch
             submitted_batch_ids = []
@@ -970,7 +1062,12 @@ class FlexibleBatchProcessor:
                 logger.info(f"Batch {i+1}/{len(batches)} soumis avec succès (ID: {batch_id})")
                 submitted_batch_ids.append(batch_id)
                 
-                # Si on doit s'arrêter après la soumission, ne pas attendre ni traiter les résultats
+                # Si on doit s'arrêter après validation du premier batch uniquement
+                if validate_first_only:
+                    logger.info(f"Option --validate-first-only activée. Arrêt après validation du premier batch (ID: {batch_id}).")
+                    break
+                
+                # Si on doit attendre la complétion des batches
                 if not stop_after_submit:
                     # Vérifier l'état du batch jusqu'à ce qu'il soit terminé
                     batch = self.poll_batch_status(batch_id)
@@ -1001,38 +1098,60 @@ def main():
     """Fonction principale"""
     parser = argparse.ArgumentParser(description='Traitement flexible de datasets de code Python avec l\'API OpenAI.')
     parser.add_argument('--input', type=str, required=True, help='Chemin vers le dataset d\'entrée (CodeNet ou The Stack)')
-    parser.add_argument('--output', type=str, required=True, help='Chemin de sortie pour les fichiers générés')
+    parser.add_argument('--output', type=str, help='Chemin de sortie pour les fichiers générés (obligatoire en mode synchrone, optionnel en mode batch)')
     parser.add_argument('--test', action='store_true', help='Activer le mode test (traiter uniquement un petit échantillon)')
     parser.add_argument('--api-key', type=str, help='Clé API OpenAI (par défaut: définie dans le script ou variable d\'environnement)')
     parser.add_argument('--variations', type=int, default=3, help='Nombre de variations à générer par solution/fichier')
     parser.add_argument('--generations', type=int, default=2, help='Nombre de solutions à générer depuis zéro par problème (uniquement pour CodeNet)')
     parser.add_argument('--folders', type=int, help='Limite le nombre de sous-dossiers à traiter (pour les deux types de datasets)')
     parser.add_argument('--poll-interval', type=int, default=60, help='Intervalle en secondes entre chaque vérification de l\'état du batch')
-    parser.add_argument('--batch-size', type=int, default=1000, help='Taille maximale d\'un lot de requêtes (max 50000)')
+    parser.add_argument('--batch-size', type=int, default=1000, help='Taille des batches (nombre de requêtes par lot, max 50000)')
     parser.add_argument('--no-batch', action='store_true', help='Désactiver l\'API Batch et utiliser des appels synchrones standard')
-    parser.add_argument('--wait-completion', action='store_true', help='Attendre la complétion des batchs et traiter les résultats (par défaut: s\'arrête après la soumission)')
+    parser.add_argument('--wait-completion', action='store_true', help='Attendre la complétion des batchs et traiter les résultats')
+    parser.add_argument('--max-batches', type=int, help='Nombre maximum de batches à soumettre')
+    parser.add_argument('--validate-first-only', action='store_true', help='S\'arrêter après validation du premier batch uniquement')
+    parser.add_argument('--model', type=str, default="gpt-4.1-mini", help='Modèle OpenAI à utiliser (par défaut: gpt-4.1-mini)')
     
     args = parser.parse_args()
     
     logger.info("=== Démarrage du processus de traitement de code Python ===")
     logger.info(f"Mode test: {'Activé' if args.test else 'Désactivé'}")
     logger.info(f"Mode API: {'Synchrone (standard)' if args.no_batch else 'Batch (50% moins cher)'}")
-    logger.info(f"Attente des résultats: {'Oui' if args.wait_completion else 'Non'}")
+    logger.info(f"Modèle utilisé: {args.model}")
+    if args.validate_first_only:
+        logger.info(f"Mode validation premier batch uniquement: Arrêt après validation du premier batch")
+    else:
+        logger.info(f"Attente des résultats: {'Oui' if args.wait_completion else 'Non, arrêt après validation de tous les batches'}")
     logger.info(f"Chemin d'entrée: {args.input}")
     logger.info(f"Chemin de sortie: {args.output}")
     logger.info(f"Variations par solution/fichier: {args.variations}")
     logger.info(f"Générations par problème (CodeNet uniquement): {args.generations}")
+    if not args.no_batch:
+        logger.info(f"Taille des batches: {args.batch_size} requêtes par batch (max 50000)")
     if args.folders:
         logger.info(f"Limitation à {args.folders} sous-dossiers")
+    if args.max_batches:
+        logger.info(f"Limitation à {args.max_batches} batch(es)")
     
     try:
+        # Vérifier si le mode no-batch nécessite un chemin de sortie
+        if args.no_batch and not args.output:
+            raise ValueError("L'option --output est obligatoire en mode synchrone (--no-batch). Veuillez spécifier un chemin de sortie.")
+        
+        # Si en mode batch sans output spécifié, créer un répertoire temporaire pour les logs essentiels
+        output_path = args.output
+        if not output_path and not args.no_batch:
+            logger.info("Aucun chemin de sortie spécifié. Les IDs de batches seront affichés dans les logs uniquement.")
+            output_path = None
+        
         processor = FlexibleBatchProcessor(
             input_path=args.input,
-            output_path=args.output,
+            output_path=output_path,
             api_key=args.api_key,
             poll_interval=args.poll_interval,
             batch_size=args.batch_size,
-            use_batch=not args.no_batch
+            use_batch=not args.no_batch,
+            model=args.model
         )
         
         stats = processor.process_dataset(
@@ -1040,7 +1159,9 @@ def main():
             generation_limit=args.generations,
             test_mode=args.test,
             folder_limit=args.folders,
-            stop_after_submit=not args.wait_completion
+            stop_after_submit=not args.wait_completion,
+            max_batches=args.max_batches,
+            validate_first_only=args.validate_first_only
         )
         
         logger.info("=== Processus terminé ===")

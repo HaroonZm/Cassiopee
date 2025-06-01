@@ -1,0 +1,10 @@
+n = int(input())
+for _ in range(n):
+    s = input()
+    Lis = list(s)
+    Min_num_lis = sorted(Lis)
+    Max_num_lis = sorted(Lis, reverse=True)
+    Max_num = "".join(Max_num_lis[:8])
+    Min_num = "".join(Min_num_lis[:8])
+    sa = int(Max_num) - int(Min_num)
+    print(sa)

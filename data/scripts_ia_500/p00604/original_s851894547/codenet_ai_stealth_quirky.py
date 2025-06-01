@@ -1,0 +1,1 @@
+exec("while 1:\n try:n=eval('input()')\n except EOFError:break\n l=list(map(int,__import__('sys').stdin.readline().split()))\n l.sort();[l.__setitem__(i,l[i]+l[i-1])for i in range(1,n)]\n print(sum(l))")

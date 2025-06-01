@@ -1,0 +1,36 @@
+from heapq import heappush, heappop
+INF = 10 ** 20
+n, m, c = map(int, input().split())
+edges = [[] for _ in range(n)]
+edges_dict = {}
+d_cost = 0
+for _ in range(m):
+    a, b, d = map(int, input().split())
+    a -= 1
+    b -= 1
+    edges[a].append((b, d))
+    edges[b].append((a, d))
+    edges_dict[(a, b)] = d
+    d_cost += d
+dist = [INF] * n
+dist[0] = 0
+que = [(0, 0)]
+while que:
+    total, node = heappop(que)
+    for to, d in edges[node]:
+        if dist[to] > total + d:
+            dist[to] = total + d
+            heappush(que, (total + d, to))
+removal = {}
+for t, d in edges_dict.items():
+    max_d = dist[t[0]] if dist[t[0]] > dist[t[1]] else dist[t[1]]
+    if max_d in removal:
+        removal[max_d] += d
+    else:
+        removal[max_d] = d
+ans = d_cost
+for k in sorted(removal):
+    d_cost -= removal[k]
+    if d_cost + k * c < ans:
+        ans = d_cost + k * c
+print(ans)

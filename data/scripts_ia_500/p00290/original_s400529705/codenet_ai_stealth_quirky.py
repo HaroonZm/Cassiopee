@@ -1,0 +1,1 @@
+_=[int(x) for x in input().split()];print(_[0]*_[1])

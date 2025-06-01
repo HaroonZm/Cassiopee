@@ -136,18 +136,14 @@ class SimpleBatchManager:
     def get_batch_results(self, batch_id, save_raw=False):
         """
         Récupère les résultats d'un batch.
-        
-        Args:
-            batch_id (str): ID du batch
-            save_raw (bool): Indique s'il faut sauvegarder les résultats bruts
-            
-        Returns:
-            dict: Dictionnaire des résultats par custom_id
+        Retourne un dict custom_id -> {'content': ..., 'alternatives': [...]}
         """
         batch = self.get_batch(batch_id)
         if not batch:
             print(f"Batch {batch_id} introuvable.")
             return {}
+        
+        print(f"Status du batch: {batch.status}")
         
         if batch.status != "completed":
             print(f"Le batch {batch_id} n'est pas terminé (statut: {batch.status}).")
@@ -158,48 +154,129 @@ class SimpleBatchManager:
             print(f"Aucun fichier de sortie trouvé pour le batch {batch_id}.")
             return {}
         
+        print(f"ID du fichier de sortie: {output_file_id}")
+        
         try:
             # Télécharger le fichier de résultats
             print(f"Téléchargement des résultats du batch {batch_id}...")
             output_response = self.client.files.content(output_file_id)
-            output_content = output_response.text
+            
+            # Vérification de la réponse
+            if output_response is None:
+                print("Erreur: La réponse de l'API est None")
+                return {}
+            
+            # Vérification du contenu
+            output_content = getattr(output_response, 'text', None)
+            if output_content is None:
+                print("Erreur: Le contenu du fichier est None")
+                # Essayer d'autres attributs
+                if hasattr(output_response, 'content'):
+                    output_content = output_response.content
+                    if isinstance(output_content, bytes):
+                        output_content = output_content.decode('utf-8')
+                else:
+                    print("Erreur: Impossible de récupérer le contenu du fichier")
+                    return {}
+            
+            print(f"Taille du contenu récupéré: {len(output_content) if output_content else 0} caractères")
+            
+            if not output_content or not output_content.strip():
+                print("Erreur: Le contenu du fichier est vide")
+                return {}
             
             # Sauvegarder les résultats bruts si demandé
             if save_raw:
                 raw_dir = self.output_dir / "raw_results"
                 raw_dir.mkdir(parents=True, exist_ok=True)
                 raw_file = raw_dir / f"{batch_id}_results.jsonl"
-                with open(raw_file, 'w') as f:
+                with open(raw_file, 'w', encoding='utf-8') as f:
                     f.write(output_content)
                 print(f"Résultats bruts sauvegardés dans {raw_file}")
             
             # Traiter les résultats
             results = {}
-            for line in output_content.strip().split('\n'):
+            lines = output_content.strip().split('\n')
+            print(f"Nombre de lignes à traiter: {len(lines)}")
+            
+            for i, line in enumerate(lines):
                 if not line.strip():
                     continue
                 
-                result = json.loads(line)
+                try:
+                    result = json.loads(line)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Erreur de parsing JSON ligne {i+1}: {e}")
+                    print(f"Ligne problématique: {line[:100]}...")
+                    continue
+                
                 custom_id = result.get("custom_id")
+                if not custom_id:
+                    logger.warning(f"Pas de custom_id trouvé ligne {i+1}")
+                    continue
                 
                 if result.get("error"):
                     logger.error(f"Erreur pour la requête {custom_id}: {result['error']}")
                     continue
                 
                 # Extraire la réponse
-                if result.get("response") and result["response"].get("body"):
-                    body = result["response"]["body"]
-                    if "choices" in body and len(body["choices"]) > 0:
-                        content = body["choices"][0]["message"]["content"]
-                        # Nettoyer le code des délimiteurs markdown
-                        cleaned_content = self.clean_code_response(content)
-                        results[custom_id] = cleaned_content
-            
+                response_data = result.get("response")
+                if not response_data:
+                    logger.warning(f"Pas de réponse trouvée pour {custom_id}")
+                    continue
+                
+                body = response_data.get("body")
+                if not body:
+                    logger.warning(f"Pas de body trouvé pour {custom_id}")
+                    continue
+                
+                choices = body.get("choices")
+                if not choices or len(choices) == 0:
+                    logger.warning(f"Pas de choices trouvés pour {custom_id}")
+                    continue
+                
+                first_choice = choices[0]
+                message = first_choice.get("message")
+                if not message:
+                    logger.warning(f"Pas de message trouvé pour {custom_id}")
+                    continue
+                
+                content = message.get("content")
+                if content is None:
+                    logger.warning(f"Contenu None pour {custom_id}")
+                    content = ""
+                
+                # Nettoyer le contenu
+                content = self.clean_code_response(content)
+                
+                # Extraction des logprobs
+                alternatives = []
+                logprobs_data = first_choice.get("logprobs")
+                if logprobs_data and isinstance(logprobs_data, dict):
+                    logprobs_content = logprobs_data.get('content')
+                    if logprobs_content and len(logprobs_content) > 0:
+                        first_token = logprobs_content[0]
+                        if isinstance(first_token, dict):
+                            top_logprobs = first_token.get('top_logprobs', [])
+                            for item in top_logprobs:
+                                if isinstance(item, dict):
+                                    alternatives.append({
+                                        "token": item.get('token', ''),
+                                        "logprob": item.get('logprob', -100)
+                                    })
+                
+                results[custom_id] = {
+                    "content": content,
+                    "alternatives": alternatives
+                }
+                
             print(f"Traitement terminé: {len(results)} résultats extraits.")
             return results
             
         except Exception as e:
+            import traceback
             logger.error(f"Erreur lors du traitement des résultats: {e}")
+            logger.error(f"Traceback complet: {traceback.format_exc()}")
             return {}
     
     def save_results(self, batch_id, results, output_dir=None):
@@ -223,19 +300,84 @@ class SimpleBatchManager:
         save_dir.mkdir(parents=True, exist_ok=True)
         
         saved_count = 0
-        for custom_id, content in results.items():
+        for custom_id, result in results.items():
             # Créer un nom de fichier basé sur le custom_id
             filename = f"{custom_id}.py"
             file_path = save_dir / filename
             
-            # Sauvegarder le contenu
-            with open(file_path, 'w') as f:
-                f.write(content)
+            # Extraire le contenu à sauvegarder
+            content = result["content"] if isinstance(result, dict) and "content" in result else str(result)
             
-            saved_count += 1
+            try:
+                # Sauvegarder le contenu
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                
+                saved_count += 1
+            except Exception as e:
+                logger.error(f"Erreur lors de la sauvegarde de {custom_id}: {e}")
         
         print(f"Sauvegarde terminée: {saved_count} fichiers sauvegardés dans {save_dir}")
         return saved_count
+
+    def save_tokens_json_per_script(self, results, output_dir=None):
+        """
+        Sauvegarde les tokens prédits pour chaque script dans un fichier JSON unique par script.
+        Le nom du fichier est nom_du_script.py__N_tokens.json et le contenu est une liste de {"token": ..., "alternatives": [...]}
+        Tente de retrouver le nom du script à partir d'un mapping batch_ids.json si présent.
+        """
+        from collections import defaultdict
+        import re
+        import json as _json
+        if not results:
+            print("Aucun résultat à traiter pour la sauvegarde des tokens JSON.")
+            return 0
+        # Regrouper par script_id
+        scripts = defaultdict(dict)
+        for custom_id, result in results.items():
+            m = re.match(r"(.+):(\d+)$", custom_id)
+            if not m:
+                continue
+            script_id, token_index = m.group(1), int(m.group(2))
+            # result peut être soit un str (token), soit un dict avec 'content' et 'alternatives'
+            if isinstance(result, dict) and "content" in result:
+                token = result["content"]
+                alternatives = result.get("alternatives", [])
+            else:
+                token = result
+                alternatives = []
+            scripts[script_id][token_index] = {"token": token, "alternatives": alternatives}
+        # Chercher un mapping script_id -> nom du script dans batch_ids.json si possible
+        script_id_to_name = {}
+        if output_dir:
+            batch_dir = Path(output_dir)
+            parent = batch_dir.parent
+            batch_ids_file = parent / "batch_ids.json"
+            if batch_ids_file.exists():
+                try:
+                    with open(batch_ids_file, "r", encoding="utf-8") as f:
+                        batch_info = _json.load(f)
+                    batch_scripts_info = batch_info.get("batch_scripts_info")
+                    if batch_scripts_info:
+                        for batch in batch_scripts_info.values():
+                            for script_id, info in batch.items():
+                                script_id_to_name[script_id] = info.get("script_name", script_id)
+                except Exception as e:
+                    print(f"Erreur lors de la lecture de batch_ids.json: {e}")
+        save_dir = Path(output_dir) if output_dir else self.output_dir
+        save_dir.mkdir(parents=True, exist_ok=True)
+        count = 0
+        for script_id, tokens_dict in scripts.items():
+            # Ordonner les tokens par index
+            tokens = [tokens_dict[i] for i in sorted(tokens_dict)]
+            # Utiliser le mapping si possible
+            script_name = script_id_to_name.get(script_id, script_id)
+            filename = f"{script_name}__{len(tokens)}_tokens.json"
+            file_path = save_dir / filename
+            _json.dump(tokens, open(file_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            print(f"Fichier JSON de tokens sauvegardé: {file_path}")
+            count += 1
+        return count
 
 
 def command_list(args):
@@ -323,6 +465,10 @@ def command_fetch(args):
     # Sauvegarder les résultats si demandé
     if args.save:
         manager.save_results(args.batch_id, results, args.destination)
+    # Sauvegarder les fichiers JSON de tokens si demandé
+    if getattr(args, "save_tokens_json", False):
+        n = manager.save_tokens_json_per_script(results, args.destination)
+        print(f"{n} fichiers JSON de tokens générés.")
 
 def command_fetch_range(args):
     """Commande pour récupérer les résultats de plusieurs batchs par rang"""
@@ -396,6 +542,7 @@ def main():
     fetch_parser.add_argument('--save', action='store_true', help='Sauvegarde les résultats dans des fichiers')
     fetch_parser.add_argument('--save-raw', action='store_true', help='Sauvegarde les résultats bruts')
     fetch_parser.add_argument('--destination', type=str, help='Répertoire de destination pour les résultats')
+    fetch_parser.add_argument('--save-tokens-json', action='store_true', help='Sauvegarde les tokens prédits dans des fichiers JSON par script')
     fetch_parser.set_defaults(func=command_fetch)
     
     # Commande 'fetch-range'

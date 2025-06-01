@@ -1,0 +1,1 @@
+from functools import reduce;N,A,B,C,D=map(int,input().split());f=lambda n,d,e:reduce(lambda a,b:a+b,[e]*(n+(n%d>0)));print(min(f(N,A,B),f(N,C,D)))

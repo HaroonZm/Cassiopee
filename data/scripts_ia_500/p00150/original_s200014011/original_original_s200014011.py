@@ -1,0 +1,23 @@
+import math
+m = 10000
+s = [1 for i in range(m+1)]
+s[0] = 0
+for i in range(2, int(math.sqrt(m))+1):
+    if s[i] != 0:
+        for j in range(i*2, m, i):
+            s[j] = 0
+
+ss = []
+for i in range(m+1):
+    if s[i] == 1:
+      ss.append(i)
+ss.reverse()
+
+while True:
+    n = int(input())
+    if n == 0:
+        quit()
+    for i in range(len(ss)):
+        if ss[i] <= n and ss[i] - ss[i+1] == 2:
+            print(ss[i+1], ss[i])
+            break

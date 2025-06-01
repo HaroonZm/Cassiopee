@@ -1,0 +1,1 @@
+__import__('functools').reduce(lambda _, __: print((lambda a,b: (lambda r: b if r==0 else r)(a%b))(*map(int, input().split()))), range(int(input())), None)

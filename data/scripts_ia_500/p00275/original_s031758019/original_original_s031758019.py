@@ -1,0 +1,20 @@
+while True:
+    N = int(input())
+    if N==0:break
+    dataset = input()
+    mens = ["" for _ in range(N)]
+    i = 0
+    p = ""
+    while dataset:
+        if i == N: i = 0
+        card, dataset = dataset[0], dataset[1:]
+        if card == "M":
+            mens[i] += card
+        elif card == "S":
+            p += card + mens[i]
+            mens[i] = ""
+        else:
+            mens[i] += card + p
+            p = ""
+        i += 1
+    print(' '.join(map(str, sorted([len(m) for m in mens]))), len(p))
