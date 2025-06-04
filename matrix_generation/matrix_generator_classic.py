@@ -37,11 +37,12 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "sk-proj-E-IBk99vJsSe__
 
 # Dictionnaire des modèles et leur compatibilité avec les endpoints
 MODELES_COMPATIBLES = {
+    # Modèles compatibles avec les deux APIs (chat et completions)
+    "gpt-4o-mini": "both",
+    "gpt-4o": "both",
+    "gpt-4.1": "both",
+    "gpt-4.1-mini": "both",
     # Modèles compatibles avec chat/completions uniquement
-    "gpt-4o-mini": "chat",
-    "gpt-4o": "chat",
-    "gpt-4.1": "chat",
-    "gpt-4.1-mini": "chat",
     "gpt-3.5-turbo": "chat",
     # Modèles compatibles avec completions uniquement
     "text-davinci-003": "completions",
@@ -229,18 +230,8 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
     """
     # Vérifier la compatibilité du modèle avec le type d'API
     if not verifier_compatibilite_modele(modele_prediction, api_type):
-        original_type = api_type
-        # Déterminer le type d'API compatible avec ce modèle
-        for model, compatible_type in MODELES_COMPATIBLES.items():
-            if model == modele_prediction:
-                if compatible_type == "both":
-                    # Si compatible avec les deux, garder le type demandé
-                    pass
-                else:
-                    # Sinon, utiliser le type compatible
-                    api_type = compatible_type
-                    logger.warning(f"Le modèle {modele_prediction} n'est pas compatible avec l'API {original_type}. Utilisation de l'API {api_type} à la place.")
-                break
+        raise ValueError(f"Le modèle {modele_prediction} n'est pas compatible avec l'API {api_type}. "
+                         f"Veuillez choisir une combinaison compatible.")
     
     # Tokeniser le script avec tiktoken
     logger.info(f"Tokenisation du script avec tiktoken ({modele_tokenisation})...")

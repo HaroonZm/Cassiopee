@@ -1,0 +1,1 @@
+exec((lambda: [print("ABC"),print("ARC")][int(input())>=1200])())

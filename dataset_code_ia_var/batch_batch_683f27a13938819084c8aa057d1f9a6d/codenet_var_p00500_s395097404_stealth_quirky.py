@@ -1,0 +1,1 @@
+A=[];exec('q=raw_input\ng=lambda x,l=[int]*3:[l[i](x[i]) for i in range(3)]\nm=int(q())\nfor __ in[0]*m:A+=[g(q().split())]\nfor ii in range(m):W=[1]*3;[W.__setitem__(kk,0) for jj in range(m) if ii-jj for kk in range(3) if A[ii][kk]==A[jj][kk]];print sum(A[ii][ll]*W[ll] for ll in range(3))')

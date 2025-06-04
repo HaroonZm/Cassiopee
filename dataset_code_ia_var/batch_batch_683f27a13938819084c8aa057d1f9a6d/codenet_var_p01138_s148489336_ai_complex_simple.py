@@ -1,0 +1,3 @@
+from functools import reduce as 𝑅;from itertools import chain as ⓒ
+λ=lambda:__import__('sys').stdin.readline()
+exec("𝓊=lambda x:tuple(x.split());\nwhile(True):\n n=int(λ());\n if n==0:break\n ρ=[(*𝓊(λ()),1) for _ in range(n)]+[(*𝓊(λ()),0) for _ in[]]\n β=list(ⓒ.from_iterable(((a,True),(b,False))for a,b in[𝓊(λ())for _ in range(n)]))\n β.sort()\n print(𝑅(lambda x,y:(max(x[0],x[1]+(1 if y[1]else-1)),x[1]+(1 if y[1]else-1)),β,(0,0))[0])")

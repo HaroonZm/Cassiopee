@@ -1,0 +1,33 @@
+from itertools import product
+
+T = [list(map(int, input().split())) for _ in range(10)]
+
+def calc(v):
+    val = 0
+    for e in v:
+        val = T[val][e]
+    return val
+
+ans = 0
+for code in product(range(10), repeat=4):
+    e = calc(code)
+    ok = 1
+    code = list(code) + [e]
+    for i in range(5):
+        d = code[:]
+        for j in range(10):
+            if code[i] == j:
+                continue
+            d[i] = j
+            if calc(d) == 0:
+                ok = 0
+    for i in range(4):
+        d = code[:]
+        if d[i] == d[i+1]:
+            continue
+        d[i], d[i+1] = d[i+1], d[i]
+        if calc(d) == 0:
+            ok = 0
+    if ok == 0:
+        ans += 1
+print(ans)

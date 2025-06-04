@@ -1,0 +1,1 @@
+print('Odd' if (a := int((t := input().split())[0])) * (b := int(t[1])) & 1 else 'Even')

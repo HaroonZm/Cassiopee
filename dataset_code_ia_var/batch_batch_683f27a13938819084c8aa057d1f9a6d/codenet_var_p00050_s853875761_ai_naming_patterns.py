@@ -1,0 +1,5 @@
+input_text = input()
+step_one_text = input_text.replace("apple", "kunimatsu")
+step_two_text = step_one_text.replace("peach", "apple")
+final_text = step_two_text.replace("kunimatsu", "peach")
+print(final_text)

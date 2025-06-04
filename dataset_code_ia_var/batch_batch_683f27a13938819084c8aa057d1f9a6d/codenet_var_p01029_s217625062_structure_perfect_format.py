@@ -1,0 +1,28 @@
+alphabet = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+]
+
+v, e = map(int, input().split())
+a = list(input().split())
+
+g = [[] for _ in range(v)]
+for _ in range(e):
+    s, t = map(int, input().split())
+    g[s].append(t)
+    g[t].append(s)
+
+for i in range(v):
+    if a[i] != '?':
+        continue
+    for c in alphabet:
+        flag = True
+        for to in g[i]:
+            if a[to] == c:
+                flag = False
+                break
+        if flag:
+            a[i] = c
+            break
+
+print(''.join(a))

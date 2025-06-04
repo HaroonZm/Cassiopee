@@ -1,0 +1,1 @@
+exec('N=[input()][0];N=int(N)\n for X in[0]:print(["ABC","ARC"][N>=1200])')

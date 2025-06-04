@@ -1,0 +1,1 @@
+A,B,C,K=[*map(int,input().split())];exec("print(K)"if A>=K else"print(A)"if A+B>=K else"print(A-C)"if A+B+C<=K else"print(A-(K-A-B))")

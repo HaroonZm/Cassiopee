@@ -1,0 +1,13 @@
+import sys
+
+def solve():
+    a, b = map(int, raw_input().split())
+    while [a, b] != [0, 0]:
+        if a > b:
+            print b, a
+        else:
+            print a, b
+        a, b = map(int, raw_input().split())
+
+if __name__ == "__main__":
+    solve()

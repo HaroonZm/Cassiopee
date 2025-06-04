@@ -1,0 +1,5 @@
+a_b_t = input().split()
+a = int(a_b_t[0])
+b = int(a_b_t[1])
+t = int(a_b_t[2])
+print(int(t//a)*b)

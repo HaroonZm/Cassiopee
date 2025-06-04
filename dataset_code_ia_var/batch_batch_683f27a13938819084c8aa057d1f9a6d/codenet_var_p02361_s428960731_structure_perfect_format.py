@@ -1,0 +1,29 @@
+import heapq
+import math
+
+def main():
+    nvertices, nedges, s = map(int, input().split())
+    Adj = [[] for _ in range(nvertices)]
+    for _ in range(nedges):
+        u, v, w = map(int, input().split())
+        Adj[u].append((v, w))
+
+    Q = [(0, s)]
+    d = [float('inf')] * nvertices
+    d[s] = 0
+    while Q:
+        w, u = heapq.heappop(Q)
+        if d[u] < w:
+            continue
+        for v, cost in Adj[u]:
+            if d[u] + cost < d[v]:
+                d[v] = d[u] + cost
+                heapq.heappush(Q, (d[v], v))
+
+    for cost in d:
+        if math.isinf(cost):
+            print("INF")
+        else:
+            print(cost)
+
+main()

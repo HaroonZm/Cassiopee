@@ -1,0 +1,39 @@
+def listing(char, str):
+	l, i = [], 0
+	while True:
+		tmp = str.find(char, i)
+		if tmp==-1:
+			break
+		else:
+			l.append(tmp)
+			i = tmp+1
+	return l
+
+def signboard(s, t):
+	res = False
+	if t.find(s)!=-1: return True
+	A, B = listing(s[0], t), listing(s[1], t)
+	if len(A)==0 or len(B)==0:
+		return False
+	for a in range(len(A)):
+		for b in range(len(B)):
+			if A[a]>=B[b]: continue
+			c = B[b]-A[a]
+			res = True
+			for S in range(2, len(s)):
+				if A[a]+S*c+1>len(t):
+					res = False
+					continue
+				if s[S]!=t[A[a]+S*c]:
+					res = False
+					break
+			if res==True: return res
+	return res
+
+n = int(input())
+a = input().strip()
+S = [input().strip() for _ in range(n)]
+cnt = 0
+for b in S:
+	if signboard(a, b): cnt += 1
+print(cnt)

@@ -1,0 +1,10 @@
+cards = []
+for suit in ('S','H','C','D'):
+    for num in range(1,14):
+        cards.append(suit+' '+str(num))
+N = int(raw_input())
+for n in xrange(N):
+    suit, number = raw_input().split()
+    cards.remove(suit+' '+number)
+for card in cards:
+    print card

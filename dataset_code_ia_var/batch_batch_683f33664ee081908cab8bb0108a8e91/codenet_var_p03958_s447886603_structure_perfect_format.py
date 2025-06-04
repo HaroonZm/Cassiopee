@@ -1,0 +1,10 @@
+k, t, *a = map(int, open(0).read().split())
+b = sorted(a)
+try:
+    c = b[-1] - sum(b[:-1]) - 1
+    if c > 0:
+        print(c)
+    else:
+        print(0)
+except:
+    print(b[0] - 1)

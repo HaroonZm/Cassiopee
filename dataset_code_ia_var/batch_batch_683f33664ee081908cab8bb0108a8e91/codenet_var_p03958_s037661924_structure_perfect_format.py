@@ -1,0 +1,5 @@
+k, t = map(int, input().split())
+a = list(map(int, input().split()))
+max_a = max(a)
+result = max(0, 2 * max_a - k - 1)
+print(result)

@@ -1,0 +1,1 @@
+exec("r=0\ng=lambda:map(int,input().split())\nn=int(input())\na=list(g())\nfor z in range(~-n):\n if a[z+1]>a[z]:r+=1\nprint(r)")

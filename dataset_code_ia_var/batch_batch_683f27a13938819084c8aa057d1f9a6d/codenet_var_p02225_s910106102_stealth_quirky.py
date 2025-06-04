@@ -1,0 +1,1 @@
+(lambda:print(sum(map(lambda z:int(z),input().split()))))((__import__('builtins').input)())

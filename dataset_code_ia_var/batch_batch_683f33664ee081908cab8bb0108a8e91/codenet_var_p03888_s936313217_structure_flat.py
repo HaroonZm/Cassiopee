@@ -1,0 +1,5 @@
+r1_r2 = input().split()
+r1 = int(r1_r2[0])
+r2 = int(r1_r2[1])
+r3 = (r1 * r2) / (r1 + r2)
+print(r3)

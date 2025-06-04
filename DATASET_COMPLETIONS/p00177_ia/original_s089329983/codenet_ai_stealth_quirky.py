@@ -1,0 +1,2 @@
+from math import *
+exec("while 1:\n a,b,c,d=[float(i)for i in input().split()]\n if a==b==c==d==-1:break\n a,c=map(radians,(a,c))\n d,b=map(radians,(d,b))\n print(round(6378.1*acos(sin(a)*sin(c)+cos(a)*cos(c)*cos(d-b))))")

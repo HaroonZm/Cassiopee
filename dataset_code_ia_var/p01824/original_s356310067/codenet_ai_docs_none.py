@@ -1,0 +1,163 @@
+from collections import defaultdict
+from collections import deque
+from heapq import heappush, heappop
+import sys
+import math
+import bisect
+import random
+def LI(): return list(map(int, sys.stdin.readline().split()))
+def I(): return int(sys.stdin.readline())
+def LS():return list(map(list, sys.stdin.readline().split()))
+def S(): return list(sys.stdin.readline())[:-1]
+def IR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = I()
+    return l
+def LIR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = LI()
+    return l
+def SR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = S()
+    return l
+def LSR(n):
+    l = [None for i in range(n)]
+    for i in range(n):l[i] = LS()
+    return l
+sys.setrecursionlimit(1000000)
+mod = 1000000007
+def A():
+    s = S()
+    n = len(s)
+    d = [-1 for i in range(n)]
+    k = 0
+    m = 0
+    for i in range(n):
+        if s[i] == "[":
+            k += 1
+        elif s[i] == "]":
+            k -= 1
+        elif s[i] == "-":
+            d[i] = k
+        else:
+            m += 1
+    depth = max(d)
+    f = defaultdict(int)
+    for i in range(m):
+        a,b = input().split()
+        f[a] = int(b)
+    for i in range(1,depth+1)[::-1]:
+        j = 0
+        while j < len(s):
+            if d[j] == i:
+                if f[s[j-1]] == 0:
+                    if f[s[j+1]] == 0:
+                        print("No")
+                        quit()
+                    else:
+                        w = s[j+1]
+                else:
+                    if f[s[j+1]] != 0:
+                        print("No")
+                        quit()
+                    else:
+                        w = s[j-1]
+                f[w] -= 1
+                d = d[:j-2]+[None]+d[j+3:]
+                s = s[:j-2]+[w]+s[j+3:]
+                j -= 2
+            j += 1
+    if f[s[0]] == 0:
+        print("Yes")
+    else:
+        print("No")
+    return
+def B():
+    n,k = LI()
+    s = S()
+    t = S()
+    q = deque()
+    ans = 0
+    for i in range(n):
+        if s[i] == "B" and t[i] == "W":
+            if q:
+                x = q.popleft()
+                if i-x >= k:
+                    ans += 1
+                    while q:
+                        q.popleft()
+            q.append(i)
+    if q:
+        ans += 1
+    for i in range(n):
+        if s[i] == "W" and t[i] == "B":
+            if q:
+                x = q.popleft()
+                if i-x >= k:
+                    ans += 1
+                    while q:
+                        q.popleft()
+            q.append(i)
+    if q:
+        ans += 1
+    print(ans)
+    return
+def C():
+    n = I()
+    s = SR(n)
+    t = S()
+    return
+def D():
+    return
+def E():
+    def surface(x,y,z):
+        return ((x == 0)|(x == a-1))+((y == 0)|(y == b-1))+((z == 0)|(z == c-1))+k
+    d = [(1,0,0),(-1,0,0),(0,1,0),(0,-1,0),(0,0,1),(0,0,-1)]
+    a,b,c,n = LI()
+    s = [0 for i in range(7)]
+    k = (a==1)+(b==1)+(c==1)
+    if k == 0:
+        s[1] = 2*(max(0,a-2)*max(0,b-2)+max(0,c-2)*max(0,b-2)+max(0,a-2)*max(0,c-2))
+        s[2] = 4*(max(0,a-2)+max(0,b-2)+max(0,c-2))
+        s[3] = 8
+    elif k == 1:
+        s[2] = max(0,a-2)*max(0,b-2)+max(0,c-2)*max(0,b-2)+max(0,a-2)*max(0,c-2)
+        s[3] = 2*(max(0,a-2)+max(0,b-2)+max(0,c-2))
+        s[4] = 4
+    elif k == 2:
+        s[4] = max(0,a-2)+max(0,b-2)+max(0,c-2)
+        s[5] = 2
+    else:
+        s[6] = 1
+    f = defaultdict(int)
+    for i in range(n):
+        x,y,z = LI()
+        s[surface(x,y,z)] -= 1
+        f[(x,y,z)] = -1
+        for dx,dy,dz in d:
+            if f[(x+dx,y+dy,z+dz)] != -1:
+                f[(x+dx,y+dy,z+dz)] += 1
+    ans = 0
+    for i,j in f.items():
+        if j != -1:
+            x,y,z = i
+            if 0 <= x < a and 0 <= y < b and 0 <= z < c:
+                ans += j+surface(x,y,z)
+                s[surface(x,y,z)] -= 1
+    for i in range(1,7):
+        ans += i*s[i]
+    print(ans)
+    return
+def F():
+    return
+def G():
+    return
+def H():
+    return
+def I_():
+    return
+def J():
+    return
+if __name__ == "__main__":
+    E()

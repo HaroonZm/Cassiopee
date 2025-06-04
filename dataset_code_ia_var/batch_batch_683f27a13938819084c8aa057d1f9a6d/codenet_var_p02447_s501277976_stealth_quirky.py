@@ -1,0 +1,1 @@
+exec("N=int(input())\nV=[]\nfor __ in range(N):\n V+=[list(map(int,input().split()))]\nfor R in sorted(V):print(*R,sep=' ')")

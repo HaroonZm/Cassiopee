@@ -1,0 +1,1 @@
+exec("L=eval;I=input;G=globals();G['N']=L(I());G['A']=[*map(int,I().split())];G['C']=0;[(lambda x:G.__setitem__('C',G['C']+1) if G['A'][x]>G['A'][x-1] else None)(i)for i in range(1,G['N'])];print(G['C'])")

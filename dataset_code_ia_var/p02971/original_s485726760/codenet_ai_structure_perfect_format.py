@@ -1,0 +1,15 @@
+import copy
+
+N = int(input())
+l = []
+for i in range(N):
+    l.append(int(input()))
+M = max(l)
+L = copy.copy(l)
+l.remove(M)
+m = max(l)
+for j in range(N):
+    if L[j] == M:
+        print(m)
+    else:
+        print(M)

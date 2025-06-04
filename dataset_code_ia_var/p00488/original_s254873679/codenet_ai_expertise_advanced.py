@@ -1,0 +1,1 @@
+print(min(map(int, (input(), input(), input()))) + min(map(int, (input(), input()))) - 50)

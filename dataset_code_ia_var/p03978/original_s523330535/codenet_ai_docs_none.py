@@ -1,0 +1,32 @@
+import sys
+from collections import deque
+def query(s1,s2):
+	print "{0}\n{1}".format("".join(s1),"".join(s2))
+	sys.stdout.flush()
+	return raw_input()
+def solve():
+	dss = [(".","."),(".","#"),("#","."),("#","#")]
+	tmp_dss = []
+	N = map(int,raw_input().split())
+	for ds in dss:
+		res = query([ds[0]],[ds[1]])
+		if res == "T": tmp_dss.append(ds)
+	dss = tmp_dss
+	s1 = deque(dss[0][0]); s2 = deque(dss[0][1])
+	for _ in xrange(420):
+		for ds1,ds2 in dss:
+			s1.append(ds1); s2.append(ds2)
+			res = query(s1,s2)
+			if res == "end": return
+			if res == "T": break
+			s1.pop();s2.pop()
+		else:
+			break
+	for _ in xrange(420):
+		for ds1,ds2 in dss:
+			s1.appendleft(ds1); s2.appendleft(ds2)
+			res = query(s1,s2)
+			if res == "end": return
+			if res == "T": break
+			s1.popleft();s2.popleft()
+solve()

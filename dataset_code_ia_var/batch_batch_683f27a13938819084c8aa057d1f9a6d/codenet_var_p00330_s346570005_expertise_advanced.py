@@ -1,0 +1,1 @@
+print((lambda w: w << 5)(int(input())))

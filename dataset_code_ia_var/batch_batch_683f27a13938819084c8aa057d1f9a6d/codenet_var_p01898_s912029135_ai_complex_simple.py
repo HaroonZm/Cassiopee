@@ -1,0 +1,3 @@
+from itertools import chain, product, starmap
+from operator import add
+exec("m,n=map(int,input().split())\nmp=[[*'#'*(n+2)]]+[list('#'+input()+'#')for _ in range(m)]+[[*'#'*(n+2)]]\nV=((1,0),(1,-1),(0,-1),(-1,-1),(-1,0),(-1,1),(0,1),(1,1))\nfor y in range(1,m+1):\n for x in range(1,n+1):\n  S=mp[y][x]\n  if S=='x':\n   list(map(lambda p:mp[y+p[1]][x+p[0]] == '-' and mp[y+p[1]].__setitem__(x+p[0],'#'),V))\n  if S=='o':\n   list(map(lambda s:mp[y].__setitem__(s,'#') if mp[y][s]=='-' else None,(x-1,x+1)))\nlist(map(lambda q:mp[1].__setitem__(q,'#') if mp[1][q]=='-' else None,range(1,n+1)))\nprint(sum(starmap(str.count,chain.from_iterable([(row,'-')for row in mp]))))")

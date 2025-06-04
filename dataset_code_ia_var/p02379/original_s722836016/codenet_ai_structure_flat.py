@@ -1,0 +1,10 @@
+import math
+x1y1x2y2 = input().split()
+x1 = float(x1y1x2y2[0])
+y1 = float(x1y1x2y2[1])
+x2 = float(x1y1x2y2[2])
+y2 = float(x1y1x2y2[3])
+x = abs(x1 - x2)
+y = abs(y1 - y2)
+distance = math.sqrt(x * x + y * y)
+print('{:.5f}'.format(distance))

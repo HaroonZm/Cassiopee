@@ -1,0 +1,20 @@
+m,n,x=[int(i) for i in input().split()]
+k,l,y=[int(i) for i in input().split()]
+res = 1
+a1 = m**2 + n**2
+b1 = m + n
+c1 = (a1)**x
+d1 = (b1)**(2*x)
+e1 = c1 / d1
+f1 = 1.0 + e1
+g1 = 0.5 * f1
+res = res * g1
+a2 = k**2 + l**2
+b2 = k + l
+c2 = (a2)**y
+d2 = (b2)**(2*y)
+e2 = c2 / d2
+f2 = 1.0 + e2
+g2 = 0.5 * f2
+res = res * g2
+print(res)

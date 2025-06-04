@@ -1,0 +1,2 @@
+from sys import stdin
+exec("P,Q,Z=[*map(int,stdin.readline().split())]\nU=Q-P+1\nif Z>=U:\n for _ in range(P,Q+1):print(_)\nelse:\n e=[*range(P,P+Z)]\n f=[*range(Q-Z+1,Q+1)]\n for x in sorted({*e,*f}):print(x)")

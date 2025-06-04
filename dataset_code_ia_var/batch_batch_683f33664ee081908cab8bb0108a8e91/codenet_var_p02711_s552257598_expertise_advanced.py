@@ -1,0 +1,1 @@
+print('Yes' if '7' in input()[:3] else 'No')

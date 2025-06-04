@@ -1,0 +1,15 @@
+h, w = map(int, input().split())
+c = [list(input()) for _ in range(h)]
+ans = [[0] * w for _ in range(h)]
+for i in range(h):
+    for j in range(w):
+        if c[i][j] == '.':
+            if c[i][:j].count('c') == 0:
+                ans[i][j] = -1
+            else:
+                for k in range(1, j + 1):
+                    if c[i][j - k] == 'c':
+                        ans[i][j] = k
+                        break
+for row in ans:
+    print(*row)

@@ -1,0 +1,161 @@
+import sys
+
+sys.setrecursionlimit(10000000)
+MOD = 10 ** 9 + 7
+INF = 10 ** 15
+
+class UnionFind:
+    def __init__(self, n):
+        self.n = n
+        self.parents = [-1] * n
+
+    def find(self, x):
+        if self.parents[x] < 0:
+            return x
+        else:
+            self.parents[x] = self.find(self.parents[x])
+            return self.parents[x]
+
+    def unite(self, x, y):
+        x = self.find(x)
+        y = self.find(y)
+        if x == y:
+            return
+        if self.parents[x] > self.parents[y]:
+            x, y = y, x
+        self.parents[x] += self.parents[y]
+        self.parents[y] = x
+
+    def same(self, x, y):
+        return self.find(x) == self.find(y)
+
+    def members(self, x):
+        root = self.find(x)
+        return [i for i in range(self.n) if self.find(i) == root]
+
+    def size(self, x):
+        return -self.parents[self.find(x)]
+
+    def roots(self):
+        return [i for i, x in enumerate(self.parents) if x < 0]
+
+    def group_count(self):
+        return len(self.roots())
+
+    def all_group_members(self):
+        return {r: self.members(r) for r in self.roots()}
+
+def solve(N, P, Q):
+    M = P + Q
+    uf = UnionFind(M + M)
+    flag = True
+    for _ in range(N):
+        q = input().split()
+        x = int(q[0]) - 1
+        y = int(q[1]) - 1
+        a = q[2]
+        if a == 'yes':
+            if x == y:
+                continue
+            if uf.same(x, y + M) or uf.same(x + M, y):
+                flag = False
+                break
+            uf.unite(x, y)
+            uf.unite(x + M, y + M)
+        else:
+            if x == y:
+                flag = False
+                break
+            if uf.same(x, y) or uf.same(x + M, y + M):
+                flag = False
+                break
+            uf.unite(x, y + M)
+            uf.unite(x + M, y)
+
+    if not flag:
+        print('no')
+        return
+    for i in range(M):
+        if uf.same(i, i + M):
+            print('no')
+            return
+
+    root = uf.roots()
+    member = uf.all_group_members()
+    each_god = []
+    before_searched = [0] * M
+    candidate = []
+    for r in root:
+        god = 0
+        evil = 0
+        flag = True
+        for m in member[r]:
+            if m < M:
+                if before_searched[m] == 1:
+                    flag = False
+                    break
+                else:
+                    god += 1
+                    before_searched[m] = 1
+            else:
+                if before_searched[m - M] == 1:
+                    flag = False
+                    break
+                else:
+                    evil += 1
+                    before_searched[m - M] = 1
+        if flag:
+            candidate.append(r)
+            each_god.append((god, evil))
+
+    dp = [[0] * (1 + P) for _ in range(len(candidate) + 1)]
+    if each_god[0][0] <= P:
+        dp[1][each_god[0][0]] = 1
+    if each_god[0][1] <= P:
+        dp[1][each_god[0][1]] += 1
+    for i, (g, e) in enumerate(each_god[1:], 1):
+        for j in range(P + 1):
+            if j - e >= 0:
+                dp[i + 1][j] += dp[i][j - e]
+            if j - g >= 0:
+                dp[i + 1][j] += dp[i][j - g]
+
+    if dp[-1][P] == 1:
+        ans = []
+        now = P
+        for i in range(len(candidate) - 1, 0, -1):
+            if 0 <= now - each_god[i][0] <= P and dp[i][now - each_god[i][0]] == 1:
+                for m in member[candidate[i]]:
+                    if m < M:
+                        ans.append(m + 1)
+                now -= each_god[i][0]
+            elif 0 <= now - each_god[i][1] <= P and dp[i][now - each_god[i][1]] == 1:
+                for m in member[candidate[i]]:
+                    if m >= M:
+                        ans.append(m - M + 1)
+                now -= each_god[i][1]
+        if now > 0:
+            if now == each_god[0][0]:
+                for m in member[candidate[0]]:
+                    if m < M:
+                        ans.append(m + 1)
+            elif now == each_god[0][1]:
+                for m in member[candidate[0]]:
+                    if m >= M:
+                        ans.append(m - M + 1)
+        ans.sort()
+        if ans:
+            print('\n'.join(map(str, ans)))
+        print('end')
+    else:
+        print('no')
+
+def main():
+    while True:
+        N, P, Q = map(int, input().split())
+        if N == 0 and P == 0 and Q == 0:
+            return
+        solve(N, P, Q)
+
+if __name__ == '__main__':
+    main()

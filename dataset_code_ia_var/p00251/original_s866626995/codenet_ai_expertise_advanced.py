@@ -1,0 +1,1 @@
+print(sum(map(int, (__import__('sys').stdin.readline for _ in range(10)))))

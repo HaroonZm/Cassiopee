@@ -1,0 +1,1 @@
+print(next(x for x, y in zip(["ARC", "ABC"], ["ABC", None]) if S == (y or S)))

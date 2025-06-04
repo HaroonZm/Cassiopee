@@ -1,0 +1,6 @@
+input_count_main_set = int(input())
+main_set = set(map(int, input().split()))
+input_count_sub_set = int(input())
+sub_set = set(map(int, input().split()))
+is_superset = main_set.issuperset(sub_set)
+print(+is_superset)

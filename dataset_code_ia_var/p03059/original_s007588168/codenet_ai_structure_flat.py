@@ -1,0 +1,6 @@
+A_B_T = input().split()
+A = int(A_B_T[0])
+B = int(A_B_T[1])
+T = int(A_B_T[2])
+result = int(((T + 0.5) // A) * B)
+print(result)

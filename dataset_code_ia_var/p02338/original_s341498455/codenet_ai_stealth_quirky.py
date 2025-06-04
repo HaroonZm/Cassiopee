@@ -1,0 +1,1 @@
+from sys import stdin as N;exec("A,B=[*map(int,N.readline().split())];"+"_=[print((A-B)//abs(A-B)+1)if A!=B else print(1)if A<=B else print(0)]")

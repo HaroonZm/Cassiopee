@@ -1,0 +1,1 @@
+print(int(__import__('builtins').input()) << 5)

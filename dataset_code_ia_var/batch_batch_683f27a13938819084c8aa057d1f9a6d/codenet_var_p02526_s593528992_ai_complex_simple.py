@@ -1,0 +1,1 @@
+__import__('functools').reduce(lambda _, __: print(len(set(__import__('sys').stdin.readline().split()).intersection(set(__import__('sys').stdin.readline().split())))), range(1), 0)

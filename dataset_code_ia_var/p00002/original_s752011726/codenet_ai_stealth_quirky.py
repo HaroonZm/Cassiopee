@@ -1,0 +1,1 @@
+exec("while 1:\n try:\n  x,y=[int(z)for z in input().split()];print((lambda q:str(len(str(q))))(x+y))\n except:exit()")

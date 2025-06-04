@@ -1,0 +1,93 @@
+import sys
+readline = sys.stdin.readline
+write = sys.stdout.write
+
+from heapq import heappush, heappop
+
+class MinCostFlow:
+    INF = 10 ** 18
+
+    def __init__(self, N):
+        self.N = N
+        self.G = [[] for _ in range(N)]
+
+    def add_edge(self, fr, to, cap, cost):
+        G = self.G
+        G[fr].append([to, cap, cost, len(G[to])])
+        G[to].append([fr, 0, -cost, len(G[fr]) - 1])
+
+    def flow(self, s, t, f):
+        N = self.N
+        G = self.G
+        INF = MinCostFlow.INF
+
+        res = 0
+        H = [0] * N
+        prv_v = [0] * N
+        prv_e = [0] * N
+
+        while f:
+            dist = [INF] * N
+            dist[s] = 0
+            que = [(0, s)]
+            while que:
+                c, v = heappop(que)
+                if dist[v] < c:
+                    continue
+                for i, (w, cap, cost, _) in enumerate(G[v]):
+                    if cap > 0 and dist[w] > dist[v] + cost + H[v] - H[w]:
+                        dist[w] = r = dist[v] + cost + H[v] - H[w]
+                        prv_v[w] = v
+                        prv_e[w] = i
+                        heappush(que, (r, w))
+            if dist[t] == INF:
+                return -1
+            for i in range(N):
+                H[i] += dist[i]
+            d = f
+            v = t
+            while v != s:
+                d = min(d, G[prv_v[v]][prv_e[v]][1])
+                v = prv_v[v]
+            f -= d
+            res += d * H[t]
+            v = t
+            while v != s:
+                e = G[prv_v[v]][prv_e[v]]
+                e[1] -= d
+                G[v][e[3]][1] += d
+                v = prv_v[v]
+        return res
+
+def solve():
+    N = int(readline())
+    if N == 0:
+        return False
+    P = []
+    for _ in range(N):
+        p = list(map(int, readline().split()))
+        p.sort()
+        P.append(p)
+    mcf = MinCostFlow(2 * N + 2)
+    P.sort()
+    su = 0
+    for i in range(N):
+        xi, yi, zi = P[i]
+        for j in range(i):
+            xj, yj, zj = P[j]
+            if xi > xj and yi > yj and zi > zj:
+                mcf.add_edge(2 * j + 1, 2 * i, 1, -xj * yj * zj)
+        su += xi * yi * zi
+        mcf.add_edge(2 * i, 2 * i + 1, 1, 0)
+        mcf.add_edge(2 * N, 2 * i, 1, 0)
+        mcf.add_edge(2 * i + 1, 2 * N + 1, 1, 0)
+    ans = su
+    for _ in range(N):
+        f = mcf.flow(2 * N, 2 * N + 1, 1)
+        su += f
+        ans = min(ans, su)
+    write("%d\n" % ans)
+    return True
+
+while solve():
+    ...

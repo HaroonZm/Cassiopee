@@ -1,0 +1,6 @@
+user_input_count = input()
+user_input_values = raw_input().split()
+user_input_integers = map(int, user_input_values)
+user_input_sorted = sorted(user_input_integers)
+user_input_sorted_strings = map(str, user_input_sorted)
+print " ".join(user_input_sorted_strings)

@@ -1,0 +1,6 @@
+N = int(input())
+LCIS = [0 for i in range(N+1)]
+for i in range(N):
+    A = int(input())
+    LCIS[A] = LCIS[A-1] + 1
+print(N - max(LCIS))

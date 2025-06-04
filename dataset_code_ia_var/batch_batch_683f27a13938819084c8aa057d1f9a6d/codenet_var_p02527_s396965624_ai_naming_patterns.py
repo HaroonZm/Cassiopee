@@ -1,0 +1,5 @@
+input_count = input()
+input_values = raw_input().split()
+string_values = map(str, input_values)
+sorted_values = sorted(string_values, key=int)
+print ' '.join(sorted_values)

@@ -1,0 +1,1 @@
+import builtins as __b;print(([lambda x: (x+1)//2-1][0])(__b.int(__b.input())))

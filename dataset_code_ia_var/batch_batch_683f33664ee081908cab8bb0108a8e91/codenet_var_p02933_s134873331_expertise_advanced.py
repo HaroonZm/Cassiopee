@@ -1,0 +1,1 @@
+print((lambda a, s: s if a >= 3200 else 'red')(int(input()), input()))

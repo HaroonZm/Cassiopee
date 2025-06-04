@@ -33,6 +33,8 @@ class UNetForCodeDetection(nn.Module):
         
         # Classification head
         self.final_conv = nn.Conv2d(64, 32, kernel_size=1)
+        self.final_conv_e2 = nn.Conv2d(128, 32, kernel_size=1)
+        self.final_conv_e3 = nn.Conv2d(256, 32, kernel_size=1)
         self.classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
@@ -121,6 +123,17 @@ def preprocess_matrix(matrix, padding_value=100):
     # Remplacer les valeurs -inf ou NaN par une valeur numérique
     matrix = np.nan_to_num(matrix, neginf=-100.0)
     
+    # Redimensionner la matrice si elle est trop petite (min 32x32)
+    original_shape = matrix.shape
+    if matrix.shape[0] < 32 or matrix.shape[1] < 32:
+        # Sauvegarder la matrice originale pour reconstruire le masque
+        original_matrix = matrix.copy()
+        # Redimensionner la matrice à 32x32
+        matrix = resize(matrix, (32, 32), order=1, preserve_range=True)
+        # Redimensionner également le masque de padding
+        if padding_mask is not None:
+            padding_mask = resize(padding_mask.astype(float), (32, 32), order=0, preserve_range=True) > 0.5
+    
     # Normalisation min-max pour ramener entre 0 et 1
     # Exclure les valeurs de padding pour la normalisation
     non_padding = ~padding_mask
@@ -138,7 +151,7 @@ def preprocess_matrix(matrix, padding_value=100):
     
     return matrix_normalized, padding_mask
 
-def generate_gradcam(model, input_tensor, padding_mask=None):
+def generate_gradcam(model, input_tensor, padding_mask=None, original_shape=None):
     """
     Génère une carte d'activation Grad-CAM pour l'entrée donnée
     """
@@ -326,6 +339,7 @@ def visualize_matrix_tiles(model, tile_paths, output_dir, device, padding_value=
     for tile_path in sorted_tiles:
         # Charger et prétraiter la tuile
         matrix = np.load(tile_path)
+        original_shape = matrix.shape
         matrix_preprocessed, padding_mask = preprocess_matrix(matrix, padding_value)
         
         # Conversion en tenseur
@@ -333,7 +347,7 @@ def visualize_matrix_tiles(model, tile_paths, output_dir, device, padding_value=
         matrix_tensor = matrix_tensor.to(device)
         
         # Générer la carte d'activation
-        cam_map, pred_score = generate_gradcam(model, matrix_tensor, padding_mask)
+        cam_map, pred_score = generate_gradcam(model, matrix_tensor, padding_mask, original_shape)
         
         # Extraire la position
         position = get_tile_position(tile_path)

@@ -1,0 +1,1 @@
+a,b,x=[int(i)for i in input().split()]; print(("YESNO"[(a>x-b)::-3])[::-1][1::-1])

@@ -1,0 +1,22 @@
+from itertools import combinations, permutations
+
+N = int(input())
+
+s = [1, 2, 4, 7, 12, 20, 29, 38, 52, 73]
+
+w = [[0] * 10 for _ in range(10)]
+w[0][1] = w[1][0] = 1
+
+for n in range(3, N + 1):
+    M = 0
+    for perm in permutations(range(n-1), n-1):
+        tmp = 0
+        for i in range(n-2):
+            tmp += w[perm[i]][perm[i+1]]
+        M = max(M, tmp)
+    M += 1
+    for i in range(n-1):
+        w[i][n-1] = w[n-1][i] = M * s[i]
+
+for i in range(N):
+    print(' '.join([str(j) for j in w[i][:N]]))

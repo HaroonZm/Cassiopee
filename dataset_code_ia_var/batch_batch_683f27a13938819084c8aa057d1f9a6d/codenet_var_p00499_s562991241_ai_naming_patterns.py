@@ -1,0 +1,10 @@
+input_total=int(input())
+input_num1=int(input())
+input_num2=int(input())
+input_num3=int(input())
+input_num4=int(input())
+value1=input_num1/input_num3
+value2=input_num2/input_num4
+max_value=max(value1,value2)
+result=int(input_total-max_value)
+print(result)

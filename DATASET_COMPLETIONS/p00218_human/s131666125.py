@@ -1,0 +1,12 @@
+while True:
+    n=input()
+    if n==0:break
+    for i in range(n):
+        pm,pe,pj=map(int,raw_input().split())
+        ave=(pm+pe+pj)/3.0
+        if (100 in (pm,pe,pj)) or ((pm+pe)/2>=90) or (ave>=80):
+            print "A"
+        elif (ave>=70) or ((ave>=50) and ((pm>=80) or (pe>=80))):
+            print "B"
+        else:
+            print "C"

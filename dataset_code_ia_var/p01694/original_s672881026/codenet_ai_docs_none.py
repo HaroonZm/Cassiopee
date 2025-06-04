@@ -1,0 +1,24 @@
+while True:
+    n=int(input())
+    if n==0:exit()
+    l0=list(map(str,input().split()))
+    ans=0
+    l=0
+    r=0
+    k=1
+    for x in l0:
+        if x=="lu":
+            l=1
+        elif x=="ld":
+            l=0
+        elif x=="ru":
+            r=1
+        else:
+            r=0
+        if k+l+r==3:
+            ans+=1
+            k-=1
+        elif k+l+r==0:
+            ans+=1
+            k+=1
+    print(ans)

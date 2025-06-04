@@ -424,11 +424,11 @@ class MatrixGenerationTab(QWidget):
         
         self.file_path = QLineEdit()
         self.file_path.setPlaceholderText("Chemin du script à analyser")
-        file_button = QPushButton("Parcourir...")
-        file_button.clicked.connect(self.browse_file)
+        self.file_button = QPushButton("Parcourir...")
+        self.file_button.clicked.connect(self.browse_file)
         
         file_layout.addWidget(self.file_path)
-        file_layout.addWidget(file_button)
+        file_layout.addWidget(self.file_button)
         self.file_group.setLayout(file_layout)
         
         # Sélection du dossier
@@ -438,10 +438,10 @@ class MatrixGenerationTab(QWidget):
         dir_select_layout = QHBoxLayout()
         self.dir_path = QLineEdit()
         self.dir_path.setPlaceholderText("Chemin du dossier contenant les scripts Python")
-        dir_button = QPushButton("Parcourir...")
-        dir_button.clicked.connect(self.browse_directory)
+        self.dir_button = QPushButton("Parcourir...")
+        self.dir_button.clicked.connect(self.browse_directory)
         dir_select_layout.addWidget(self.dir_path)
-        dir_select_layout.addWidget(dir_button)
+        dir_select_layout.addWidget(self.dir_button)
         
         # Option pour la récursivité
         self.recursive_checkbox = QCheckBox("Analyser également les sous-dossiers")
@@ -484,7 +484,8 @@ class MatrixGenerationTab(QWidget):
         pred_layout = QHBoxLayout()
         pred_layout.addWidget(QLabel("Modèle de prédiction:"))
         self.pred_model = QComboBox()
-        self.pred_model.addItems(["gpt-4o-mini", "gpt-4o", "gpt-4.1", "gpt-4.1-mini"])
+        self.pred_model.addItems(["gpt-4o-mini", "gpt-4o", "gpt-4.1", "gpt-4.1-mini", "gpt-3.5-turbo-instruct", "text-davinci-003"])
+        self.pred_model.currentTextChanged.connect(self.update_api_options)
         pred_layout.addWidget(self.pred_model)
         
         models_layout.addLayout(token_layout)
@@ -497,11 +498,14 @@ class MatrixGenerationTab(QWidget):
         
         self.completions_api_radio = QRadioButton("API Completions (traditionnel)")
         self.chat_api_radio = QRadioButton("API Chat (avec prompt spécifique)")
-        self.completions_api_radio.setChecked(True)
+        self.chat_api_radio.setChecked(True)  # Default to chat since most models use it
         
         api_layout.addWidget(self.completions_api_radio)
         api_layout.addWidget(self.chat_api_radio)
         self.api_group.setLayout(api_layout)
+        
+        # Initialiser les options d'API en fonction du modèle sélectionné
+        self.update_api_options(self.pred_model.currentText())
         
         # Options de batch (seulement pour méthode batch)
         self.batch_group = QGroupBox("Options de batch")
@@ -630,7 +634,12 @@ class MatrixGenerationTab(QWidget):
         # Les options d'API sont uniquement pour la méthode directe
         self.api_group.setEnabled(not is_batch_method)
         
-        # Le dossier d'archivage est moins important avec le nouveau générateur de matrices
+        # Mettre à jour les options d'API en fonction du modèle sélectionné
+        # lorsqu'on active le mode direct
+        if not is_batch_method:
+            self.update_api_options(self.pred_model.currentText())
+        
+        # Les options d'archivage sont moins importantes avec le nouveau générateur de matrices
         archive_widgets = self.findChildren(QWidget)
         for widget in archive_widgets:
             if hasattr(widget, 'parent') and "archivage" in str(widget.parent()):
@@ -645,22 +654,17 @@ class MatrixGenerationTab(QWidget):
         is_file_mode = self.file_mode_radio.isChecked()
         is_dir_mode = self.dir_mode_radio.isChecked()
         is_batch_id_mode = self.batch_id_mode_radio.isChecked()
-        is_batch_method = self.batch_method_radio.isChecked()
         
-        # Montrer/cacher les groupes appropriés
+        # Activer/désactiver les widgets appropriés
+        self.file_path.setEnabled(is_file_mode)
+        self.file_button.setEnabled(is_file_mode)
+        self.dir_path.setEnabled(is_dir_mode)
+        self.dir_button.setEnabled(is_dir_mode)
+        
+        # Afficher/masquer les groupes appropriés
         self.file_group.setVisible(is_file_mode)
         self.dir_group.setVisible(is_dir_mode)
         self.batch_id_group.setVisible(is_batch_id_mode)
-        
-        # Rendre certains éléments visibles ou invisibles en fonction du mode
-        self.token_model.setEnabled(not is_batch_id_mode)
-        self.pred_model.setEnabled(not is_batch_id_mode)
-        
-        # Dans le mode batch_id, seul le dossier de sortie est nécessaire
-        if is_batch_id_mode:
-            self.batch_group.setEnabled(False)
-        else:
-            self.batch_group.setEnabled(is_batch_method)
     
     def browse_file(self):
         file, _ = QFileDialog.getOpenFileName(self, "Sélectionner un script Python", "", "Fichiers Python (*.py)")
@@ -824,6 +828,34 @@ class MatrixGenerationTab(QWidget):
     
     def _execute_direct_method(self):
         """Exécute la génération de matrices en utilisant l'approche directe"""
+        # Vérifier la compatibilité entre le modèle et l'API sélectionnée
+        model = self.pred_model.currentText()
+        api_type = "chat" if self.chat_api_radio.isChecked() else "completions"
+        
+        # Dictionnaire des modèles et leur compatibilité avec les endpoints
+        MODELES_COMPATIBLES = {
+            # Modèles compatibles avec les deux APIs (chat et completions)
+            "gpt-4o-mini": "both",
+            "gpt-4o": "both",
+            "gpt-4.1": "both",
+            "gpt-4.1-mini": "both",
+            # Modèles compatibles avec chat/completions uniquement
+            "gpt-3.5-turbo": "chat",
+            # Modèles compatibles avec completions uniquement
+            "text-davinci-003": "completions",
+            "text-davinci-002": "completions",
+            # Modèles compatibles avec les deux endpoints
+            "gpt-3.5-turbo-instruct": "both"
+        }
+        
+        # Vérifier la compatibilité
+        compat = MODELES_COMPATIBLES.get(model, "both")
+        if compat != "both" and compat != api_type:
+            QMessageBox.warning(self, "Erreur de compatibilité", 
+                               f"Le modèle {model} n'est pas compatible avec l'API {api_type}.\n"
+                               f"Veuillez sélectionner l'API {compat} pour ce modèle.")
+            return
+            
         cmd = ['python', 'matrix_generation/matrix_generator_classic.py']
         
         # Paramètres spécifiques au mode
@@ -847,7 +879,6 @@ class MatrixGenerationTab(QWidget):
         cmd.extend(['--output', self.output_dir.text()])
         
         # Ajout du type d'API (chat ou completions)
-        api_type = "chat" if self.chat_api_radio.isChecked() else "completions"
         cmd.extend(['--api', api_type])
         
         self.console.clear()
@@ -884,6 +915,40 @@ class MatrixGenerationTab(QWidget):
         self.execute_button.setEnabled(True)
         status = "Succès" if success else "Échec"
         QMessageBox.information(self, status, message)
+    
+    def update_api_options(self, model_name):
+        """Met à jour les options d'API en fonction du modèle sélectionné"""
+        # Dictionnaire des modèles et leur compatibilité avec les endpoints
+        MODELES_COMPATIBLES = {
+            # Modèles compatibles avec les deux APIs (chat et completions)
+            "gpt-4o-mini": "both",
+            "gpt-4o": "both",
+            "gpt-4.1": "both",
+            "gpt-4.1-mini": "both",
+            # Modèles compatibles avec chat/completions uniquement
+            "gpt-3.5-turbo": "chat",
+            # Modèles compatibles avec completions uniquement
+            "text-davinci-003": "completions",
+            "text-davinci-002": "completions",
+            # Modèles compatibles avec les deux endpoints
+            "gpt-3.5-turbo-instruct": "both"
+        }
+        
+        # Récupérer la compatibilité du modèle
+        compat = MODELES_COMPATIBLES.get(model_name, "both")
+        
+        # Activer/désactiver les boutons radio en fonction de la compatibilité
+        if compat == "chat":
+            self.chat_api_radio.setChecked(True)
+            self.completions_api_radio.setEnabled(False)
+            self.chat_api_radio.setEnabled(True)
+        elif compat == "completions":
+            self.completions_api_radio.setChecked(True)
+            self.completions_api_radio.setEnabled(True)
+            self.chat_api_radio.setEnabled(False)
+        else:  # both
+            self.completions_api_radio.setEnabled(True)
+            self.chat_api_radio.setEnabled(True)
 
 
 class MatrixTilingTab(QWidget):
@@ -1527,22 +1592,17 @@ class UNetTestingTab(QWidget):
         is_file_mode = self.file_mode_radio.isChecked()
         is_dir_mode = self.dir_mode_radio.isChecked()
         is_batch_id_mode = self.batch_id_mode_radio.isChecked()
-        is_batch_method = self.batch_method_radio.isChecked()
         
-        # Montrer/cacher les groupes appropriés
+        # Activer/désactiver les widgets appropriés
+        self.file_path.setEnabled(is_file_mode)
+        self.file_button.setEnabled(is_file_mode)
+        self.dir_path.setEnabled(is_dir_mode)
+        self.dir_button.setEnabled(is_dir_mode)
+        
+        # Afficher/masquer les groupes appropriés
         self.file_group.setVisible(is_file_mode)
         self.dir_group.setVisible(is_dir_mode)
         self.batch_id_group.setVisible(is_batch_id_mode)
-        
-        # Rendre certains éléments visibles ou invisibles en fonction du mode
-        self.token_model.setEnabled(not is_batch_id_mode)
-        self.pred_model.setEnabled(not is_batch_id_mode)
-        
-        # Dans le mode batch_id, seul le dossier de sortie est nécessaire
-        if is_batch_id_mode:
-            self.batch_group.setEnabled(False)
-        else:
-            self.batch_group.setEnabled(is_batch_method)
     
     def browse_model(self):
         """Ouvre une boîte de dialogue pour sélectionner le modèle"""

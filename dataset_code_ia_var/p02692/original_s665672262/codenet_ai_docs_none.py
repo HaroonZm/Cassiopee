@@ -1,0 +1,100 @@
+import sys
+sys.setrecursionlimit(10**7)
+from pprint import pprint as pp
+from pprint import pformat as pf
+import math
+import bisect
+
+class Player():
+    A = 0
+    B = 1
+    C = 2
+
+    def __init__(self, data, op_list):
+        self.data = data
+        self.op_list = op_list
+        self.move_history = ["X"] * len(self.op_list)
+        self.key = 0
+        self.ans = "Yes"
+        self.flg_out = False
+        self.flg_foresight = False
+        s = sum(data)
+        if s == 2:
+            self.flg_foresight = True
+        elif s == 0:
+            self.ans = "No"
+            self.flg_out = True
+
+    def has_next_op(self):
+        if self.key + 1 < len(self.op_list):
+            return True
+        else:
+            return False
+
+    def play(self):
+        for key, op in enumerate(self.op_list):
+            if self.flg_out:
+                break
+            self.key = key
+            self.read_op(op)
+
+    def read_op(self, op):
+        if op == "AB":
+            self.do(self.A, self.B)
+        if op == "AC":
+            self.do(self.A, self.C)
+        if op == "BC":
+            self.do(self.B, self.C)
+
+    def do(self, x, y):
+        if self.data[x] < self.data[y]:
+            self.move(y, x)
+        elif self.data[x] > self.data[y]:
+            self.move(x, y)
+        else:
+            if self.flg_foresight:
+                if self.is_next_used(x):
+                    self.move(y, x)
+                else:
+                    self.move(x, y)
+            else:
+                self.move(x, y)
+
+    def move(self, frm, to):
+        self.move_history[self.key] = self.num_to_char(to)
+        self.data[frm] -= 1
+        self.data[to] += 1
+        if self.data[frm] < 0:
+            self.ans = "No"
+            self.flg_out = True
+
+    @staticmethod
+    def num_to_char(z):
+        chars = ['A', 'B', 'C']
+        return chars[z]
+
+    def is_next_used(self, z):
+        if not self.has_next_op():
+            return False
+        next_op = self.op_list[self.key + 1]
+        if self.num_to_char(z) in next_op:
+            return True
+        else:
+            return False
+
+    def print_ans(self):
+        print(self.ans)
+        if self.ans == "No":
+            return
+        for h in self.move_history:
+            print(h)
+
+if __name__ == '__main__':
+    n, a, b, c = list(map(int, input().split()))
+    data = [a, b, c]
+    op_list = [""] * n
+    for i in range(n):
+        op_list[i] = input()
+    p = Player(data, op_list)
+    p.play()
+    p.print_ans()

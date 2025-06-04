@@ -1,0 +1,1 @@
+exec("N=~-(int(input())+1);R=0\nfor Q in [25,10,5,1][::-1]:\n R+=N//Q;N-=Q*(N//Q)\nprint(R)")

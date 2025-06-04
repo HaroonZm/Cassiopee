@@ -1,0 +1,1 @@
+exec((lambda f: f'f=({f});f({f})')(lambda f:eval(f"print(({N:=int(input())})if {N}%2==0 else {N}*2)")))

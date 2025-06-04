@@ -1,0 +1,1 @@
+print((lambda x: {True: 'vowel', False: 'consonant'}[any(map(lambda y: y == x, 'aiueo'))])(input()))

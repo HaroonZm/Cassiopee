@@ -1,0 +1,1 @@
+print((lambda n, a: ["No", "Yes"][(lambda x: list(map(lambda y: y <= a, [x]))[0])(divmod(n, 500)[1])])(int(input()), int(input())))

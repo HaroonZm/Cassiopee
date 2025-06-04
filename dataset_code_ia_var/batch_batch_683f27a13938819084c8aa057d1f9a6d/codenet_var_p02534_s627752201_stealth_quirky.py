@@ -1,0 +1,1 @@
+I=input;N=lambda s:int(s());S='ACL';exec(f'print({S!r}*{N(I)})')

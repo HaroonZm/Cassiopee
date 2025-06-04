@@ -1,0 +1,1 @@
+print(input() if (a := int(input())) >= 3200 else 'red')

@@ -1,0 +1,1 @@
+exec("yn=lambda x,y,z:['No','Yes'][x<y<z]\na,b,c=[*map(int,input().split())]\nprint(yn(a,b,c))")

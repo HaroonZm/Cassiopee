@@ -1,0 +1,5 @@
+R1_R2 = input().split()
+R1 = int(R1_R2[0])
+R2 = int(R1_R2[1])
+R3 = 1 / (1 / R1 + 1 / R2)
+print("{:.9f}".format(R3))

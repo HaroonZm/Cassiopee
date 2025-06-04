@@ -1,0 +1,1 @@
+import sys as __SYS__;exec('for __in__ in __SYS__.stdin:\n a,b,c=[int(w)for w in __in__[:-1].split()];__=a*10000+b*100+c\n if __<18680908:print("pre-meiji")\n elif __<19120730:print("meiji",a-1867,b,c)\n elif __<19261225:print("taisho",a-1911,b,c)\n elif __<19890108:print("showa",a-1925,b,c)\n else:print("heisei",a-1988,b,c)\n')

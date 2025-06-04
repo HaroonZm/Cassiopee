@@ -1,0 +1,3 @@
+from functools import reduce
+from itertools import product, chain, repeat
+exec('n,k=map(int,input().split());s=[-1]*n\nfor _ in range(k):a,b=map(int,input().split());s[a-1]=b-1\ndp=[0]*9\nst,nd=s[:2];W=range(3)\nif st+1:\n if nd+1:dp[st*3+nd]=1\n else:dp[st*3:st*4]=[1]*3\nelif nd+1:dp[nd::3]=[1]*3\nelse:dp[:]=[1]*9\nfor i in range(2,n):\n    x=s[i];X=range(3)\n    tmp=[0]*9\n    if x+1:\n        f=lambda k:sum(dp[k::3])-dp[x*4]*(k==x)\n        for k in X:tmp[k*3+x]=f(k)\n    else:\n        for cur,k in product(X,X):\n            tmp[k*3+cur]=sum(map(dp.__getitem__,range(k,9,3)))-dp[cur*4]*(k==cur)\n    dp[:]=tmp\nprint(sum(dp)%10000)')

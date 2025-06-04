@@ -1,0 +1,37 @@
+import sys
+fe = ["A", "B", "C"]
+for line in sys.stdin:
+    num = line[:-1].split(",")
+    if num[0] == "A":
+        if num[1] == "B":
+            tako = fe[0]
+            fe[0] = fe[1]
+            fe[1] = tako
+        else:
+            tako = fe[0]
+            fe[0] = fe[2]
+            fe[2] = tako
+    if num[0] == "B":
+        if num[1] == "A":
+            tako = fe[1]
+            fe[1] = fe[0]
+            fe[0] = tako
+        else:
+            tako = fe[1]
+            fe[1] = fe[2]
+            fe[2] = tako
+    if num[0] == "C":
+        if num[1] == "A":
+            tako = fe[0]
+            fe[0] = fe[2]
+            fe[2] = tako
+        else:
+            tako = fe[1]
+            fe[1] = fe[2]
+            fe[2] = tako
+if fe[0] == "A":
+    print "A"
+if fe[1] == "A":
+    print "B"
+if fe[2] == "A":
+    print "C"

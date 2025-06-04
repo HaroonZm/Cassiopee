@@ -1,0 +1,1 @@
+print((lambda s: {True:'ARC',False:'ABC'}[s=='ABC'])(input()))

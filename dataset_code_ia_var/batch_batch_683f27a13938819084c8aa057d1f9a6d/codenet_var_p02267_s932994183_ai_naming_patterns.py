@@ -1,0 +1,6 @@
+input_count_1 = int(input())
+set_primary = set(input().split())
+input_count_2 = int(input())
+set_secondary = set(input().split())
+intersection_count = len(set_primary & set_secondary)
+print(intersection_count)

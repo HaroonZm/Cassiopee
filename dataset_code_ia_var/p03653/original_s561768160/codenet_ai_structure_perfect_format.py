@@ -1,0 +1,47 @@
+import sys
+def input():
+    return sys.stdin.buffer.readline()[:-1]
+from heapq import heappush, heappop
+
+x, y, z = map(int, input().split())
+c = [list(map(int, input().split())) for _ in range(x + y + z)]
+c.sort(key=lambda x: x[1] - x[0])
+
+ans_l = [-1 for _ in range(x + y + z)]
+ans_r = [-1 for _ in range(x + y + z)]
+
+tmp = 0
+l = []
+for i in range(x):
+    tmp += c[i][0]
+    heappush(l, (c[i][0] - c[i][2], i))
+ans_l[x] = tmp
+
+for i in range(x, x + z):
+    tmp += c[i][0]
+    heappush(l, (c[i][0] - c[i][2], i))
+    p = heappop(l)
+    tmp -= c[p[1]][0]
+    tmp += c[p[1]][2]
+    ans_l[i + 1] = tmp
+
+tmp = 0
+r = []
+for i in range(x + z, x + y + z):
+    tmp += c[i][1]
+    heappush(r, (c[i][1] - c[i][2], i))
+ans_r[x + z] = tmp
+
+for i in range(x + z - 1, x - 1, -1):
+    tmp += c[i][1]
+    heappush(r, (c[i][1] - c[i][2], i))
+    p = heappop(r)
+    tmp -= c[p[1]][1]
+    tmp += c[p[1]][2]
+    ans_r[i] = tmp
+
+ans = 0
+for i in range(x, x + z + 1):
+    ans = max(ans, ans_l[i] + ans_r[i])
+
+print(ans)

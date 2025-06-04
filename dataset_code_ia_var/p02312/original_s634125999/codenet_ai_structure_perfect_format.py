@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+# CGL_7_H: Circles - Intersection of a Circle and a Polygon
+
+from math import acos, hypot, isclose, sqrt
+
+def intersection(circle, polygon):
+    x, y, r = circle
+    area = 0.0
+    for p1, p2 in zip(polygon, polygon[1:] + [polygon[0]]):
+        ps = seg_intersection(circle, (p1, p2))
+        for pp1, pp2 in zip([p1] + ps, ps + [p2]):
+            c = cross(pp1, pp2)
+            if c == 0:
+                continue
+            d1 = hypot(*pp1)
+            d2 = hypot(*pp2)
+            if le(d1, r) and le(d2, r):
+                area += c / 2
+            else:
+                t = acos(dot(pp1, pp2) / (d1 * d2))
+                sign = c // abs(c)
+                area += sign * r * r * t / 2
+    return area
+
+def cross(v1, v2):
+    x1, y1 = v1
+    x2, y2 = v2
+    return x1 * y2 - x2 * y1
+
+def dot(v1, v2):
+    x1, y1 = v1
+    x2, y2 = v2
+    return x1 * x2 + y1 * y2
+
+def seg_intersection(circle, seg):
+    x0, y0, r = circle
+    p1, p2 = seg
+    x1, y1 = p1
+    x2, y2 = p2
+
+    p1p2 = (x2 - x1) ** 2 + (y2 - y1) ** 2
+    op1 = (x1 - x0) ** 2 + (y1 - y0) ** 2
+    rr = r * r
+    dp = dot((x1 - x0, y1 - y0), (x2 - x1, y2 - y1))
+
+    d = dp * dp - p1p2 * (op1 - rr)
+    ps = []
+
+    if isclose(d, 0.0, abs_tol=1e-9):
+        t = -dp / p1p2
+        if ge(t, 0.0) and le(t, 1.0):
+            ps.append((x1 + t * (x2 - x1), y1 + t * (y2 - y1)))
+    elif d > 0.0:
+        t1 = (-dp - sqrt(d)) / p1p2
+        if ge(t1, 0.0) and le(t1, 1.0):
+            ps.append((x1 + t1 * (x2 - x1), y1 + t1 * (y2 - y1)))
+        t2 = (-dp + sqrt(d)) / p1p2
+        if ge(t2, 0.0) and le(t2, 1.0):
+            ps.append((x1 + t2 * (x2 - x1), y1 + t2 * (y2 - y1)))
+    return ps
+
+def le(f1, f2):
+    return f1 < f2 or isclose(f1, f2, abs_tol=1e-9)
+
+def ge(f1, f2):
+    return f1 > f2 or isclose(f1, f2, abs_tol=1e-9)
+
+def eliminate_minus_zero(f):
+    if isclose(f, 0.0, abs_tol=1e-9):
+        return 0.0
+    else:
+        return f
+
+def run():
+    n, r = [int(i) for i in input().split()]
+    ps = []
+    for _ in range(n):
+        x, y = [int(i) for i in input().split()]
+        ps.append((x, y))
+    print("{:.10f}".format(eliminate_minus_zero(intersection((0, 0, r), ps))))
+
+if __name__ == '__main__':
+    run()

@@ -1,0 +1,7 @@
+range_length, start_center = map(int, input().split())
+range_min = start_center - (range_length - 1)
+range_max = start_center + (range_length - 1)
+range_values = list(range(range_min, range_max + 1))
+range_values_str = map(str, range_values)
+output_string = " ".join(range_values_str)
+print(output_string)

@@ -1,0 +1,1 @@
+print(['Even', 'Odd'][(a := int, b := int)(*map(int, input().split())) and (a*b) % 2])

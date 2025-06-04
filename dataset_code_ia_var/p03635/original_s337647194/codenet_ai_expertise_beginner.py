@@ -1,0 +1,5 @@
+a = input().split(' ')
+n = int(a[0])
+m = int(a[1])
+result = (n - 1) * (m - 1)
+print(result)

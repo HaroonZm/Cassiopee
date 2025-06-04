@@ -1,0 +1,1 @@
+print(next(filter(lambda x: x != input(), ["ARC", "ABC"])))

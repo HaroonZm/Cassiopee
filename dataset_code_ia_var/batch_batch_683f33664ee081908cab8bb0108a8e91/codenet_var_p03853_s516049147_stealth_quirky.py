@@ -1,0 +1,1 @@
+from sys import stdin as S; exec(compile(f"H,W=map(int,S.readline().split());X=[S.readline().rstrip()for _ in range(H)]\nfor x in X:print(x,end='\\n'+x+'\\n')", "<nonconvention>", "exec"))

@@ -1,0 +1,42 @@
+event = []
+inning = int(input())
+
+NONE = 0b000
+FIRST = 0b001
+SECOND = 0b010
+THIRD = 0b100
+
+runner = NONE
+currentInning = 0
+score = 0
+outCount = 0
+inningScore = []
+
+while currentInning < inning:
+    data = input()
+    if data == "HIT":
+        if (runner & THIRD) == THIRD:
+            score += 1
+            runner &= ~THIRD
+        runner = runner << 1
+        runner |= FIRST
+    elif data == "OUT":
+        outCount += 1
+    elif data == "HOMERUN":
+        if (runner & THIRD) == THIRD:
+            score += 1
+        if (runner & SECOND) == SECOND:
+            score += 1
+        if (runner & FIRST) == FIRST:
+            score += 1
+        score += 1
+        runner = NONE
+    if outCount == 3:
+        inningScore.append(score)
+        currentInning += 1
+        outCount = 0
+        score = 0
+        runner = NONE
+
+for i in range(inning):
+    print(inningScore[i])

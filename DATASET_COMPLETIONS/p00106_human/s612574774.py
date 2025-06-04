@@ -1,0 +1,19 @@
+def f(w1):
+  m=1e9
+  for i1 in range(w1/500+1):
+    w2=w1-i1*500
+    for i2 in range(w2/300+1):
+      w3=w2-i2*300
+      if w3%200==0: m=min(m,g([w3/200,i2,i1]))
+  return m
+
+def g(x):
+  A=[380,550,850]
+  B=[.2,.15,.12]
+  C=[5,4,3]
+  return sum([A[i]*(x[i]-x[i]/C[i]*C[i]*B[i]) for i in [0,1,2]])
+
+while 1:
+  w=input()
+  if w==0: break
+  print int(f(w))

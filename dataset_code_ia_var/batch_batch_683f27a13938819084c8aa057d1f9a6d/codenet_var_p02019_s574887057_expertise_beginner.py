@@ -1,0 +1,7 @@
+n, a, b, c = input().split()
+n = int(n)
+a = int(a)
+b = int(b)
+c = int(c)
+resultat = (n + c) - (a + b)
+print(resultat)

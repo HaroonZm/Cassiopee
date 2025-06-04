@@ -1,0 +1,40 @@
+import math
+import sys
+
+ma = 1 << 53  # 53ビット表現限界
+
+while True:
+    n = int(sys.stdin.readline())
+    if n == 0:
+        break
+    s = list(sys.stdin.readline()[:-1])
+    # aを先頭の1を含む53ビットとして保存
+    a = 1
+    for i in range(52):
+        a <<= 1
+        a += int(s[i])
+    ans = a
+    e = 0
+    # 「切り下げながら足し算」→「aを適時右シフトしながら和を取る」を利用
+    while n:
+        if a == 0:  # aを右シフトしていった結果が0となったら終了
+            break
+        k = math.ceil((ma - ans) / a)  # ans+ak >= maを満たす最小の整数、これ以上を足すと桁が増える
+        if n < k:  # もしkがnより大きかったら桁は増えないので普通に加算して終了
+            ans += a * n
+            break
+        ans += a * k
+        # 以下桁が増えた時の処理、ansを右シフトして、53ビットに収める。指数部をインクリメント、桁が1増えたためaを1つ右シフト
+        ans >>= 1
+        e += 1
+        a >>= 1
+        n -= k  # nをk回分減少させる
+    e_bin = list(bin(e)[2:])
+    for i in range(12 - len(e_bin)):
+        e_bin.insert(0, 0)
+    ans_bin = list(bin(ans)[3:])  # 最初の1を忘れずに削る
+    for i in range(52 - len(ans_bin)):
+        ans_bin.insert(0, 0)
+    for i in e_bin + ans_bin:
+        print(i, end="")
+    print()

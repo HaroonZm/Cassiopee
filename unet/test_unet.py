@@ -35,6 +35,10 @@ class UNetForCodeDetection(nn.Module):
         
         # Classification head
         self.final_conv = nn.Conv2d(64, 32, kernel_size=1)
+        # Couches supplémentaires présentes dans le modèle sauvegardé
+        self.final_conv_e2 = nn.Conv2d(128, 32, kernel_size=1)
+        self.final_conv_e3 = nn.Conv2d(256, 32, kernel_size=1)
+        
         self.classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
@@ -100,6 +104,13 @@ def preprocess_matrix(matrix):
     """
     Prétraite une matrice de la même manière que pendant l'entraînement
     """
+    # Check if the matrix contains non-numeric data (strings or objects)
+    if np.issubdtype(matrix.dtype, np.str_) or np.issubdtype(matrix.dtype, np.object_):
+        # If it's a metadata file or contains non-numeric data, convert to a numeric matrix
+        # Return a small dummy matrix with numeric values
+        print(f"Warning: Matrix contains non-numeric data (dtype: {matrix.dtype}). Creating a dummy matrix.")
+        return np.zeros((16, 16), dtype=np.float32)
+    
     # Remplacer les valeurs -inf ou NaN par une valeur numérique
     matrix = np.nan_to_num(matrix, neginf=-100.0)
     
@@ -253,7 +264,7 @@ def test_directory(model, test_dir, device, recursive=False):
 def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model="gpt-4o-mini", pred_model="gpt-4o-mini", tiles_size=(16, 16)):
     """
     Convertit un fichier Python en représentation matricielle puis en tuiles pour l'analyse
-    en appelant matrix_generator_no_batch.py puis matrix_tiling.py.
+    en appelant matrix_generator_classic.py puis matrix_tiling.py.
     
     Args:
         py_file: Chemin vers le fichier Python
@@ -280,14 +291,14 @@ def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model=
         # Nom de base du fichier
         base_name = os.path.basename(py_file).replace('.py', '')
         
-        # 1. Générer la matrice avec matrix_generator_no_batch.py
+        # 1. Générer la matrice avec matrix_generator_classic.py
         matrix_cmd = [
             "python", 
-            "matrix_generation/matrix_generator_no_batch.py",
-            "--file", py_file,
-            "--token-model", token_model,
-            "--pred-model", pred_model,
-            "--output-dir", output_dir
+            "matrix_generation/matrix_generator_classic.py",
+            "--file", os.path.basename(py_file),
+            "--directory", os.path.dirname(py_file),
+            "--output", output_dir,
+            "--api", "completions"
         ]
         
         print(f"Étape 1: Génération de la matrice...")
@@ -377,7 +388,6 @@ def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model=
             "matrix_generation/matrix_tiling.py",
             matrices_dir,
             tiles_dir,
-            os.path.join(output_dir, "archive"),  # Dossier d'archive requis
             "--taille_tuile",
             str(tiles_size[0]),
             str(tiles_size[1])
@@ -426,25 +436,20 @@ def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model=
 
 def analyze_tiles_directory(model, tiles_dir, device):
     """
-    Analyse toutes les tuiles dans un répertoire et retourne une prédiction globale
+    Analyse toutes les tuiles d'un répertoire et retourne un résultat agrégé
     
     Args:
         model: Le modèle UNet chargé
-        tiles_dir: Chemin vers le répertoire contenant les tuiles
-        device: Device à utiliser (cuda/cpu)
-    
-    Returns:
-        Un dictionnaire avec le résultat de l'analyse
+        tiles_dir: Le répertoire contenant les tuiles
+        device: Le périphérique de calcul (CPU/GPU)
     """
-    # Vérifier que le répertoire existe
-    if not os.path.isdir(tiles_dir):
-        print(f"Erreur: {tiles_dir} n'est pas un répertoire valide")
-        return None
-    
-    # Trouver toutes les tuiles dans le répertoire
+    # Trouver tous les fichiers .npy dans le répertoire (récursivement)
     tile_files = []
     for root, dirs, files in os.walk(tiles_dir):
         for file in files:
+            # Skip metadata files
+            if file.endswith('_metadonnees.npz') or file.endswith('metadonnees.npz'):
+                continue
             if not (file.endswith('.npy') or file.endswith('.npz')):
                 continue  # Ignore les .txt, .csv, etc.
             tile_files.append(os.path.join(root, file))

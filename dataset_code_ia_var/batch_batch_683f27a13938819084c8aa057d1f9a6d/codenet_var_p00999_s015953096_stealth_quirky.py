@@ -1,0 +1,1 @@
+exec('while 0x1:\n S=input().split()\n if len({*S})==1 and S[0]=="0":break\n A=[]\n A+=map(int,S)\n A+=map(int,input().split())\n x,y,z,d,e=A[0],A[1],A[2],A[3],A[4]\n nx,ny,nz=A[5:] \n l=[z]*nz+[y]*ny+[x]*nx\n if nz>=d:print(e*nz+y*ny+x*nx);continue\n if nx+ny+nz>d: print(min(sum(l[:d]),e*d)+sum(l[d:]))\n else: print(min(sum(l),e*d))')

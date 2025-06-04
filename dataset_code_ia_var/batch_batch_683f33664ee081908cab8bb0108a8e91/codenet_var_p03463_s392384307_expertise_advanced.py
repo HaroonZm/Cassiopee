@@ -1,0 +1,1 @@
+print(('Borys', 'Alice')[(lambda x: x % 2 == 0)((b := int(input().split()[2])) - (a := int(input().split()[1])))])

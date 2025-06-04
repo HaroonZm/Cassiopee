@@ -1,0 +1,5 @@
+m, n = input().split()
+m = int(m)
+n = int(n)
+resultat = (m - 1) * (n - 1)
+print(resultat)

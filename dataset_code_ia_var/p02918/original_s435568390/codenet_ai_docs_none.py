@@ -1,0 +1,3 @@
+n, s = open(0)
+n, k = map(int, n.split())
+print(min(n - 1, k * 2 + sum(i == j for i, j in zip(s, s[1:]))))

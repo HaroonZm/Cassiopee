@@ -1,0 +1,95 @@
+from math import factorial
+from Queue import PriorityQueue
+
+FACTORIAL = [factorial(i) for i in xrange(13)]
+LEFT, UP, RIGHT, DOWN = 0, 1, 2, 3
+MOVE = [[0] for u in xrange(13)]
+MOVE[0] = [-1, -1, -1, 2]
+MOVE[1] = [-1, -1, 2, 5]
+MOVE[2] = [1, 0, 3, 6]
+MOVE[3] = [2, -1, -1, 7]
+MOVE[4] = [-1, -1, 5, -1]
+MOVE[5] = [4, 1, 6, 9]
+MOVE[6] = [5, 2, 7, 10]
+MOVE[7] = [6, 3, 8, 11]
+MOVE[8] = [7, -1, -1, -1]
+MOVE[9] = [-1, 5, 10, -1]
+MOVE[10] = [9, 6, 11, 12]
+MOVE[11] = [10, 7, -1, -1]
+MOVE[12] = [-1, 10, -1, -1]
+
+def hash(cell):
+    work = cell[:]
+    hash = 0
+    for i in xrange(12):
+        hash += work[i] * FACTORIAL[13-1-i]
+        for ii in xrange(i+1,13):
+            if work[ii] > work[i]:
+                work[ii] -= 1
+    return hash
+
+def dehash(key):
+    cell = []
+    for i in xrange(13):
+        cell.append(key / FACTORIAL[13-1-i])
+        key %= FACTORIAL[13-1-i]
+    for i in xrange(13-1, -1, -1):
+        for ii in xrange(i+1, 13):
+            if cell[i] <= cell[ii]:
+                cell[ii] += 1
+    return cell
+
+def evaluate(cell):
+    point = [
+        [0,2],
+        [1,1],[1,2],[1,3],
+        [2,0],[2,1],[2,2],[2,3],[2,4],
+        [3,1],[3,2],[3,3],
+        [4,2]
+    ]
+    eva = 0
+    for i in xrange(0,13):
+        if not (cell[i]==0 or cell[i]==12):
+            eva += abs(point[cell[i]][0]-point[i][0])
+            eva += abs(point[cell[i]][1]-point[i][1])
+    return eva
+
+ANS_HASH = [
+    hash([0,1,2,3,4,5,6,7,8,9,10,11,12]),
+    hash([12,1,2,3,4,5,6,7,8,9,10,11,0])
+]
+
+while True:
+    p = [input()]
+    if p == [-1]:
+        break
+    for u in xrange(4):
+        for pp in map(int, raw_input().split()):
+            p.append(pp)
+    p[p.index(0)] = 12
+    pq = PriorityQueue()
+    pq.put([evaluate(p), hash(p), 0])
+    visited = {}
+    visited[hash(p)] = True
+    ans = 0 if hash(p) in ANS_HASH else "NA"
+    while not pq.empty():
+        unused, cur_hash, cur_step = pq.get()
+        cur_cell = dehash(cur_hash)
+        if not (cur_step < 20 and ans == "NA"):
+            break
+        for i in xrange(13):
+            if cur_cell[i] == 0 or cur_cell[i] == 12:
+                for ii in [LEFT, UP, RIGHT, DOWN]:
+                    if not MOVE[i][ii] == -1:
+                        cur_cell[i], cur_cell[MOVE[i][ii]] = cur_cell[MOVE[i][ii]], cur_cell[i]
+                        hashkey = hash(cur_cell)
+                        if not hashkey in visited:
+                            if hashkey in ANS_HASH:
+                                ans = cur_step + 1
+                                break
+                            pq.put([evaluate(cur_cell) + cur_step + 1, hashkey, cur_step + 1])
+                            visited[hashkey] = True
+                        cur_cell[i], cur_cell[MOVE[i][ii]] = cur_cell[MOVE[i][ii]], cur_cell[i]
+                    else:
+                        pass
+    print ans

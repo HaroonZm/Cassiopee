@@ -1,0 +1,1 @@
+exec("r=lambda:input();q='No','Yes';print(q[r()==r()[0:-1]])")

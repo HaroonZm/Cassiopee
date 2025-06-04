@@ -1,0 +1,7 @@
+H_W = input().split()
+H = int(H_W[0])
+W = int(H_W[1])
+h_w = input().split()
+h = int(h_w[0])
+w = int(h_w[1])
+print((H - h) * (W - w))

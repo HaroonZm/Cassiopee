@@ -1,0 +1,12 @@
+n,m,x,y = map(int,input().split())
+xi = list(map(int,input().split()))
+yi = list(map(int,input().split()))
+xi.append(x)
+yi.append(y)
+xi.sort()
+xi.reverse()
+yi.sort()
+if xi[0]<yi[0]:
+    print("No War")
+else:
+    print("War")

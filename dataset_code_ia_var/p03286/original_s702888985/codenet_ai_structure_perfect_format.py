@@ -1,0 +1,19 @@
+def solve(n):
+    if n == 0:
+        return '0'
+    ans = ''
+    p = 0
+    d = 0
+    while n + p:
+        if (n & 1) ^ p:
+            ans += '1'
+            if d ^ p:
+                p ^= 1
+        else:
+            ans += '0'
+        n >>= 1
+        d ^= 1
+    return ans[::-1]
+
+n = int(input())
+print(solve(n))

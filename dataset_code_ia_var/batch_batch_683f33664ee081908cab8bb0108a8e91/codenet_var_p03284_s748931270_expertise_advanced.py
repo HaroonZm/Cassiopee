@@ -1,0 +1,1 @@
+print(int(bool(int(input().split()[0]) % int(input().split()[1]))))

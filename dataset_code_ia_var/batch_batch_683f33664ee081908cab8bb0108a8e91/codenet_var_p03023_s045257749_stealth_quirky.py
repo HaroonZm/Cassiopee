@@ -1,0 +1,1 @@
+print([None, (lambda x: (x-2)*180)(int(eval("__import__('builtins').input()")))][1])

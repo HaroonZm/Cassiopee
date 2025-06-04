@@ -1,0 +1,19 @@
+import math
+
+def calc(t):
+    t = math.radians(t)
+    if a * math.tan(t) <= b:
+        return a * a * b - a * a * a * math.tan(t) / 2
+    else:
+        return b * b / math.tan(t) * a / 2
+
+a, b, x = map(int, input().split(" "))
+n_max = 90
+n_min = 0
+for _ in range(100000):
+    n_mid = n_min + (n_max - n_min) / 2
+    if calc(n_mid) < x:
+        n_max = n_mid
+    else:
+        n_min = n_mid
+print(n_mid)

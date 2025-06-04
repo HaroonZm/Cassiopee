@@ -1,0 +1,1 @@
+print((n := int(input())) // 3)

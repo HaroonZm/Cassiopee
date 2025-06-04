@@ -1,0 +1,8 @@
+while 1:
+    n = int(input())
+    if n == 0:
+        break
+    a = [set(map(int, input().split()[1:])) for _ in range(n)]
+    b = set(map(int, input().split()[1:]))
+    c = [i + 1 for i in range(n) if b <= a[i]]
+    print(c[0] if len(c) == 1 else -1)

@@ -1,0 +1,6 @@
+s = int(input())
+hour = int(s // 3600)
+next_s = int(s % 3600)
+minute = int(next_s // 60)
+second = int(next_s % 60)
+print("{}:{}:{}".format(hour, minute, second))

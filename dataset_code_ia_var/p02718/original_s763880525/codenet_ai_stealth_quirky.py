@@ -1,0 +1,1 @@
+exec("x,y=[*map(int,input().split())];s=[*map(int,input().split())];t=sum(s)/(4*y);print(('No','Yes')[sum([k>=t for k in s])>=y])")

@@ -1,0 +1,1 @@
+print(int((n := int((s := input().split())[0])) % (k := int(s[1])) != 0))
