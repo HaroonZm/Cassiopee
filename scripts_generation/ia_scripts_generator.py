@@ -725,7 +725,7 @@ class FlexibleBatchProcessor:
                     original_gen_file = original_output_dir / f"{self.dataset_name}_ai_generated_{template_key}.py"
                     self.write_file(original_gen_file, code)
         
-        logger.info(f"Sauvegarde terminée pour le batch {batch.id}: {processed_count}/{len(results)} résultats traités")
+        logger.info(f"Sauvegarde terminée pour le batch {batch_id}: {processed_count}/{len(results)} résultats traités")
         return processed_count
     
     def collect_codenet_requests(self, problems, variation_limit=3, generation_limit=2, test_mode=False):

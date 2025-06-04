@@ -1,0 +1,5 @@
+N=int(input())
+A=set(map(int,input().split()[1:]))
+B=set(map(int,input().split()[1:]))
+C=set(map(int,input().split()[1:]))
+print(len((set(range(1,N+1))-A) & C | B & C))

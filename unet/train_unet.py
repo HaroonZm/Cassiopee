@@ -11,6 +11,15 @@ from collections import defaultdict
 import argparse  # Ajouté pour gérer les arguments en ligne de commande
 import json  # Pour sauvegarder les métadonnées d'entraînement
 import datetime  # Pour générer des noms de fichiers uniques
+import logging  # Pour une meilleure gestion des logs
+from torch.cuda.amp import autocast, GradScaler  # Pour la précision mixte
+
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Dataset pour les tuiles pré-découpées avec identification simplifiée des matrices sources
 class PreTiledCodeMatrixDataset(Dataset):
@@ -330,7 +339,7 @@ def generate_model_filename(batch_name, model_type, num_epochs, batch_size, accu
 # Fonction d'entraînement modifiée
 def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer, 
                           num_epochs=10, device='cuda', model_save_dir='.', 
-                          batch_name='default'):
+                          batch_name='default', use_amp=True):
     model.to(device)
     best_val_acc = 0.0
     best_epoch = -1
@@ -342,6 +351,9 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
     # Préparer le nom de base du modèle
     batch_size = train_loader.batch_size
     
+    # Initialiser le scaler pour la précision mixte
+    scaler = GradScaler() if use_amp and device != 'cpu' else None
+    
     for epoch in range(num_epochs):
         # Mode entraînement
         model.train()
@@ -351,20 +363,38 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
         for inputs, labels, _, _ in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Training"):
             inputs, labels = inputs.to(device), labels.to(device)
             
-            # Forward pass
+            # Forward pass avec précision mixte si activée
             optimizer.zero_grad()
-            outputs = model(inputs).squeeze()
             
-            # Si une seule tuile dans le batch
-            if outputs.ndim == 0:
-                outputs = outputs.unsqueeze(0)
+            if use_amp and device != 'cpu':
+                with autocast():
+                    outputs = model(inputs).squeeze()
+                    
+                    # Si une seule tuile dans le batch
+                    if outputs.ndim == 0:
+                        outputs = outputs.unsqueeze(0)
+                    
+                    # Calculer la perte
+                    loss = criterion(outputs, labels)
                 
-            # Calculer la perte
-            loss = criterion(outputs, labels)
-            
-            # Backward pass
-            loss.backward()
-            optimizer.step()
+                # Backward pass avec scaling
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                # Version standard sans précision mixte
+                outputs = model(inputs).squeeze()
+                
+                # Si une seule tuile dans le batch
+                if outputs.ndim == 0:
+                    outputs = outputs.unsqueeze(0)
+                
+                # Calculer la perte
+                loss = criterion(outputs, labels)
+                
+                # Backward pass
+                loss.backward()
+                optimizer.step()
             
             # Statistiques
             train_loss += loss.item()
@@ -373,10 +403,10 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
         avg_train_loss = train_loss / batch_count if batch_count > 0 else float('inf')
         
         # Évaluation
-        print("Évaluation sur l'ensemble de validation...")
+        logger.info("Évaluation sur l'ensemble de validation...")
         val_acc, _ = evaluate_model(model, val_loader, device)
         
-        print(f"Epoch {epoch+1}/{num_epochs} - "
+        logger.info(f"Epoch {epoch+1}/{num_epochs} - "
               f"Train Loss: {avg_train_loss:.4f}, Val Acc: {val_acc:.4f}")
         
         # Sauvegarde du meilleur modèle
@@ -391,19 +421,19 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
             best_model_path = os.path.join(model_save_dir, best_model_filename)
             
             torch.save(model.state_dict(), best_model_path)
-            print(f"Meilleur modèle sauvegardé avec précision de validation: {val_acc:.4f}")
-            print(f"Chemin: {best_model_path}")
+            logger.info(f"Meilleur modèle sauvegardé avec précision de validation: {val_acc:.4f}")
+            logger.info(f"Chemin: {best_model_path}")
     
     # Si aucun meilleur modèle n'a été trouvé (rare, mais possible)
     if best_model_filename is None:
-        print("Attention: Aucune amélioration de la précision pendant l'entraînement.")
+        logger.warning("Attention: Aucune amélioration de la précision pendant l'entraînement.")
         # Créer un nom de fichier pour le modèle final qui servira aussi de meilleur modèle
         best_model_filename = generate_model_filename(
             batch_name, "best_final", num_epochs, batch_size, 0.0
         )
         best_model_path = os.path.join(model_save_dir, best_model_filename)
         torch.save(model.state_dict(), best_model_path)
-        print(f"Modèle sauvegardé comme meilleur modèle par défaut: {best_model_path}")
+        logger.info(f"Modèle sauvegardé comme meilleur modèle par défaut: {best_model_path}")
     
     return model, best_val_acc, best_epoch, best_model_filename
 
@@ -423,6 +453,8 @@ def main():
                        help="Dossier où sauvegarder les modèles")
     parser.add_argument('--default_label', type=float, default=None,
                        help="Étiquette par défaut à utiliser pour toutes les tuiles (0=humain, 1=IA)")
+    parser.add_argument('--use_amp', action='store_true', 
+                       help="Utiliser la précision mixte automatique pour accélérer l'entraînement (GPU uniquement)")
     
     args = parser.parse_args()
     
@@ -433,13 +465,18 @@ def main():
     learning_rate = args.learning_rate
     model_save_dir = args.model_save_dir
     default_label = args.default_label
+    use_amp = args.use_amp
     
     # Détection du dispositif
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Utilisation de: {device}")
+    logger.info(f"Utilisation de: {device}")
+    
+    if use_amp and device == 'cpu':
+        logger.warning("La précision mixte automatique est désactivée sur CPU, seuls les GPU sont supportés")
+        use_amp = False
     
     # Trouver toutes les tuiles dans le dossier de batch
-    print(f"Dossier batch: {batch_dir}")
+    logger.info(f"Dossier batch: {batch_dir}")
     
     # Chercher d'abord dans le dossier de tuiles s'il existe
     tiles_dir = os.path.join(batch_dir, "tiles")
@@ -447,26 +484,34 @@ def main():
         # Sinon, utiliser directement le dossier batch
         tiles_dir = batch_dir
     
-    print(f"Dossier des tuiles: {tiles_dir}")
+    logger.info(f"Dossier des tuiles: {tiles_dir}")
     
     # Trouver toutes les tuiles
-    tile_paths = glob.glob(os.path.join(tiles_dir, "*tuile_*.npy"))
-    print(f"Trouvé {len(tile_paths)} tuiles")
-    
-    if len(tile_paths) == 0:
-        print("Aucune tuile trouvée. Vérifiez le dossier et le format des noms de fichiers.")
+    try:
+        tile_paths = glob.glob(os.path.join(tiles_dir, "*tuile_*.npy"))
+        logger.info(f"Trouvé {len(tile_paths)} tuiles")
+        
+        if len(tile_paths) == 0:
+            logger.error("Aucune tuile trouvée. Vérifiez le dossier et le format des noms de fichiers.")
+            return
+    except Exception as e:
+        logger.error(f"Erreur lors de la recherche des tuiles: {str(e)}")
         return
     
     # Créer le dataset avec les tuiles pré-découpées
-    dataset = PreTiledCodeMatrixDataset(tile_paths, group_by_matrix=True, default_label=default_label)
-    
-    # S'assurer qu'il y a des tuiles valides
-    if len(dataset) == 0:
-        print("Aucune tuile valide trouvée. Vérifiez les noms de fichiers ou utilisez --default_label pour spécifier le type de code.")
+    try:
+        dataset = PreTiledCodeMatrixDataset(tile_paths, group_by_matrix=True, default_label=default_label)
+        
+        # S'assurer qu'il y a des tuiles valides
+        if len(dataset) == 0:
+            logger.error("Aucune tuile valide trouvée. Vérifiez les noms de fichiers ou utilisez --default_label pour spécifier le type de code.")
+            return
+        
+        logger.info(f"Nombre total de tuiles valides après traitement: {len(dataset)}")
+        logger.info(f"Nombre de matrices uniques: {len(dataset.unique_matrices)}")
+    except Exception as e:
+        logger.error(f"Erreur lors de la création du dataset: {str(e)}")
         return
-    
-    print(f"Nombre total de tuiles valides après traitement: {len(dataset)}")
-    print(f"Nombre de matrices uniques: {len(dataset.unique_matrices)}")
     
     # Division en ensembles d'entraînement et de validation (au niveau des matrices)
     unique_matrix_indices = list(range(len(dataset.unique_matrices)))
@@ -527,10 +572,10 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     
     # Entraînement du modèle
-    print(f"Début de l'entraînement...")
+    logger.info(f"Début de l'entraînement...")
     model, best_val_acc, best_epoch, best_model_filename = train_model_with_tiles(
         model, train_loader, val_loader, criterion, optimizer, 
-        num_epochs, device, model_save_dir, batch_dir
+        num_epochs, device, model_save_dir, batch_dir, use_amp
     )
     
     # Sauvegarder le modèle final
@@ -539,7 +584,7 @@ def main():
     )
     final_model_path = os.path.join(model_save_dir, final_model_filename)
     torch.save(model.state_dict(), final_model_path)
-    print(f"Modèle final sauvegardé à: {final_model_path}")
+    logger.info(f"Modèle final sauvegardé à: {final_model_path}")
     
     # Évaluer le modèle final
     final_val_acc, _ = evaluate_model(model, val_loader, device)
@@ -574,8 +619,8 @@ def main():
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=4)
     
-    print(f"Métadonnées d'entraînement sauvegardées à: {metadata_path}")
-    print("Entraînement terminé!")
+    logger.info(f"Métadonnées d'entraînement sauvegardées à: {metadata_path}")
+    logger.info("Entraînement terminé!")
 
 # Conserver votre architecture UNet originale
 class UNetForCodeDetection(nn.Module):

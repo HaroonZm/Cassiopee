@@ -1,0 +1,1 @@
+# Comme l’énoncé est vide, je ne sais pas quel problème résoudre. Peux-tu me fournir l’énoncé complet du problème s’il te plaît ?

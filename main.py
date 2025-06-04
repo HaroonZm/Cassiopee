@@ -538,6 +538,13 @@ class MatrixGenerationTab(QWidget):
         self.wait_unlimited.setChecked(True)
         wait_unlimited_layout.addWidget(self.wait_unlimited)
         
+        # Option pour le traitement asynchrone
+        async_layout = QHBoxLayout()
+        self.async_mode = QCheckBox("Mode asynchrone (traitement parallèle des batchs)")
+        self.async_mode.setChecked(False)
+        self.async_mode.setToolTip("Soumet tous les batchs en parallèle et traite les résultats au fur et à mesure qu'ils sont disponibles")
+        async_layout.addWidget(self.async_mode)
+        
         # Option de tentatives de reconnexion
         connection_retries_layout = QHBoxLayout()
         connection_retries_layout.addWidget(QLabel("Tentatives de reconnexion:"))
@@ -558,6 +565,7 @@ class MatrixGenerationTab(QWidget):
         batch_layout.addLayout(poll_layout)
         batch_layout.addLayout(max_batches_layout)
         batch_layout.addLayout(wait_unlimited_layout)
+        batch_layout.addLayout(async_layout)
         batch_layout.addLayout(connection_retries_layout)
         batch_layout.addLayout(continue_on_error_layout)
         self.batch_group.setLayout(batch_layout)
@@ -735,6 +743,10 @@ class MatrixGenerationTab(QWidget):
             if self.continue_on_error.isChecked():
                 cmd_generator.append('--continue-on-error')
             
+            # Option de mode asynchrone
+            if self.async_mode.isChecked():
+                cmd_generator.append('--async')
+            
             self.console.clear()
             self.progress_bar.show()
             self.execute_button.setEnabled(False)
@@ -774,6 +786,10 @@ class MatrixGenerationTab(QWidget):
             cmd_generator.extend(['--max-connection-retries', str(self.connection_retries.value())])
             if self.continue_on_error.isChecked():
                 cmd_generator.append('--continue-on-error')
+            
+            # Option de mode asynchrone
+            if self.async_mode.isChecked():
+                cmd_generator.append('--async')
             
             self.console.clear()
             self.progress_bar.show()

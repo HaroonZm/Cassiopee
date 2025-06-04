@@ -751,10 +751,11 @@ def analyze_with_batch_api(script, modele_tokenisation="gpt-4o-mini", modele_pre
             shutil.rmtree(temp_dir)
             logger.info(f"Dossier temporaire nettoyé: {temp_dir}")
 
-def process_directory(directory_path, output_dir, model_prediction="gpt-4o-mini", model_tokenisation="gpt-4o-mini",
+def process_directory_async(directory_path, output_dir, model_prediction="gpt-4o-mini", model_tokenisation="gpt-4o-mini",
                    poll_interval=10, max_attempts=1000, wait_unlimited=True, recursive=True, max_connection_retries=5):
     """
-    Traite tous les fichiers Python dans un dossier (et ses sous-dossiers si recursive=True).
+    Traite tous les fichiers Python dans un dossier de manière asynchrone.
+    Soumet tous les batchs en parallèle puis récupère les résultats lorsqu'ils sont disponibles.
     
     Args:
         directory_path (str): Chemin du dossier à analyser
@@ -770,6 +771,318 @@ def process_directory(directory_path, output_dir, model_prediction="gpt-4o-mini"
     Returns:
         int: Nombre de fichiers traités
     """
+    directory_path = Path(directory_path)
+    output_dir = Path(output_dir)
+    
+    if not directory_path.exists() or not directory_path.is_dir():
+        raise ValueError(f"Le dossier {directory_path} n'existe pas ou n'est pas un dossier")
+    
+    # Créer les sous-dossiers dans le dossier de sortie
+    matrix_dir = output_dir / "matrices"
+    results_dir = output_dir / "rapports"
+    
+    matrix_dir.mkdir(exist_ok=True, parents=True)
+    results_dir.mkdir(exist_ok=True, parents=True)
+    
+    logger.info(f"Traitement asynchrone du dossier: {directory_path}")
+    logger.info(f"Dossier de sortie: {output_dir}")
+    
+    # Trouver tous les fichiers Python
+    pattern = "**/*.py" if recursive else "*.py"
+    python_files = list(directory_path.glob(pattern))
+    
+    if not python_files:
+        logger.warning(f"Aucun fichier Python trouvé dans {directory_path}")
+        return 0
+    
+    logger.info(f"Nombre de fichiers Python trouvés: {len(python_files)}")
+    
+    # Structure pour stocker les informations sur les batchs en cours
+    pending_batches = []
+    files_processed = 0
+    
+    # Phase 1: Soumettre tous les batchs
+    logger.info("Phase 1: Soumission de tous les batchs...")
+    
+    for py_file in python_files:
+        try:
+            # Obtenir le chemin relatif pour organiser la sortie
+            rel_path = py_file.relative_to(directory_path)
+            
+            # Conserver le nom complet du fichier (sans l'extension .py)
+            file_name = py_file.name
+            file_name_no_ext = file_name[:-3] if file_name.lower().endswith('.py') else file_name
+            
+            # Créer des sous-dossiers dans le dossier de sortie si nécessaire
+            if py_file.parent != directory_path:
+                parent_dir = matrix_dir / rel_path.parent
+                parent_dir.mkdir(exist_ok=True, parents=True)
+                
+                parent_results_dir = results_dir / rel_path.parent
+                parent_results_dir.mkdir(exist_ok=True, parents=True)
+                
+                matrix_output = parent_dir / f"mat_{file_name_no_ext}.npy"
+                result_output = parent_results_dir / f"result_{file_name_no_ext}.txt"
+            else:
+                matrix_output = matrix_dir / f"mat_{file_name_no_ext}.npy"
+                result_output = results_dir / f"result_{file_name_no_ext}.txt"
+            
+            # Vérifier si le fichier existe déjà (reprise après erreur)
+            if matrix_output.exists() and result_output.exists():
+                logger.info(f"Le fichier {py_file} a déjà été traité (matrices et rapports existants). Passage au suivant.")
+                files_processed += 1
+                continue
+            
+            logger.info(f"Préparation du batch pour {file_name}...")
+            
+            # Lire le contenu du fichier Python
+            try:
+                script = py_file.read_text(encoding='utf-8')
+                
+                # Tokenisation du script
+                token_ids, tokens = tokeniser_avec_tiktoken(script, model_tokenisation)
+                
+                # Préparation du fichier batch
+                amorce_tokens = max(1, min(3, len(tokens) // 3))
+                batch_file, amorce_tokens, contexte_initial, temp_dir = prepare_batch_file(
+                    tokens, token_ids, model_prediction, amorce_tokens
+                )
+                
+                # Upload du fichier batch
+                connection_retries = 0
+                file_id = None
+                while connection_retries < max_connection_retries:
+                    try:
+                        file_id = upload_batch_file(batch_file)
+                        break
+                    except Exception as e:
+                        connection_retries += 1
+                        if "Connection" in str(e) or "Timeout" in str(e) or "timeout" in str(e).lower():
+                            retry_wait = min(30, 2 ** connection_retries)
+                            logger.warning(f"Erreur de connexion lors de l'upload: {str(e)}. Nouvelle tentative dans {retry_wait} secondes...")
+                            time.sleep(retry_wait)
+                            if connection_retries < max_connection_retries:
+                                continue
+                        logger.error(f"Échec de l'upload après {connection_retries} tentatives")
+                        raise
+                
+                if not file_id:
+                    continue
+                
+                # Création du batch
+                connection_retries = 0
+                batch_id = None
+                while connection_retries < max_connection_retries:
+                    try:
+                        batch_id = create_batch(file_id)
+                        break
+                    except Exception as e:
+                        connection_retries += 1
+                        if "Connection" in str(e) or "Timeout" in str(e) or "timeout" in str(e).lower():
+                            retry_wait = min(30, 2 ** connection_retries)
+                            logger.warning(f"Erreur de connexion lors de la création du batch: {str(e)}. Nouvelle tentative...")
+                            time.sleep(retry_wait)
+                            if connection_retries < max_connection_retries:
+                                continue
+                        logger.error(f"Échec de la création du batch après {connection_retries} tentatives")
+                        raise
+                
+                if not batch_id:
+                    continue
+                
+                # Stocker les informations sur ce batch
+                pending_batches.append({
+                    "batch_id": batch_id,
+                    "file_id": file_id,
+                    "py_file": py_file,
+                    "file_name": file_name,
+                    "matrix_output": matrix_output,
+                    "result_output": result_output,
+                    "script": script,
+                    "tokens": tokens,
+                    "token_ids": token_ids,
+                    "amorce_tokens": amorce_tokens,
+                    "temp_dir": temp_dir,
+                    "status": "pending"
+                })
+                
+                logger.info(f"Batch {batch_id} soumis pour {file_name}")
+                
+            except Exception as e:
+                logger.error(f"Erreur lors de la préparation du batch pour {py_file}: {str(e)}")
+                # Créer un fichier d'erreur pour traçabilité
+                error_file = results_dir / f"error_{file_name_no_ext}.txt"
+                try:
+                    with open(error_file, 'w', encoding='utf-8') as f:
+                        f.write(f"Erreur lors de la préparation du batch pour {py_file}:\n{str(e)}")
+                except Exception as write_err:
+                    logger.error(f"Impossible d'écrire le fichier d'erreur: {str(write_err)}")
+        
+        except Exception as e:
+            logger.error(f"Erreur lors du traitement initial de {py_file}: {str(e)}")
+    
+    logger.info(f"Tous les batchs ont été soumis. {len(pending_batches)} batchs en attente.")
+    
+    # Phase 2: Vérifier régulièrement l'état des batchs et traiter les résultats
+    logger.info("Phase 2: Vérification périodique de l'état des batchs...")
+    
+    completed_count = 0
+    failed_count = 0
+    
+    while pending_batches:
+        # Liste des batchs à retirer de la liste des batchs en attente
+        batches_to_remove = []
+        
+        for i, batch_info in enumerate(pending_batches):
+            batch_id = batch_info["batch_id"]
+            file_name = batch_info["file_name"]
+            
+            try:
+                # Vérifier le statut du batch
+                connection_retries = 0
+                batch = None
+                while connection_retries < max_connection_retries:
+                    try:
+                        batch = client.batches.retrieve(batch_id)
+                        break
+                    except Exception as e:
+                        connection_retries += 1
+                        if "Connection" in str(e) or "Timeout" in str(e) or "timeout" in str(e).lower():
+                            retry_wait = min(30, 2 ** connection_retries)
+                            logger.warning(f"Erreur de connexion lors de la vérification du batch {batch_id}: {str(e)}. Nouvelle tentative...")
+                            time.sleep(retry_wait)
+                            if connection_retries < max_connection_retries:
+                                continue
+                        logger.error(f"Échec de la vérification du batch après {connection_retries} tentatives")
+                        raise
+                
+                if not batch:
+                    continue
+                
+                status = batch.status
+                completed = getattr(batch.request_counts, "completed", 0) if hasattr(batch, "request_counts") else 0
+                total = getattr(batch.request_counts, "total", 0) if hasattr(batch, "request_counts") else 0
+                failed = getattr(batch.request_counts, "failed", 0) if hasattr(batch, "request_counts") else 0
+                
+                logger.info(f"Batch {batch_id} ({file_name}) - Statut: {status}, Complété: {completed}/{total}, Échoué: {failed}")
+                
+                if status == "completed":
+                    logger.info(f"Batch {batch_id} ({file_name}) terminé avec succès!")
+                    
+                    # Récupérer les résultats
+                    try:
+                        results = retrieve_batch_results(batch, max_connection_retries)
+                        
+                        # Traiter les résultats
+                        resultats_analyse = process_batch_results(
+                            results, 
+                            batch_info["tokens"], 
+                            batch_info["token_ids"], 
+                            batch_info["amorce_tokens"]
+                        )
+                        
+                        # Construction de la matrice
+                        matrice, structure = construire_matrice_logprob(batch_info["tokens"], resultats_analyse)
+                        
+                        # Sauvegarder les résultats
+                        sauvegarder_matrice_numpy(matrice, nom_fichier=str(batch_info["matrix_output"]))
+                        sauvegarder_resultats(
+                            resultats_analyse,
+                            batch_info["script"],
+                            matrice,
+                            structure,
+                            nom_fichier=str(batch_info["result_output"])
+                        )
+                        
+                        logger.info(f"→ Matrice enregistrée : {batch_info['matrix_output']}")
+                        logger.info(f"→ Rapport enregistré  : {batch_info['result_output']}")
+                        
+                        completed_count += 1
+                        files_processed += 1
+                        
+                    except Exception as e:
+                        logger.error(f"Erreur lors du traitement des résultats du batch {batch_id} ({file_name}): {str(e)}")
+                        failed_count += 1
+                    
+                    # Marquer ce batch pour suppression de la liste d'attente
+                    batches_to_remove.append(i)
+                    
+                    # Nettoyer le dossier temporaire
+                    if os.path.exists(batch_info["temp_dir"]):
+                        shutil.rmtree(batch_info["temp_dir"])
+                
+                elif status in ["failed", "expired", "cancelled"]:
+                    logger.error(f"Batch {batch_id} ({file_name}) a échoué avec le statut: {status}")
+                    if hasattr(batch, 'error_file_id') and batch.error_file_id:
+                        try:
+                            error_content = client.files.content(batch.error_file_id).text
+                            logger.error(f"Détails de l'erreur: {error_content[:500]}...")
+                        except Exception as e:
+                            logger.error(f"Impossible de récupérer le fichier d'erreur: {e}")
+                    
+                    failed_count += 1
+                    batches_to_remove.append(i)
+                    
+                    # Nettoyer le dossier temporaire
+                    if os.path.exists(batch_info["temp_dir"]):
+                        shutil.rmtree(batch_info["temp_dir"])
+                
+            except Exception as e:
+                logger.error(f"Erreur lors de la gestion du batch {batch_id} ({file_name}): {str(e)}")
+        
+        # Supprimer les batchs terminés ou échoués de la liste d'attente (en commençant par la fin)
+        for i in sorted(batches_to_remove, reverse=True):
+            del pending_batches[i]
+        
+        # Afficher l'état d'avancement
+        if pending_batches:
+            logger.info(f"Progression: {completed_count} terminés, {failed_count} échoués, {len(pending_batches)} en attente")
+            logger.info(f"Prochaine vérification dans {poll_interval} secondes...")
+            time.sleep(poll_interval)
+        else:
+            logger.info("Tous les batchs ont été traités!")
+    
+    logger.info(f"\nTraitement asynchrone du dossier terminé. {files_processed}/{len(python_files)} fichiers traités.")
+    logger.info(f"Réussis: {completed_count}, Échoués: {failed_count}")
+    
+    return files_processed
+
+def process_directory(directory_path, output_dir, model_prediction="gpt-4o-mini", model_tokenisation="gpt-4o-mini",
+                   poll_interval=10, max_attempts=1000, wait_unlimited=True, recursive=True, max_connection_retries=5,
+                   async_mode=False):
+    """
+    Traite tous les fichiers Python dans un dossier (et ses sous-dossiers si recursive=True).
+    
+    Args:
+        directory_path (str): Chemin du dossier à analyser
+        output_dir (str): Dossier où sauvegarder les résultats
+        model_prediction (str): Modèle à utiliser pour la prédiction
+        model_tokenisation (str): Modèle à utiliser pour la tokenisation
+        poll_interval (int): Intervalle entre les vérifications de statut en secondes
+        max_attempts (int): Nombre maximum de tentatives
+        wait_unlimited (bool): Si True, attendre indéfiniment la fin du batch
+        recursive (bool): Si True, analyser également les sous-dossiers
+        max_connection_retries (int): Nombre maximum de tentatives en cas d'erreur de connexion
+        async_mode (bool): Si True, utiliser le mode asynchrone pour traiter les fichiers en parallèle
+    
+    Returns:
+        int: Nombre de fichiers traités
+    """
+    # Utiliser le mode asynchrone si demandé
+    if async_mode:
+        return process_directory_async(
+            directory_path,
+            output_dir,
+            model_prediction,
+            model_tokenisation,
+            poll_interval,
+            max_attempts,
+            wait_unlimited,
+            recursive,
+            max_connection_retries
+        )
+    
+    # Sinon, continuer avec le traitement synchrone original
     directory_path = Path(directory_path)
     output_dir = Path(output_dir)
     
@@ -945,6 +1258,11 @@ def main():
         help="Continuer le traitement même en cas d'erreur sur un fichier",
         action="store_true",
     )
+    parser.add_argument(
+        "--async",
+        help="Traiter les fichiers de manière asynchrone (avec --directory)",
+        action="store_true",
+    )
     args = parser.parse_args()
     
     # Vérifier qu'au moins un des arguments file, directory ou batch-id est fourni
@@ -1058,8 +1376,8 @@ def main():
                 nom_fichier=str(result_path)
             )
             
-            logger.info(f"→ Matrice enregistrée : {matrix_path.name}")
-            logger.info(f"→ Rapport enregistré  : {result_path.name}")
+            logger.info(f"→ Matrice enregistrée : {matrix_path}")
+            logger.info(f"→ Rapport enregistré  : {result_path}")
             
         except Exception as e:
             logger.error(f"Erreur lors du traitement du batch {args.batch_id}: {str(e)}")
@@ -1081,7 +1399,8 @@ def main():
             max_attempts=args.max_attempts,
             wait_unlimited=not args.no_wait_unlimited,
             recursive=args.recursive,
-            max_connection_retries=args.max_connection_retries
+            max_connection_retries=args.max_connection_retries,
+            async_mode=getattr(args, 'async', False)  # Utiliser getattr pour éviter les erreurs avec 'async'
         )
     
     # Analyse d'un nouveau fichier
@@ -1140,8 +1459,8 @@ def main():
                 logger.info(f"Précision (1ère position): {precision:.2f}%")
                 logger.info(f"Précision (top 10): {precision_top10:.2f}%")
             
-            logger.info(f"→ Matrice enregistrée : {matrix_path.name}")
-            logger.info(f"→ Rapport enregistré  : {result_path.name}")
+            logger.info(f"→ Matrice enregistrée : {matrix_path}")
+            logger.info(f"→ Rapport enregistré  : {result_path}")
             
         except Exception as e:
             logger.error(f"Erreur lors de l'analyse du fichier {file_path}: {str(e)}")

@@ -1,0 +1,5 @@
+s = input()
+s = s.replace("apple", "TEMP")
+s = s.replace("peach", "apple")
+s = s.replace("TEMP", "peach")
+print(s)
