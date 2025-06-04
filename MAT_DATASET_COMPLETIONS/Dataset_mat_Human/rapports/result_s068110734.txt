@@ -1,0 +1,1077 @@
+================================================================================
+ANALYSE DES PRÉDICTIONS DE TOKENS
+================================================================================
+
+SCRIPT ORIGINAL:
+--------------------------------------------------------------------------------
+import math
+v=0
+while True:
+    n=int(input())
+    if n==0:
+        break
+    s=0
+    for i in range(1,7):
+        s+=n//(5**i)
+    print(s)
+--------------------------------------------------------------------------------
+
+INFORMATION SUR LA TOKENISATION:
+--------------------------------------------------------------------------------
+Tokenisation utilisée: tiktoken pour le modèle gpt-4o-mini
+Il s'agit de la tokenisation officielle utilisée par les modèles OpenAI.
+--------------------------------------------------------------------------------
+
+TOKENS IDENTIFIÉS:
+--------------------------------------------------------------------------------
+Token 0: 'import' (ID: 561)
+Token 1: ' math' (ID: 13324)
+Token 2: '\n' (ID: 198)
+Token 3: 'v' (ID: 85)
+Token 4: '=' (ID: 28)
+Token 5: '0' (ID: 15)
+Token 6: '\n' (ID: 198)
+Token 7: 'while' (ID: 7032)
+Token 8: ' True' (ID: 6432)
+Token 9: ':\n' (ID: 734)
+Token 10: '   ' (ID: 271)
+Token 11: ' n' (ID: 297)
+Token 12: '=int' (ID: 37431)
+Token 13: '(input' (ID: 10054)
+Token 14: '())\n' (ID: 4574)
+Token 15: '   ' (ID: 271)
+Token 16: ' if' (ID: 538)
+Token 17: ' n' (ID: 297)
+Token 18: '==' (ID: 560)
+Token 19: '0' (ID: 15)
+Token 20: ':\n' (ID: 734)
+Token 21: '       ' (ID: 309)
+Token 22: ' break' (ID: 2338)
+Token 23: '\n' (ID: 198)
+Token 24: '   ' (ID: 271)
+Token 25: ' s' (ID: 265)
+Token 26: '=' (ID: 28)
+Token 27: '0' (ID: 15)
+Token 28: '\n' (ID: 198)
+Token 29: '   ' (ID: 271)
+Token 30: ' for' (ID: 395)
+Token 31: ' i' (ID: 575)
+Token 32: ' in' (ID: 306)
+Token 33: ' range' (ID: 3352)
+Token 34: '(' (ID: 7)
+Token 35: '1' (ID: 16)
+Token 36: ',' (ID: 11)
+Token 37: '7' (ID: 22)
+Token 38: '):\n' (ID: 1883)
+Token 39: '       ' (ID: 309)
+Token 40: ' s' (ID: 265)
+Token 41: '+=' (ID: 18287)
+Token 42: 'n' (ID: 77)
+Token 43: '//' (ID: 393)
+Token 44: '(' (ID: 7)
+Token 45: '5' (ID: 20)
+Token 46: '**' (ID: 410)
+Token 47: 'i' (ID: 72)
+Token 48: ')\n' (ID: 446)
+Token 49: '   ' (ID: 271)
+Token 50: ' print' (ID: 2123)
+Token 51: '(s' (ID: 1858)
+Token 52: ')' (ID: 8)
+--------------------------------------------------------------------------------
+
+INFORMATIONS SUR LA MATRICE 2D DE LOG PROBABILITÉS:
+--------------------------------------------------------------------------------
+Dimensions de la matrice: 10 lignes x 10 tokens max
+Nombre de tokens par ligne: [3, 4, 3, 5, 6, 3, 5, 10, 10, 4]
+Convention de valeurs:
+  - Log probabilité normale: Valeur réelle (typiquement entre -1 et -20)
+  - Anomalie (token hors top-10): -50
+  - Padding (positions vides): 100
+
+Matrice 2D (format texte simplifiée):
+[-10.00, -10.00, -10.00, PAD, PAD, PAD, PAD, PAD, PAD, PAD, ]
+[ANOM, -3.65, -1.58, -0.42, PAD, PAD, PAD, PAD, PAD, PAD, ]
+[-2.52, -0.74, -0.03, PAD, PAD, PAD, PAD, PAD, PAD, PAD, ]
+[-0.14, -3.06, -0.89, -0.00, -1.16, PAD, PAD, PAD, PAD, PAD, ]
+[-0.02, -0.08, -0.02, -0.46, -0.01, -0.10, PAD, PAD, PAD, PAD, ]
+[-0.01, -0.01, -0.03, PAD, PAD, PAD, PAD, PAD, PAD, PAD, ]
+[-0.00, -3.62, -0.17, -0.25, -0.03, PAD, PAD, PAD, PAD, PAD, ]
+[-0.00, -0.27, -0.10, -0.00, -0.00, -0.36, -0.02, -2.14, ANOM, -0.01, ]
+[-0.00, -0.51, -0.09, -2.46, -3.97, -1.34, -6.38, -0.18, -0.00, -0.09, ]
+[-0.09, -0.34, -0.06, -0.44, PAD, PAD, PAD, PAD, PAD, PAD, ]
+
+Note: La matrice a été sauvegardée au format numpy dans 'matrice_logprob.npy'
+--------------------------------------------------------------------------------
+
+ANALYSE TOKEN PAR TOKEN:
+--------------------------------------------------------------------------------
+Position 0: 'import' (ID: 561) (token d'amorce)
+--------------------------------------------------------------------------------
+
+Position 1: ' math' (ID: 13324) (token d'amorce)
+--------------------------------------------------------------------------------
+
+Position 2: '\n' (ID: 198) (token d'amorce)
+--------------------------------------------------------------------------------
+
+Position 3: 'v' (ID: 85)
+Prédiction principale: 'import' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. 'import' (logprob: -0.2942) [Prédiction principale]
+  2. 'from' (logprob: -1.5442)
+  3. 'def' (logprob: -4.6692)
+  4. '#' (logprob: -5.1692)
+  5. '``' (logprob: -5.6692)
+  6. 'print' (logprob: -5.7942)
+  7. 'n' (logprob: -5.9192)
+  8. 'x' (logprob: -6.4192)
+  9. 'class' (logprob: -6.6692)
+  10. 'a' (logprob: -6.7942)
+
+Le token attendu n'est pas dans le top 10 des prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 4: '=' (ID: 28)
+Prédiction principale: ' =' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. ' =' (logprob: -0.4009) [Prédiction principale]
+  2. '1' (logprob: -2.2759)
+  3. '0' (logprob: -2.6509)
+* 4. '=' (logprob: -3.6509)
+  5. ',' (logprob: -4.6509)
+  6. '_' (logprob: -4.6509)
+  7. 'ocab' (logprob: -4.9009)
+  8. '2' (logprob: -5.1509)
+  9. 'owels' (logprob: -5.5259)
+  10. 'max' (logprob: -5.7759)
+
+Le token attendu est à la position 4 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 5: '0' (ID: 15)
+Prédiction principale: '0' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '0' (logprob: -1.5828) [Prédiction principale]
+  2. 'math' (logprob: -2.3328)
+  3. '1' (logprob: -2.5828)
+  4. '2' (logprob: -2.8328)
+  5. '3' (logprob: -2.9578)
+  6. '5' (logprob: -3.0828)
+  7. '10' (logprob: -3.0828)
+  8. '4' (logprob: -3.2078)
+  9. ' ' (logprob: -3.3328)
+  10. '100' (logprob: -3.7078)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 6: '\n' (ID: 198)
+Prédiction principale: '\n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '\n' (logprob: -0.4172) [Prédiction principale]
+  2. '.' (logprob: -1.2922)
+  3. '\n\n' (logprob: -3.4172)
+  4. ' #' (logprob: -4.6672)
+  5. ' ' (logprob: -4.9172)
+  6. ' \n' (logprob: -5.4172)
+  7. ';' (logprob: -6.4172)
+  8. ';\n' (logprob: -6.6672)
+  9. '  ' (logprob: -6.7922)
+  10. '\n\n\n' (logprob: -7.2922)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 7: 'while' (ID: 7032)
+Prédiction principale: 'g' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. 'g' (logprob: -1.8989) [Prédiction principale]
+  2. 't' (logprob: -2.5239)
+* 3. 'while' (logprob: -2.5239)
+  4. 'a' (logprob: -2.6489)
+  5. 'for' (logprob: -2.7739)
+  6. 'h' (logprob: -3.0239)
+  7. 'x' (logprob: -3.0239)
+  8. 'def' (logprob: -3.0239)
+  9. 's' (logprob: -3.1489)
+  10. 'u' (logprob: -3.3989)
+
+Le token attendu est à la position 3 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 8: ' True' (ID: 6432)
+Prédiction principale: ' True' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' True' (logprob: -0.7370) [Prédiction principale]
+  2. ' v' (logprob: -0.8620)
+  3. ' (' (logprob: -3.2370)
+  4. '(v' (logprob: -3.6120)
+  5. ' ' (logprob: -4.7370)
+  6. '(' (logprob: -4.8620)
+  7. '(True' (logprob: -5.1120)
+  8. ' math' (logprob: -5.8620)
+  9. ' not' (logprob: -6.1120)
+  10. ' abs' (logprob: -6.6120)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 9: ':\n' (ID: 734)
+Prédiction principale: ':\n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ':\n' (logprob: -0.0304) [Prédiction principale]
+  2. ':' (logprob: -3.9054)
+  3. ' :\n' (logprob: -5.2804)
+  4. ':\n\n' (logprob: -5.5304)
+  5. ' :' (logprob: -8.0304)
+  6. ':#' (logprob: -8.9054)
+  7. ' and' (logprob: -9.6554)
+  8. ':\n\n\n' (logprob: -10.1554)
+  9. '\n' (logprob: -10.4054)
+  10. ' :\n\n' (logprob: -10.4054)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 10: '   ' (ID: 271)
+Prédiction principale: '   ' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '   ' (logprob: -0.1424) [Prédiction principale]
+  2. ' ' (logprob: -2.7674)
+  3. '  ' (logprob: -4.3924)
+  4. '    \n' (logprob: -4.3924)
+  5. '       ' (logprob: -5.2674)
+  6. '    ' (logprob: -5.3924)
+  7. ' try' (logprob: -5.6424)
+  8. ' v' (logprob: -5.7674)
+  9. '\tv' (logprob: -6.1424)
+  10. '\t' (logprob: -6.2674)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 11: ' n' (ID: 297) [Après tabulation]
+Prédiction principale: ' v' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. ' v' (logprob: -1.4354) [Prédiction principale]
+  2. ' try' (logprob: -1.5604)
+  3. ' x' (logprob: -2.3104)
+  4. ' a' (logprob: -2.4354)
+  5. ' print' (logprob: -2.8104)
+* 6. ' n' (logprob: -3.0604)
+  7. ' #' (logprob: -3.8104)
+  8. ' if' (logprob: -3.9354)
+  9. ' r' (logprob: -4.0604)
+  10. ' t' (logprob: -4.1854)
+
+Le token attendu est à la position 6 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 12: '=int' (ID: 37431)
+Prédiction principale: '=int' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '=int' (logprob: -0.8916) [Prédiction principale]
+  2. ' =' (logprob: -1.2666)
+  3. '=input' (logprob: -1.7666)
+  4. '=' (logprob: -2.5166)
+  5. '=float' (logprob: -3.6416)
+  6. '1' (logprob: -4.7666)
+  7. '=(' (logprob: -5.3916)
+  8. '=str' (logprob: -6.0166)
+  9. '=len' (logprob: -6.5166)
+  10. ',' (logprob: -6.7666)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 13: '(input' (ID: 10054)
+Prédiction principale: '(input' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '(input' (logprob: -0.0038) [Prédiction principale]
+  2. '(math' (logprob: -6.3788)
+  3. '(raw' (logprob: -7.0038)
+  4. ' (' (logprob: -7.5038)
+  5. '(float' (logprob: -8.7538)
+  6. '(' (logprob: -8.8788)
+  7. '((' (logprob: -9.1288)
+  8. '(v' (logprob: -10.1288)
+  9. '(in' (logprob: -10.3788)
+  10. '(str' (logprob: -10.7538)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 14: '())\n' (ID: 4574)
+Prédiction principale: '("' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. '("' (logprob: -0.7838) [Prédiction principale]
+* 2. '())\n' (logprob: -1.1588)
+  3. '('' (logprob: -1.5338)
+  4. '())' (logprob: -5.1588)
+  5. '().' (logprob: -6.4088)
+  6. '(f' (logprob: -6.7838)
+  7. '())\n\n' (logprob: -6.7838)
+  8. '("\\' (logprob: -6.9088)
+  9. '(""))\n' (logprob: -7.2838)
+  10. '('\\' (logprob: -7.4088)
+
+Le token attendu est à la position 2 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 15: '   ' (ID: 271)
+Prédiction principale: '   ' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '   ' (logprob: -0.0170) [Prédiction principale]
+  2. '    \n' (logprob: -4.1420)
+  3. '   \n' (logprob: -8.2670)
+  4. '  \n' (logprob: -8.6420)
+  5. '  ' (logprob: -9.3920)
+  6. ' \n' (logprob: -9.3920)
+  7. '        \n' (logprob: -9.6420)
+  8. '#' (logprob: -9.7670)
+  9. '     \n' (logprob: -10.0170)
+  10. ' ' (logprob: -10.2670)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 16: ' if' (ID: 538) [Après tabulation]
+Prédiction principale: ' if' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' if' (logprob: -0.0779) [Prédiction principale]
+  2. ' v' (logprob: -3.4529)
+  3. ' a' (logprob: -5.3279)
+  4. ' for' (logprob: -5.4529)
+  5. ' #' (logprob: -5.7029)
+  6. ' s' (logprob: -5.8279)
+  7. ' m' (logprob: -5.8279)
+  8. ' print' (logprob: -5.9529)
+  9. ' x' (logprob: -6.0779)
+  10. ' n' (logprob: -6.3279)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 17: ' n' (ID: 297)
+Prédiction principale: ' n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' n' (logprob: -0.0229) [Prédiction principale]
+  2. '(n' (logprob: -4.2729)
+  3. ' (' (logprob: -5.1479)
+  4. ' ' (logprob: -6.8979)
+  5. ' v' (logprob: -7.3979)
+  6. ' not' (logprob: -7.5229)
+  7. ' math' (logprob: -8.0229)
+  8. ' int' (logprob: -9.1479)
+  9. '(' (logprob: -9.3979)
+  10. '(v' (logprob: -9.7729)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 18: '==' (ID: 560)
+Prédiction principale: '==' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '==' (logprob: -0.4626) [Prédiction principale]
+  2. '<' (logprob: -1.5876)
+  3. '==-' (logprob: -3.0876)
+  4. ' ==' (logprob: -3.2126)
+  5. '<=' (logprob: -3.5876)
+  6. ' <' (logprob: -4.3376)
+  7. '>' (logprob: -4.4626)
+  8. '!=' (logprob: -4.7126)
+  9. '>=' (logprob: -4.7126)
+  10. '%' (logprob: -6.0876)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 19: '0' (ID: 15)
+Prédiction principale: '0' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '0' (logprob: -0.0144) [Prédiction principale]
+  2. '1' (logprob: -5.7644)
+  3. '42' (logprob: -5.7644)
+  4. ' ' (logprob: -6.0144)
+  5. '999' (logprob: -6.1394)
+  6. '-' (logprob: -7.1394)
+  7. '(-' (logprob: -7.5144)
+  8. ' -' (logprob: -7.7644)
+  9. '200' (logprob: -8.3894)
+  10. '2' (logprob: -8.5144)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 20: ':\n' (ID: 734)
+Prédiction principale: ':\n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ':\n' (logprob: -0.1023) [Prédiction principale]
+  2. ':' (logprob: -2.3523)
+  3. ' :\n' (logprob: -7.3523)
+  4. ' or' (logprob: -7.4773)
+  5. ' :' (logprob: -7.8523)
+  6. ' and' (logprob: -8.1023)
+  7. ':return' (logprob: -9.4773)
+  8. ':\n\n' (logprob: -9.7273)
+  9. '.' (logprob: -10.4773)
+  10. ':#' (logprob: -11.2273)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 21: '       ' (ID: 309)
+Prédiction principale: '       ' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '       ' (logprob: -0.0069) [Prédiction principale]
+  2. '      ' (logprob: -5.8819)
+  3. '     ' (logprob: -6.5069)
+  4. '        ' (logprob: -6.7569)
+  5. '           ' (logprob: -7.6319)
+  6. '    ' (logprob: -8.0069)
+  7. '         ' (logprob: -8.3819)
+  8. '        \n' (logprob: -8.8819)
+  9. '          ' (logprob: -9.5069)
+  10. '   ' (logprob: -10.2569)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 22: ' break' (ID: 2338) [Après tabulation]
+Prédiction principale: ' break' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' break' (logprob: -0.0106) [Prédiction principale]
+  2. ' print' (logprob: -4.6356)
+  3. ' exit' (logprob: -7.8856)
+  4. ' if' (logprob: -8.8856)
+  5. ' v' (logprob: -9.7606)
+  6. ' #' (logprob: -9.7606)
+  7. ' bre' (logprob: -10.2606)
+  8. ' continue' (logprob: -10.7606)
+  9. ' b' (logprob: -10.8856)
+  10. ' quit' (logprob: -11.0106)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 23: '\n' (ID: 198)
+Prédiction principale: '\n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '\n' (logprob: -0.0294) [Prédiction principale]
+  2. '\n\n' (logprob: -4.5294)
+  3. '\n    \n' (logprob: -4.9044)
+  4. ' \n' (logprob: -5.6544)
+  5. ';\n' (logprob: -6.2794)
+  6. '\n        \n' (logprob: -6.2794)
+  7. '    \n' (logprob: -7.1544)
+  8. '  \n' (logprob: -7.9044)
+  9. '        \n' (logprob: -8.0294)
+  10. '   \n' (logprob: -8.0294)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 24: '   ' (ID: 271)
+Prédiction principale: '   ' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '   ' (logprob: -0.0010) [Prédiction principale]
+  2. '       \n' (logprob: -8.2510)
+  3. '     \n' (logprob: -8.6260)
+  4. '  ' (logprob: -9.0010)
+  5. '       ' (logprob: -9.1260)
+  6. ' ' (logprob: -9.5010)
+  7. '#' (logprob: -9.7510)
+  8. '         \n' (logprob: -10.3760)
+  9. '          \n' (logprob: -11.0010)
+  10. '    ' (logprob: -11.1260)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 25: ' s' (ID: 265) [Après tabulation]
+Prédiction principale: ' v' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. ' v' (logprob: -0.7451) [Prédiction principale]
+  2. ' else' (logprob: -1.4951)
+  3. ' if' (logprob: -3.2451)
+  4. ' a' (logprob: -3.4951)
+* 5. ' s' (logprob: -3.6201)
+  6. ' print' (logprob: -3.6201)
+  7. ' x' (logprob: -3.9951)
+  8. ' r' (logprob: -4.2451)
+  9. ' elif' (logprob: -4.2451)
+  10. ' #' (logprob: -4.6201)
+
+Le token attendu est à la position 5 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 26: '=' (ID: 28)
+Prédiction principale: '=' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '=' (logprob: -0.1665) [Prédiction principale]
+  2. ' =' (logprob: -3.1665)
+  3. '=int' (logprob: -3.1665)
+  4. '=(' (logprob: -4.2915)
+  5. '=n' (logprob: -4.2915)
+  6. '1' (logprob: -5.0415)
+  7. '=input' (logprob: -5.4165)
+  8. '=list' (logprob: -5.6665)
+  9. '=[]\n' (logprob: -5.9165)
+  10. '=[' (logprob: -6.0415)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 27: '0' (ID: 15)
+Prédiction principale: '0' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '0' (logprob: -0.2459) [Prédiction principale]
+  2. 'math' (logprob: -1.7459)
+  3. '1' (logprob: -4.1209)
+  4. ' math' (logprob: -5.3709)
+  5. '2' (logprob: -5.7459)
+  6. 'round' (logprob: -5.7459)
+  7. ' ' (logprob: -5.9959)
+  8. 'abs' (logprob: -5.9959)
+  9. ' (' (logprob: -6.2459)
+  10. ' list' (logprob: -6.9959)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 28: '\n' (ID: 198)
+Prédiction principale: '\n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '\n' (logprob: -0.0292) [Prédiction principale]
+  2. '.' (logprob: -4.4042)
+  3. ' \n' (logprob: -5.7792)
+  4. '\n\n' (logprob: -5.9042)
+  5. ' #' (logprob: -6.0292)
+  6. '\n    \n' (logprob: -6.2792)
+  7. ' ' (logprob: -6.6542)
+  8. '    \n' (logprob: -6.9042)
+  9. '  \n' (logprob: -7.6542)
+  10. ';\n' (logprob: -7.7792)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 29: '   ' (ID: 271)
+Prédiction principale: '   ' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '   ' (logprob: -0.0002) [Prédiction principale]
+  2. '  ' (logprob: -9.6252)
+  3. ' ' (logprob: -10.6252)
+  4. '     \n' (logprob: -10.6252)
+  5. '#' (logprob: -11.0002)
+  6. '       \n' (logprob: -11.5002)
+  7. '    ' (logprob: -12.1252)
+  8. 'for' (logprob: -12.2502)
+  9. '       ' (logprob: -12.7502)
+  10. '         \n' (logprob: -13.2502)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 30: ' for' (ID: 395) [Après tabulation]
+Prédiction principale: ' for' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' for' (logprob: -0.2732) [Prédiction principale]
+  2. ' v' (logprob: -3.2732)
+  3. ' a' (logprob: -3.7732)
+  4. ' p' (logprob: -4.0232)
+  5. ' while' (logprob: -4.0232)
+  6. ' s' (logprob: -4.1482)
+  7. ' m' (logprob: -4.3982)
+  8. ' t' (logprob: -4.5232)
+  9. ' d' (logprob: -4.5232)
+  10. ' c' (logprob: -4.6482)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 31: ' i' (ID: 575)
+Prédiction principale: ' i' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' i' (logprob: -0.0981) [Prédiction principale]
+  2. ' k' (logprob: -3.8481)
+  3. ' j' (logprob: -3.9731)
+  4. ' x' (logprob: -3.9731)
+  5. ' a' (logprob: -4.3481)
+  6. ' _' (logprob: -4.4731)
+  7. ' c' (logprob: -6.5981)
+  8. ' p' (logprob: -6.7231)
+  9. ' m' (logprob: -6.8481)
+  10. ' t' (logprob: -6.9731)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 32: ' in' (ID: 306)
+Prédiction principale: ' in' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' in' (logprob: -0.0001) [Prédiction principale]
+  2. ' ' (logprob: -9.3751)
+  3. ',' (logprob: -12.0001)
+  4. ' range' (logprob: -12.3751)
+  5. '1' (logprob: -12.5001)
+  6. ' i' (logprob: -13.7501)
+  7. ',j' (logprob: -14.1251)
+  8. '=' (logprob: -15.0001)
+  9. '0' (logprob: -15.1251)
+  10. '  ' (logprob: -15.5626)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 33: ' range' (ID: 3352)
+Prédiction principale: ' range' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' range' (logprob: -0.0022) [Prédiction principale]
+  2. ' str' (logprob: -6.5022)
+  3. ' (' (logprob: -8.8772)
+  4. ' map' (logprob: -8.8772)
+  5. ' list' (logprob: -9.0022)
+  6. ' ' (logprob: -9.3772)
+  7. ' [' (logprob: -9.6272)
+  8. ' input' (logprob: -10.1272)
+  9. ' reversed' (logprob: -10.6272)
+  10. ' math' (logprob: -11.0022)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 34: '(' (ID: 7)
+Prédiction principale: '(' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '(' (logprob: -0.3638) [Prédiction principale]
+  2. '(n' (logprob: -1.2388)
+  3. ' (' (logprob: -4.4888)
+  4. '(int' (logprob: -6.4888)
+  5. '(v' (logprob: -6.6138)
+  6. '(math' (logprob: -7.8638)
+  7. '(-' (logprob: -8.7388)
+  8. '((' (logprob: -8.9888)
+  9. '(len' (logprob: -9.2388)
+  10. '(abs' (logprob: -9.3638)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 35: '1' (ID: 16)
+Prédiction principale: '1' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '1' (logprob: -0.0237) [Prédiction principale]
+  2. '0' (logprob: -4.0237)
+  3. '2' (logprob: -5.5237)
+  4. '3' (logprob: -8.3987)
+  5. '10' (logprob: -8.3987)
+  6. '100' (logprob: -8.5237)
+  7. '4' (logprob: -9.1487)
+  8. '5' (logprob: -9.2737)
+  9. '6' (logprob: -9.5237)
+  10. ' ' (logprob: -9.7737)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 36: ',' (ID: 11)
+Prédiction principale: ',n' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. ',n' (logprob: -0.1357) [Prédiction principale]
+* 2. ',' (logprob: -2.1357)
+  3. ',int' (logprob: -5.1357)
+  4. ',(' (logprob: -6.6357)
+  5. ',v' (logprob: -7.5107)
+  6. ',m' (logprob: -8.3857)
+  7. ' ,' (logprob: -9.0107)
+  8. ',min' (logprob: -9.0107)
+  9. ',len' (logprob: -9.8857)
+  10. '+n' (logprob: -9.8857)
+
+Le token attendu est à la position 2 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 37: '7' (ID: 22)
+Prédiction principale: ' n' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. ' n' (logprob: -0.1649) [Prédiction principale]
+  2. 'math' (logprob: -2.7899)
+  3. ' int' (logprob: -3.1649)
+  4. ' math' (logprob: -3.6649)
+  5. ' ' (logprob: -5.1649)
+  6. ' (' (logprob: -5.7899)
+  7. '101' (logprob: -5.9149)
+  8. '10' (logprob: -6.2899)
+  9. '100' (logprob: -6.2899)
+  10. '11' (logprob: -6.6649)
+
+Le token attendu n'est pas dans le top 10 des prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 38: '):\n' (ID: 1883)
+Prédiction principale: '):\n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '):\n' (logprob: -0.0110) [Prédiction principale]
+  2. '):' (logprob: -4.6360)
+  3. ',' (logprob: -7.0110)
+  4. '):\n\n' (logprob: -8.8860)
+  5. ')' (logprob: -9.5110)
+  6. '+' (logprob: -9.6360)
+  7. ')\n' (logprob: -11.8860)
+  8. '*' (logprob: -12.5110)
+  9. ' ):\n' (logprob: -12.5110)
+  10. '+n' (logprob: -12.5110)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 39: '       ' (ID: 309)
+Prédiction principale: '       ' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '       ' (logprob: -0.0045) [Prédiction principale]
+  2. '      ' (logprob: -6.5045)
+  3. '        ' (logprob: -7.2545)
+  4. '     ' (logprob: -7.2545)
+  5. '           ' (logprob: -7.3795)
+  6. '        \n' (logprob: -8.0045)
+  7. '    ' (logprob: -8.2545)
+  8. '         ' (logprob: -8.7545)
+  9. '   ' (logprob: -10.2545)
+  10. '          ' (logprob: -10.5045)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 40: ' s' (ID: 265) [Après tabulation]
+Prédiction principale: ' s' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' s' (logprob: -0.5069) [Prédiction principale]
+  2. ' for' (logprob: -2.1319)
+  3. ' p' (logprob: -2.6319)
+  4. ' v' (logprob: -3.2569)
+  5. ' x' (logprob: -3.3819)
+  6. ' if' (logprob: -3.5069)
+  7. ' a' (logprob: -3.7569)
+  8. ' d' (logprob: -4.6319)
+  9. ' r' (logprob: -4.7569)
+  10. ' m' (logprob: -4.8819)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 41: '+=' (ID: 18287)
+Prédiction principale: '+=' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '+=' (logprob: -0.0909) [Prédiction principale]
+  2. '=s' (logprob: -3.2159)
+  3. ' +=' (logprob: -3.4659)
+  4. '+=(' (logprob: -4.4659)
+  5. '=' (logprob: -6.4659)
+  6. '=(' (logprob: -6.8409)
+  7. ' =' (logprob: -7.5909)
+  8. '+s' (logprob: -8.9659)
+  9. '=max' (logprob: -9.2159)
+  10. '=int' (logprob: -9.5909)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 42: 'n' (ID: 77)
+Prédiction principale: 'math' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. 'math' (logprob: -0.4649) [Prédiction principale]
+* 2. 'n' (logprob: -2.4649)
+  3. 'abs' (logprob: -2.7149)
+  4. '1' (logprob: -3.0899)
+  5. '((' (logprob: -3.3399)
+  6. ' (' (logprob: -3.5899)
+  7. ' math' (logprob: -3.7149)
+  8. 'int' (logprob: -3.9649)
+  9. 'i' (logprob: -4.0899)
+  10. 'v' (logprob: -4.7149)
+
+Le token attendu est à la position 2 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 43: '//' (ID: 393)
+Prédiction principale: '*' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. '*' (logprob: -0.5912) [Prédiction principale]
+  2. '*i' (logprob: -1.9662)
+  3. '*(' (logprob: -2.2162)
+  4. '**' (logprob: -3.2162)
+  5. '/(' (logprob: -3.2162)
+* 6. '//' (logprob: -3.9662)
+  7. '/i' (logprob: -3.9662)
+  8. '/math' (logprob: -3.9662)
+  9. '+i' (logprob: -4.7162)
+  10. '%' (logprob: -4.8412)
+
+Le token attendu est à la position 6 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 44: '(' (ID: 7)
+Prédiction principale: 'i' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. 'i' (logprob: -0.4602) [Prédiction principale]
+* 2. '(' (logprob: -1.3352)
+  3. 'math' (logprob: -2.4602)
+  4. '2' (logprob: -4.3352)
+  5. '6' (logprob: -5.7102)
+  6. 'int' (logprob: -6.4602)
+  7. '((' (logprob: -7.3352)
+  8. 'pow' (logprob: -7.5852)
+  9. ' i' (logprob: -8.3352)
+  10. '10' (logprob: -8.3352)
+
+Le token attendu est à la position 2 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 45: '5' (ID: 20)
+Prédiction principale: '2' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. '2' (logprob: -0.3765) [Prédiction principale]
+  2. 'i' (logprob: -2.0015)
+  3. '6' (logprob: -2.2515)
+  4. 'math' (logprob: -2.8765)
+  5. '10' (logprob: -4.6265)
+* 6. '5' (logprob: -6.3765)
+  7. '7' (logprob: -6.8765)
+  8. '1' (logprob: -7.1265)
+  9. '3' (logprob: -7.1265)
+  10. 'int' (logprob: -7.3765)
+
+Le token attendu est à la position 6 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 46: '**' (ID: 410)
+Prédiction principale: '**' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '**' (logprob: -0.1841) [Prédiction principale]
+  2. '*i' (logprob: -2.0591)
+  3. '+i' (logprob: -4.0591)
+  4. '*(' (logprob: -4.6841)
+  5. '*' (logprob: -5.3091)
+  6. '-i' (logprob: -5.5591)
+  7. ' **' (logprob: -6.1841)
+  8. '+' (logprob: -6.8091)
+  9. '+(' (logprob: -8.0591)
+  10. '*v' (logprob: -8.1841)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 47: 'i' (ID: 72)
+Prédiction principale: 'i' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. 'i' (logprob: -0.0042) [Prédiction principale]
+  2. '(' (logprob: -5.5042)
+  3. 'math' (logprob: -9.8792)
+  4. ' i' (logprob: -10.6292)
+  5. '1' (logprob: -11.1292)
+  6. 'int' (logprob: -11.7542)
+  7. '((' (logprob: -12.0042)
+  8. '-' (logprob: -12.1292)
+  9. '2' (logprob: -12.2542)
+  10. '(-' (logprob: -12.2542)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 48: ')\n' (ID: 446)
+Prédiction principale: ')\n' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ')\n' (logprob: -0.0856) [Prédiction principale]
+  2. ')' (logprob: -3.0856)
+  3. ')*' (logprob: -3.9606)
+  4. ')*(' (logprob: -5.0856)
+  5. ')\n\n' (logprob: -5.2106)
+  6. ')-' (logprob: -6.7106)
+  7. ')+' (logprob: -6.9606)
+  8. ')%' (logprob: -6.9606)
+  9. ')+(' (logprob: -7.7106)
+  10. ')-(' (logprob: -8.0856)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 49: '   ' (ID: 271)
+Prédiction principale: '   ' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '   ' (logprob: -0.0889) [Prédiction principale]
+  2. '       ' (logprob: -2.9639)
+  3. '    \n' (logprob: -4.0889)
+  4. '        \n' (logprob: -4.2139)
+  5. '       \n' (logprob: -8.0889)
+  6. '   \n' (logprob: -8.5889)
+  7. '      \n' (logprob: -8.5889)
+  8. ' \n' (logprob: -8.7139)
+  9. '  \n' (logprob: -8.8389)
+  10. '            \n' (logprob: -8.8389)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 50: ' print' (ID: 2123) [Après tabulation]
+Prédiction principale: ' print' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ' print' (logprob: -0.3441) [Prédiction principale]
+  2. ' v' (logprob: -2.0941)
+  3. ' if' (logprob: -3.0941)
+  4. ' s' (logprob: -3.7191)
+  5. ' ans' (logprob: -4.0941)
+  6. ' p' (logprob: -4.5941)
+  7. ' m' (logprob: -5.0941)
+  8. ' res' (logprob: -5.0941)
+  9. ' a' (logprob: -5.2191)
+  10. ' for' (logprob: -5.2191)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 51: '(s' (ID: 1858)
+Prédiction principale: '(s' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '(s' (logprob: -0.0594) [Prédiction principale]
+  2. '(math' (logprob: -4.1844)
+  3. '(int' (logprob: -4.4344)
+  4. ' (' (logprob: -4.8094)
+  5. '(f' (logprob: -5.4344)
+  6. '(' (logprob: -5.6844)
+  7. '(n' (logprob: -5.9344)
+  8. '(str' (logprob: -5.9344)
+  9. '((' (logprob: -6.0594)
+  10. '("' (logprob: -6.8094)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 52: ')' (ID: 8)
+Prédiction principale: ')' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. ')' (logprob: -0.4365) [Prédiction principale]
+  2. ')\n' (logprob: -1.1865)
+  3. ')\n\n' (logprob: -3.4365)
+  4. '+' (logprob: -5.1865)
+  5. '*' (logprob: -6.1865)
+  6. ')\n\n\n' (logprob: -6.3115)
+  7. '%' (logprob: -6.5615)
+  8. '//' (logprob: -6.5615)
+  9. ',' (logprob: -7.1865)
+  10. '+n' (logprob: -7.6865)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+
+RÉSUMÉ:
+--------------------------------------------------------------------------------
+Total des tokens analysés: 50
+Tokens correctement prédits (1ère position, stricte): 38
+Tokens correctement prédits (1ère position, avec adaptation): 38
+Tokens correctement prédits (top 10): 48
+Précision stricte (1ère position): 76.00%
+Précision adaptée (1ère position): 76.00%
+Précision (top 10): 96.00%
+================================================================================

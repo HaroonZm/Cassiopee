@@ -1,0 +1,135 @@
+================================================================================
+ANALYSE DES PRÉDICTIONS DE TOKENS
+================================================================================
+
+SCRIPT ORIGINAL:
+--------------------------------------------------------------------------------
+print(input()[::-1])
+--------------------------------------------------------------------------------
+
+INFORMATION SUR LA TOKENISATION:
+--------------------------------------------------------------------------------
+Tokenisation utilisée: tiktoken pour le modèle gpt-4o-mini
+Il s'agit de la tokenisation officielle utilisée par les modèles OpenAI.
+--------------------------------------------------------------------------------
+
+TOKENS IDENTIFIÉS:
+--------------------------------------------------------------------------------
+Token 0: 'print' (ID: 1598)
+Token 1: '(input' (ID: 10054)
+Token 2: '()[' (ID: 20778)
+Token 3: '::-' (ID: 96612)
+Token 4: '1' (ID: 16)
+Token 5: '])' (ID: 4636)
+--------------------------------------------------------------------------------
+
+INFORMATIONS SUR LA MATRICE 2D DE LOG PROBABILITÉS:
+--------------------------------------------------------------------------------
+Dimensions de la matrice: 1 lignes x 6 tokens max
+Nombre de tokens par ligne: [6]
+Convention de valeurs:
+  - Log probabilité normale: Valeur réelle (typiquement entre -1 et -20)
+  - Anomalie (token hors top-10): -50
+  - Padding (positions vides): 100
+
+Matrice 2D (format texte simplifiée):
+[-10.00, -10.00, ANOM, -0.75, -0.01, -0.24, ]
+
+Note: La matrice a été sauvegardée au format numpy dans 'matrice_logprob.npy'
+--------------------------------------------------------------------------------
+
+ANALYSE TOKEN PAR TOKEN:
+--------------------------------------------------------------------------------
+Position 0: 'print' (ID: 1598) (token d'amorce)
+--------------------------------------------------------------------------------
+
+Position 1: '(input' (ID: 10054) (token d'amorce)
+--------------------------------------------------------------------------------
+
+Position 2: '()[' (ID: 20778)
+Prédiction principale: '_string' (✗ INCORRECT)
+
+Top 10 tokens les plus probables:
+  1. '_string' (logprob: -1.5685) [Prédiction principale]
+  2. '_list' (logprob: -2.3185)
+  3. '_data' (logprob: -2.5685)
+  4. '_str' (logprob: -2.8185)
+  5. '("' (logprob: -3.0685)
+  6. '_text' (logprob: -3.0685)
+  7. ')' (logprob: -3.6935)
+  8. '1' (logprob: -3.9435)
+  9. ')\n' (logprob: -3.9435)
+  10. '_array' (logprob: -4.0685)
+
+Le token attendu n'est pas dans le top 10 des prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 3: '::-' (ID: 96612)
+Prédiction principale: '::-' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '::-' (logprob: -0.7498) [Prédiction principale]
+  2. '0' (logprob: -1.4998)
+  3. '1' (logprob: -1.7498)
+  4. '2' (logprob: -3.1248)
+  5. '3' (logprob: -4.2498)
+  6. '::' (logprob: -4.2498)
+  7. '4' (logprob: -4.8748)
+  8. 'len' (logprob: -4.8748)
+  9. '5' (logprob: -4.9998)
+  10. '6' (logprob: -5.2498)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 4: '1' (ID: 16)
+Prédiction principale: '1' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '1' (logprob: -0.0051) [Prédiction principale]
+  2. '2' (logprob: -5.6301)
+  3. '3' (logprob: -7.2551)
+  4. ' ' (logprob: -8.5051)
+  5. '4' (logprob: -8.7551)
+  6. '5' (logprob: -9.2551)
+  7. '10' (logprob: -9.5051)
+  8. '7' (logprob: -10.6301)
+  9. '6' (logprob: -10.8801)
+  10. '100' (logprob: -10.8801)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+Position 5: '])' (ID: 4636)
+Prédiction principale: '])' (✓ CORRECT)
+
+Top 10 tokens les plus probables:
+* 1. '])' (logprob: -0.2437) [Prédiction principale]
+  2. '])\n' (logprob: -1.9937)
+  3. '])\n\n' (logprob: -3.7437)
+  4. '].' (logprob: -3.8687)
+  5. '])\r\n' (logprob: -4.1187)
+  6. ']' (logprob: -5.2437)
+  7. '],' (logprob: -5.2437)
+  8. '][' (logprob: -5.6187)
+  9. '])\r\n\r\n' (logprob: -6.6187)
+  10. '])\n\n\n' (logprob: -7.2437)
+
+Le token attendu est à la position 1 dans les prédictions.
+
+--------------------------------------------------------------------------------
+
+
+RÉSUMÉ:
+--------------------------------------------------------------------------------
+Total des tokens analysés: 4
+Tokens correctement prédits (1ère position, stricte): 3
+Tokens correctement prédits (1ère position, avec adaptation): 3
+Tokens correctement prédits (top 10): 3
+Précision stricte (1ère position): 75.00%
+Précision adaptée (1ère position): 75.00%
+Précision (top 10): 75.00%
+================================================================================
