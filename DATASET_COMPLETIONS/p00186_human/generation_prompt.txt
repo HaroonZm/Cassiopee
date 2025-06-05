@@ -1,0 +1,61 @@
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def binary_search(quantity, budget, aizu_chicken_price, chicken_price, aizu_chicken_limit):
+    if budget < (quantity - 1) * chicken_price + aizu_chicken_price:
+        return None
+
+    if aizu_chicken_price * quantity <= budget:
+        aizu_chicken_count = budget // aizu_chicken_price
+
+        if aizu_chicken_limit < aizu_chicken_count:
+            aizu_chicken_count = aizu_chicken_limit
+
+        rest = budget - aizu_chicken_price * aizu_chicken_count
+        chicken_count = rest // chicken_price
+        return aizu_chicken_count, chicken_count
+
+    if aizu_chicken_price * aizu_chicken_limit + chicken_price * (quantity - aizu_chicken_limit) < budget:
+        rest = budget - aizu_chicken_price * aizu_chicken_limit
+        chicken_count = rest // chicken_price
+        return aizu_chicken_limit, chicken_count
+
+    # 二分探索
+    aizu_chicken_count = aizu_chicken_limit // 2
+    chicken_count = quantity - aizu_chicken_count
+    update_count = aizu_chicken_count // 2 + 1
+
+    max_pair = (0, quantity)
+
+    while 0 < update_count:
+
+        if aizu_chicken_count * aizu_chicken_price + chicken_count * chicken_price <= budget:
+            max_pair = (aizu_chicken_count, chicken_count)
+            aizu_chicken_count += update_count + 1
+            chicken_count -= (update_count + 1)
+
+        else:
+            aizu_chicken_count -= (update_count + 1)
+            chicken_count += update_count + 1
+
+        update_count //= 2
+
+    return max_pair
+
+while True:
+
+    input_data = input()
+
+    if input_data == "0":
+        break
+
+    quantity, budget, aizu_chicken_price, chicken_price, aizu_chicken_limit = [int(item) for item in
+                                                                               input_data.split(" ")]
+
+    result = binary_search(quantity, budget, aizu_chicken_price, chicken_price, aizu_chicken_limit)
+
+    if result is not None:
+        print(result[0], result[1])
+    else:
+        print("NA")
+```

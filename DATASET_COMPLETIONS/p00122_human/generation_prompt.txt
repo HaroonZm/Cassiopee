@@ -1,0 +1,77 @@
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+def search(table, x, y, depth, max_depth):
+
+    if depth == max_depth:
+        return True
+
+    if x < 0 or x >= 10 or y < 0 or y >= 10:
+        return False
+
+    if depth >= 0 and table[x][y][depth] == 0:
+        return False
+
+    if search(table, x-2, y-1, depth+1, max_depth):
+        return True
+    if search(table, x-2, y, depth+1, max_depth):
+        return True
+    if search(table, x-2, y+1, depth+1, max_depth):
+        return True
+
+    if search(table, x-1, y-2, depth+1, max_depth):
+        return True
+    if search(table, x, y-2, depth+1, max_depth):
+        return True
+    if search(table, x+1, y-2, depth+1, max_depth):
+        return True
+
+    if search(table, x+2, y-1, depth+1, max_depth):
+        return True
+    if search(table, x+2, y, depth+1, max_depth):
+        return True
+    if search(table, x+2, y+1, depth+1, max_depth):
+        return True
+
+    if search(table, x-1, y+2, depth+1, max_depth):
+        return True
+    if search(table, x, y+2, depth+1, max_depth):
+        return True
+    if search(table, x+1, y+2, depth+1, max_depth):
+        return True
+
+while True:
+    px,py = [int(i) for i in input().split()]
+    if px == 0 and py == 0:
+        break
+
+    table = [[[0 for i in range(10)] for j in range(10)] for k in range(10)]
+
+    n = int(input())
+    N = [int(i) for i in input().split()]
+    traps = []
+
+    for i in range(0, len(N), 2):
+        x = N[i]
+        y = N[i+1]
+        prx = max(x-1, 0)
+        pry = max(y-1, 0)
+        pox = min(x+1, 9)
+        poy = min(y+1, 9)
+
+        d = int(i//2)
+        table[prx][pry][d] = 1
+        table[prx][y][d] = 1
+        table[prx][poy][d] = 1
+        table[x][pry][d] = 1
+        table[x][y][d] = 1
+        table[x][poy][d] = 1
+        table[pox][pry][d] = 1
+        table[pox][y][d] = 1
+        table[pox][poy][d] = 1
+
+    if search(table, px, py, -1, n):
+        print("OK")
+    else:
+        print("NA")
+```

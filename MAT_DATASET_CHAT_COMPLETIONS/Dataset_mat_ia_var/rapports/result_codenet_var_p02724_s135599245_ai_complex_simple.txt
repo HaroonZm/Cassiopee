@@ -1,0 +1,3526 @@
+================================================================================
+ANALYSE DE PRÉDICTION TOKEN PAR TOKEN (BATCH API)
+Date: 2025-06-04 19:19:47
+Modèle de tokenisation: gpt-4o-mini
+================================================================================
+
+SCRIPT ANALYSÉ:
+--------------------------------------------------------------------------------
+from functools import reduce
+from itertools import chain, repeat, islice
+
+def quantize(val, denom):
+    return divmod(val, denom)
+
+def unfold(n, denoms):
+    def gen(val, ds):
+        if not ds:
+            return ()
+        x, rem = quantize(val, ds[0])
+        return chain(repeat(ds[0], x), gen(rem, ds[1:]))
+    return list(gen(n, denoms))
+
+def elaborate_score(n):
+    denoms = [500, 5]
+    values = {500: 1000, 5: 5}
+    coins = unfold(n, denoms)
+    groups = map(lambda d: list(filter(lambda c: c==d, coins)), denoms)
+    products = map(lambda grp, d: len(grp)*values[d], groups, denoms)
+    return reduce(lambda a,b: a+b, products, 0)
+
+print(elaborate_score(int(input())))
+--------------------------------------------------------------------------------
+
+RÉSULTATS D'ANALYSE TOKEN PAR TOKEN:
+--------------------------------------------------------------------------------
+Token 0: 'from' (ID: 2845)
+  → Token d'amorce (pas de prédiction)
+
+Token 1: ' functools' (ID: 142636)
+  → Token d'amorce (pas de prédiction)
+
+Token 2: ' import' (ID: 1588)
+  → Token d'amorce (pas de prédiction)
+
+Token 3: ' reduce' (ID: 10389)
+  Prédit: 'wrap'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'wrap' → logprob: -0.2578085660934448
+    2. 'partial' → logprob: -1.7578085660934448
+    3. 'reduce' → logprob: -3.3828086853027344
+    4. ' wraps' → logprob: -4.007808685302734
+    5. 'l' → logprob: -6.757808685302734
+    6. ' partial' → logprob: -7.257808685302734
+    7. 'cache' → logprob: -8.382808685302734
+    8. '```' → logprob: -8.632808685302734
+    9. 'cached' → logprob: -9.007808685302734
+    10. 'cmp' → logprob: -9.257808685302734
+
+Token 4: '
+' (ID: 198)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.020837202668190002
+    2. '(lambda' → logprob: -4.270837306976318
+    3. '.' → logprob: -5.145837306976318
+    4. ',' → logprob: -8.02083683013916
+    5. ' (' → logprob: -8.52083683013916
+    6. '```' → logprob: -9.52083683013916
+    7. '(
+' → logprob: -10.14583683013916
+    8. '\(' → logprob: -10.27083683013916
+    9. '\' → logprob: -10.39583683013916
+    10. 'lambda' → logprob: -11.02083683013916
+
+Token 5: 'from' (ID: 2845)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.03125377744436264
+    2. 'def' → logprob: -4.156253814697266
+    3. '\' → logprob: -4.781253814697266
+    4. ' ' → logprob: -5.906253814697266
+    5. '(
+' → logprob: -6.906253814697266
+    6. ',' → logprob: -7.156253814697266
+    7. '(lambda' → logprob: -7.906253814697266
+    8. '```' → logprob: -8.281253814697266
+    9. ' (' → logprob: -8.406253814697266
+    10. 'd' → logprob: -8.781253814697266
+
+Token 6: ' itertools' (ID: 103178)
+  Prédit: ' operator'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' operator' → logprob: -0.15553592145442963
+    2. ' itertools' → logprob: -2.405535936355591
+    3. ' math' → logprob: -3.905535936355591
+    4. ' collections' → logprob: -3.905535936355591
+    5. 'operator' → logprob: -4.405535697937012
+    6. 'collections' → logprob: -7.780535697937012
+    7. ' typing' → logprob: -8.030535697937012
+    8. 'math' → logprob: -8.155535697937012
+    9. ' os' → logprob: -8.655535697937012
+    10. ' ' → logprob: -9.655535697937012
+
+Token 7: ' import' (ID: 1588)
+  Prédit: ' import'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' import' → logprob: -0.0166701078414917
+    2. 'import' → logprob: -4.141670227050781
+    3. '.' → logprob: -7.891670227050781
+    4. ' ' → logprob: -9.141670227050781
+    5. ' .' → logprob: -9.516670227050781
+    6. '.import' → logprob: -9.891670227050781
+    7. '	import' → logprob: -11.391670227050781
+    8. '_import' → logprob: -12.016670227050781
+    9. ' itertools' → logprob: -12.641670227050781
+    10. '<|end|>' → logprob: -13.391670227050781
+
+Token 8: ' chain' (ID: 13464)
+  Prédit: 'group'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'group' → logprob: -1.3397724628448486
+    2. 'count' → logprob: -1.3397724628448486
+    3. 'cycle' → logprob: -2.2147724628448486
+    4. 'chain' → logprob: -2.4647724628448486
+    5. 'com' → logprob: -2.5897724628448486
+    6. 'acc' → logprob: -2.5897724628448486
+    7. ' group' → logprob: -2.7147724628448486
+    8. ' cycle' → logprob: -4.2147722244262695
+    9. 'product' → logprob: -4.4647722244262695
+    10. ' chain' → logprob: -4.5897722244262695
+
+Token 9: ',' (ID: 11)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(' → logprob: -1.4665517807006836
+    2. ',' → logprob: -1.7165517807006836
+    3. '\n' → logprob: -1.8415517807006836
+    4. 'import' → logprob: -1.9665517807006836
+    5. '\' → logprob: -2.0915517807006836
+    6. '(
+' → logprob: -2.5915517807006836
+    7. 'def' → logprob: -3.4665517807006836
+    8. '
+' → logprob: -4.341551780700684
+    9. '.' → logprob: -4.466551780700684
+    10. ' ' → logprob: -5.091551780700684
+
+Token 10: ' repeat' (ID: 22962)
+  Prédit: 'com'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'com' → logprob: -0.401711106300354
+    2. 'count' → logprob: -2.4017109870910645
+    3. 'cycle' → logprob: -2.9017109870910645
+    4. 'is' → logprob: -2.9017109870910645
+    5. 'filter' → logprob: -3.4017109870910645
+    6. 'group' → logprob: -3.6517109870910645
+    7. 'repeat' → logprob: -4.0267109870910645
+    8. ' is' → logprob: -4.4017109870910645
+    9. 'compress' → logprob: -4.6517109870910645
+    10. 'product' → logprob: -4.9017109870910645
+
+Token 11: ',' (ID: 11)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.025087766349315643
+    2. '(
+' → logprob: -4.400087833404541
+    3. 'def' → logprob: -5.525087833404541
+    4. ',' → logprob: -5.525087833404541
+    5. '\' → logprob: -6.025087833404541
+    6. '.' → logprob: -7.025087833404541
+    7. '\(' → logprob: -8.525087356567383
+    8. '`' → logprob: -8.650087356567383
+    9. '\n' → logprob: -8.650087356567383
+    10. '```' → logprob: -8.900087356567383
+
+Token 12: ' is' (ID: 382)
+  Prédit: ' product'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' product' → logprob: -1.8044793605804443
+    2. 'acc' → logprob: -1.9294793605804443
+    3. 'product' → logprob: -2.0544793605804443
+    4. ' st' → logprob: -2.4294793605804443
+    5. 'count' → logprob: -2.4294793605804443
+    6. 'cycle' → logprob: -2.6794793605804443
+    7. 'com' → logprob: -3.1794793605804443
+    8. ' cycle' → logprob: -3.3044793605804443
+    9. ' group' → logprob: -3.5544793605804443
+    10. ' is' → logprob: -3.5544793605804443
+
+Token 13: 'lice' (ID: 7321)
+  Prédit: 'lice'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'lice' → logprob: -1.0325924449716695e-05
+    2. 'lic' → logprob: -11.75001049041748
+    3. 'l' → logprob: -14.50001049041748
+    4. 'lices' → logprob: -15.12501049041748
+    5. 'liced' → logprob: -15.12501049041748
+    6. 'licing' → logprob: -15.25001049041748
+    7. '```' → logprob: -15.87501049041748
+    8. '
+' → logprob: -16.250009536743164
+    9. '
+
+' → logprob: -16.250009536743164
+    10. 'ice' → logprob: -16.375009536743164
+
+Token 14: '
+
+' (ID: 279)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.6468262076377869
+    2. 'def' → logprob: -1.1468262672424316
+    3. '(
+' → logprob: -2.7718262672424316
+    4. ',' → logprob: -3.0218262672424316
+    5. '\' → logprob: -4.146826267242432
+    6. '\n' → logprob: -4.646826267242432
+    7. '```' → logprob: -5.396826267242432
+    8. '`' → logprob: -5.771826267242432
+    9. ',
+' → logprob: -5.896826267242432
+    10. '[' → logprob: -6.396826267242432
+
+Token 15: 'def' (ID: 1314)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.348176509141922
+    2. 'def' → logprob: -1.3481764793395996
+    3. '\' → logprob: -4.5981764793396
+    4. '(
+' → logprob: -4.9731764793396
+    5. ',' → logprob: -5.2231764793396
+    6. '[' → logprob: -5.4731764793396
+    7. 'd' → logprob: -6.0981764793396
+    8. '.' → logprob: -6.9731764793396
+    9. '```' → logprob: -6.9731764793396
+    10. '#' → logprob: -7.2231764793396
+
+Token 16: ' quant' (ID: 8237)
+  Prédit: ' '
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' ' → logprob: -1.5616755485534668
+    2. ' reduce' → logprob: -2.061675548553467
+    3. ' map' → logprob: -2.311675548553467
+    4. ' flatten' → logprob: -2.686675548553467
+    5. ' compose' → logprob: -2.686675548553467
+    6. ' merge' → logprob: -3.811675548553467
+    7. ' process' → logprob: -3.811675548553467
+    8. ' sorted' → logprob: -4.061675548553467
+    9. ' wrap' → logprob: -4.061675548553467
+    10. ' chain' → logprob: -4.186675548553467
+
+Token 17: 'ize' (ID: 750)
+  Prédit: 'ize'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'ize' → logprob: -0.1134091168642044
+    2. 'ify' → logprob: -2.4884090423583984
+    3. 'izer' → logprob: -4.238409042358398
+    4. '_' → logprob: -5.863409042358398
+    5. 'ity' → logprob: -6.238409042358398
+    6. 'ifier' → logprob: -6.613409042358398
+    7. '```' → logprob: -6.863409042358398
+    8. 'ized' → logprob: -7.238409042358398
+    9. 'ile' → logprob: -7.738409042358398
+    10. 'iz' → logprob: -8.363409042358398
+
+Token 18: '(val' (ID: 17391)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.029730934649705887
+    2. '_' → logprob: -3.654731035232544
+    3. '_quant' → logprob: -7.904730796813965
+    4. '_token' → logprob: -8.154730796813965
+    5. '_value' → logprob: -8.404730796813965
+    6. '_size' → logprob: -8.654730796813965
+    7. '_tensor' → logprob: -8.904730796813965
+    8. '_tokens' → logprob: -9.029730796813965
+    9. '_values' → logprob: -9.404730796813965
+    10. ' (' → logprob: -9.654730796813965
+
+Token 19: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.016089506447315216
+    2. '):' → logprob: -4.39108943939209
+    3. ')' → logprob: -5.76608943939209
+    4. ':' → logprob: -8.64108943939209
+    5. ' ,' → logprob: -9.76608943939209
+    6. ',val' → logprob: -10.39108943939209
+    7. 'u' → logprob: -10.51608943939209
+    8. 'er' → logprob: -11.14108943939209
+    9. ',value' → logprob: -11.26608943939209
+    10. ' ' → logprob: -11.39108943939209
+
+Token 20: ' denom' (ID: 73604)
+  Prédit: ' step'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' step' → logprob: -0.9481909275054932
+    2. ' scale' → logprob: -1.4481909275054932
+    3. ' levels' → logprob: -2.448190927505493
+    4. ' steps' → logprob: -2.823190927505493
+    5. ' val' → logprob: -3.073190927505493
+    6. ' bins' → logprob: -3.948190927505493
+    7. ' range' → logprob: -4.073190689086914
+    8. 'step' → logprob: -4.198190689086914
+    9. ' bits' → logprob: -4.698190689086914
+    10. 'levels' → logprob: -4.823190689086914
+
+Token 21: '):
+' (ID: 1883)
+  Prédit: '):'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '):' → logprob: -0.15963684022426605
+    2. '=' → logprob: -2.4096367359161377
+    3. ')' → logprob: -3.1596367359161377
+    4. 'ator' → logprob: -4.409636974334717
+    5. ',' → logprob: -7.159636974334717
+    6. '):
+' → logprob: -7.659636974334717
+    7. 'umerator' → logprob: -7.909636974334717
+    8. ')=' → logprob: -8.409636497497559
+    9. 'ERATOR' → logprob: -8.534636497497559
+    10. '):
+' → logprob: -8.784636497497559
+
+Token 22: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.2661694586277008
+    2. ':' → logprob: -1.5161694288253784
+    3. '):' → logprob: -4.891169548034668
+    4. ' return' → logprob: -6.266169548034668
+    5. '    ' → logprob: -6.391169548034668
+    6. ' ' → logprob: -7.141169548034668
+    7. ' :' → logprob: -7.516169548034668
+    8. ')' → logprob: -7.516169548034668
+    9. 'return' → logprob: -8.391169548034668
+    10. ',' → logprob: -8.766169548034668
+
+Token 23: ' return' (ID: 622)
+  Prédit: '   '
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.25739145278930664
+    2. ' return' → logprob: -2.0073914527893066
+    3. '    ' → logprob: -2.7573914527893066
+    4. 'return' (adapté à ' return') → logprob: -4.132391452789307
+    5. ' if' → logprob: -5.507391452789307
+    6. ' ' → logprob: -6.257391452789307
+    7. ' q' → logprob: -7.132391452789307
+    8. ' 
+' → logprob: -7.257391452789307
+    9. ':' → logprob: -7.507391452789307
+    10. ')' → logprob: -7.632391452789307
+
+Token 24: ' div' (ID: 4223)
+  Prédit: ' round'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' round' → logprob: -0.3397851586341858
+    2. 'round' → logprob: -1.839785099029541
+    3. ' val' → logprob: -2.464785099029541
+    4. ' (' → logprob: -4.214785099029541
+    5. ' int' → logprob: -4.214785099029541
+    6. 'val' → logprob: -5.089785099029541
+    7. '(round' → logprob: -6.089785099029541
+    8. 'int' → logprob: -6.589785099029541
+    9. ' abs' → logprob: -6.964785099029541
+    10. '1' → logprob: -7.464785099029541
+
+Token 25: 'mod' (ID: 4847)
+  Prédit: 'ide'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'ide' → logprob: -0.013429257087409496
+    2. 'mod' → logprob: -4.513429164886475
+    3. 'ision' → logprob: -6.513429164886475
+    4. '   ' → logprob: -8.263429641723633
+    5. 'de' → logprob: -8.388429641723633
+    6. 'e' → logprob: -9.013429641723633
+    7. '```' → logprob: -9.638429641723633
+    8. '    ' → logprob: -10.013429641723633
+    9. ' ide' → logprob: -10.638429641723633
+    10. '  ' → logprob: -10.888429641723633
+
+Token 26: '(val' (ID: 17391)
+  Prédit: '(val'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(val' → logprob: -0.0034250891767442226
+    2. '(' → logprob: -5.753425121307373
+    3. 'val' → logprob: -8.753424644470215
+    4. ' val' → logprob: -9.378424644470215
+    5. ',val' → logprob: -13.128424644470215
+    6. '[val' → logprob: -13.753424644470215
+    7. ' (' → logprob: -13.878424644470215
+    8. '	val' → logprob: -15.503424644470215
+    9. ' ' → logprob: -15.878424644470215
+    10. '(
+' → logprob: -16.00342559814453
+
+Token 27: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.003180921310558915
+    2. ' ,' → logprob: -6.003180980682373
+    3. ')' → logprob: -8.003180503845215
+    4. '(' → logprob: -8.378180503845215
+    5. ',val' → logprob: -9.628180503845215
+    6. ' ' → logprob: -10.753180503845215
+    7. '(val' → logprob: -11.378180503845215
+    8. ' (' → logprob: -11.753180503845215
+    9. '   ' → logprob: -11.878180503845215
+    10. '),' → logprob: -12.503180503845215
+
+Token 28: ' denom' (ID: 73604)
+  Prédit: 'den'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'den' → logprob: -0.22586800158023834
+    2. ' denom' → logprob: -1.6008679866790771
+    3. ' den' → logprob: -7.975868225097656
+    4. ' denominator' → logprob: -9.725868225097656
+    5. ' ' → logprob: -10.475868225097656
+    6. ' denomin' → logprob: -11.975868225097656
+    7. '1' → logprob: -12.475868225097656
+    8. '   ' → logprob: -12.913368225097656
+    9. ' ' → logprob: -13.600868225097656
+    10. ')' → logprob: -14.100868225097656
+
+Token 29: ')
+
+' (ID: 1029)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ')' → logprob: -0.02060728706419468
+    2. ')[' → logprob: -3.8956072330474854
+    3. ')`' → logprob: -11.020606994628906
+    4. ' )' → logprob: -11.770606994628906
+    5. '   ' → logprob: -11.770606994628906
+    6. '[' → logprob: -11.895606994628906
+    7. '))' → logprob: -12.520606994628906
+    8. ')}' → logprob: -13.145606994628906
+    9. '),' → logprob: -13.145606994628906
+    10. '')' → logprob: -13.395606994628906
+
+Token 30: 'def' (ID: 1314)
+  Prédit: '['
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '[' → logprob: -0.8905139565467834
+    2. '(' → logprob: -1.3905138969421387
+    3. ',' → logprob: -2.1405138969421387
+    4. '(
+' → logprob: -2.7655138969421387
+    5. 'def' → logprob: -3.1405138969421387
+    6. ':' → logprob: -3.2655138969421387
+    7. ')' → logprob: -3.6405138969421387
+    8. '.' → logprob: -3.7655138969421387
+    9. '
+' → logprob: -5.015513896942139
+    10. ' ' → logprob: -6.015513896942139
+
+Token 31: ' unfold' (ID: 63492)
+  Prédit: ' quant'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' quant' → logprob: -0.055906713008880615
+    2. ' map' → logprob: -4.555906772613525
+    3. ' chain' → logprob: -4.805906772613525
+    4. ' scale' → logprob: -5.930906772613525
+    5. ' get' → logprob: -6.180906772613525
+    6. ' reduce' → logprob: -6.180906772613525
+    7. 'quant' → logprob: -6.180906772613525
+    8. ' multiply' → logprob: -6.180906772613525
+    9. ' _' → logprob: -6.305906772613525
+    10. ' factorial' → logprob: -6.430906772613525
+
+Token 32: '(n' (ID: 2406)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.021104535087943077
+    2. '(lambda' → logprob: -4.896104335784912
+    3. ' (' → logprob: -5.396104335784912
+    4. '(func' → logprob: -5.896104335784912
+    5. '(iter' → logprob: -6.771104335784912
+    6. '(f' → logprob: -7.396104335784912
+    7. '(function' → logprob: -7.396104335784912
+    8. '(chain' → logprob: -7.521104335784912
+    9. '(fn' → logprob: -7.646104335784912
+    10. '_' → logprob: -7.896104335784912
+
+Token 33: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.04013917222619057
+    2. '):' → logprob: -3.5401391983032227
+    3. 'ext' → logprob: -5.665139198303223
+    4. 'um' → logprob: -6.290139198303223
+    5. ')' → logprob: -7.540139198303223
+    6. ',n' → logprob: -7.540139198303223
+    7. ' ,' → logprob: -7.665139198303223
+    8. 'umer' → logprob: -7.790139198303223
+    9. 'umber' → logprob: -7.790139198303223
+    10. '):
+' → logprob: -8.165139198303223
+
+Token 34: ' den' (ID: 1786)
+  Prédit: ' f'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' f' → logprob: -0.7453560829162598
+    2. 'f' → logprob: -1.3703560829162598
+    3. ' func' → logprob: -1.8703560829162598
+    4. 'func' → logprob: -2.8703560829162598
+    5. ' fn' → logprob: -3.2453560829162598
+    6. 'fn' → logprob: -4.37035608291626
+    7. ' ' → logprob: -5.87035608291626
+    8. ' step' → logprob: -6.12035608291626
+    9. 'step' → logprob: -7.49535608291626
+    10. 'fun' → logprob: -7.87035608291626
+
+Token 35: 'oms' (ID: 8469)
+  Prédit: 'om'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'om' → logprob: -0.004648115020245314
+    2. ',' → logprob: -5.879648208618164
+    3. 'um' → logprob: -7.379648208618164
+    4. ')' → logprob: -7.754648208618164
+    5. '=' → logprob: -8.879648208618164
+    6. 's' → logprob: -9.442148208618164
+    7. 'def' → logprob: -9.879648208618164
+    8. '```' → logprob: -10.192148208618164
+    9. '):' → logprob: -10.192148208618164
+    10. 'ом' → logprob: -10.254648208618164
+
+Token 36: '):
+' (ID: 1883)
+  Prédit: '):'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '):' → logprob: -0.09369746595621109
+    2. ',' → logprob: -2.4686975479125977
+    3. ')' → logprob: -6.093697547912598
+    4. '=' → logprob: -7.218697547912598
+    5. 's' → logprob: -7.593697547912598
+    6. '):
+' → logprob: -7.968697547912598
+    7. ':' → logprob: -8.718697547912598
+    8. 'er' → logprob: -8.843697547912598
+    9. ' ):' → logprob: -9.218697547912598
+    10. ')):' → logprob: -9.468697547912598
+
+Token 37: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.15030130743980408
+    2. ':' → logprob: -2.900301218032837
+    3. '    ' → logprob: -3.775301218032837
+    4. '<|end|>' → logprob: -3.775301218032837
+    5. '):' → logprob: -4.775301456451416
+    6. ' ' → logprob: -4.900301456451416
+    7. ' :' → logprob: -5.150301456451416
+    8. ')' → logprob: -5.150301456451416
+    9. ' []' → logprob: -5.900301456451416
+    10. '    
+' → logprob: -6.900301456451416
+
+Token 38: ' def' (ID: 1056)
+  Prédit: 'if'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'if' → logprob: -0.3852829039096832
+    2. 'for' → logprob: -2.3852829933166504
+    3. ' if' → logprob: -3.2602829933166504
+    4. 'result' → logprob: -3.3852829933166504
+    5. '   ' → logprob: -3.5102829933166504
+    6. 'yield' → logprob: -3.5102829933166504
+    7. 'res' → logprob: -3.8852829933166504
+    8. 'head' → logprob: -4.26028299331665
+    9. 'def' (adapté à ' def') → logprob: -4.51028299331665
+    10. ' for' → logprob: -4.88528299331665
+
+Token 39: ' gen' (ID: 3645)
+  Prédit: ' inner'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' inner' → logprob: -1.2921385765075684
+    2. ' helper' → logprob: -1.5421385765075684
+    3. ' step' → logprob: -1.6671385765075684
+    4. ' _' → logprob: -2.2921385765075684
+    5. ' generator' → logprob: -2.5421385765075684
+    6. ' gen' → logprob: -2.7921385765075684
+    7. ' unfold' → logprob: -3.2921385765075684
+    8. ' f' → logprob: -4.417138576507568
+    9. ' loop' → logprob: -5.292138576507568
+    10. ' worker' → logprob: -5.417138576507568
+
+Token 40: '(val' (ID: 17391)
+  Prédit: '():'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '():' → logprob: -0.07761932164430618
+    2. '():
+' → logprob: -3.2026193141937256
+    3. '(i' → logprob: -4.327619552612305
+    4. '(n' → logprob: -4.952619552612305
+    5. '(value' → logprob: -5.827619552612305
+    6. '(x' → logprob: -6.452619552612305
+    7. '(idx' → logprob: -6.577619552612305
+    8. '(s' → logprob: -6.827619552612305
+    9. '(size' → logprob: -7.077619552612305
+    10. '(start' → logprob: -7.077619552612305
+
+Token 41: ',' (ID: 11)
+  Prédit: '):'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '):' → logprob: -0.022411074489355087
+    2. '):
+' → logprob: -4.397410869598389
+    3. ',' → logprob: -5.397410869598389
+    4. '=' → logprob: -5.397410869598389
+    5. '):
+' → logprob: -7.772410869598389
+    6. '   ' → logprob: -9.147411346435547
+    7. '=None' → logprob: -9.272411346435547
+    8. ' ):' → logprob: -10.272411346435547
+    9. ')' → logprob: -10.647411346435547
+    10. ':' → logprob: -11.022411346435547
+
+Token 42: ' ds' (ID: 22924)
+  Prédit: ' den'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' den' → logprob: -0.11649098247289658
+    2. 'den' → logprob: -3.6164910793304443
+    3. ' ds' → logprob: -3.8664910793304443
+    4. ' rest' → logprob: -4.116490840911865
+    5. ' denom' → logprob: -5.241490840911865
+    6. ' dens' → logprob: -5.491490840911865
+    7. ' remaining' → logprob: -5.928990840911865
+    8. ' vals' → logprob: -5.928990840911865
+    9. ' n' → logprob: -5.991490840911865
+    10. 'ds' → logprob: -6.116490840911865
+
+Token 43: '):
+' (ID: 1883)
+  Prédit: '):'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '):' → logprob: -0.025189844891428947
+    2. '):
+' → logprob: -3.9001898765563965
+    3. '=' → logprob: -5.9001898765563965
+    4. '=None' → logprob: -7.0251898765563965
+    5. ',' → logprob: -7.4001898765563965
+    6. '=[]' → logprob: -9.400189399719238
+    7. '):
+' → logprob: -9.900189399719238
+    8. ')' → logprob: -10.025189399719238
+    9. '):
+
+' → logprob: -10.025189399719238
+    10. ' ):' → logprob: -10.275189399719238
+
+Token 44: '       ' (ID: 309)
+  Prédit: '       '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '       ' → logprob: -0.023734426125884056
+    2. ':' → logprob: -3.8987343311309814
+    3. ',' → logprob: -6.3987345695495605
+    4. '):' → logprob: -7.5237345695495605
+    5. ' if' → logprob: -7.5237345695495605
+    6. '   ' → logprob: -9.273734092712402
+    7. ' ' → logprob: -9.773734092712402
+    8. ' for' → logprob: -10.273734092712402
+    9. ')' → logprob: -10.398734092712402
+    10. '
+' → logprob: -10.398734092712402
+
+Token 45: ' if' (ID: 538)
+  Prédit: ' if'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' if' → logprob: -0.7357515692710876
+    2. 'if' (adapté à ' if') → logprob: -1.1107516288757324
+    3. '       ' → logprob: -1.7357516288757324
+    4. '           ' → logprob: -5.110751628875732
+    5. '   ' → logprob: -5.735751628875732
+    6. ' for' → logprob: -6.110751628875732
+    7. 'for' → logprob: -6.485751628875732
+    8. 'try' → logprob: -7.485751628875732
+    9. 'yield' → logprob: -7.985751628875732
+    10. '```' → logprob: -8.235751152038574
+
+Token 46: ' not' (ID: 625)
+  Prédit: ' not'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' not' → logprob: -0.01995813474059105
+    2. ' val' → logprob: -4.394958019256592
+    3. 'not' → logprob: -5.269958019256592
+    4. 'val' → logprob: -7.019958019256592
+    5. ' ds' → logprob: -7.394958019256592
+    6. ' n' → logprob: -8.01995849609375
+    7. ' len' → logprob: -8.76995849609375
+    8. 'n' → logprob: -9.14495849609375
+    9. ' ' → logprob: -10.01995849609375
+    10. '   ' → logprob: -10.51995849609375
+
+Token 47: ' ds' (ID: 22924)
+  Prédit: ' ds'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' ds' → logprob: -0.019580045714974403
+    2. 'ds' → logprob: -4.269579887390137
+    3. ' val' → logprob: -5.519579887390137
+    4. '(ds' → logprob: -6.894579887390137
+    5. 'val' → logprob: -8.394579887390137
+    6. '	ds' → logprob: -9.769579887390137
+    7. ' n' → logprob: -10.769579887390137
+    8. ' ' → logprob: -11.332079887390137
+    9. '(' → logprob: -11.394579887390137
+    10. 'n' → logprob: -11.894579887390137
+
+Token 48: ':
+' (ID: 734)
+  Prédit: ':'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.026126457378268242
+    2. ' or' → logprob: -3.9011263847351074
+    3. ':return' → logprob: -5.401126384735107
+    4. ':
+' → logprob: -6.901126384735107
+    5. 'or' → logprob: -10.151126861572266
+    6. '   ' → logprob: -13.026126861572266
+    7. ' :' → logprob: -13.151126861572266
+    8. 'return' → logprob: -13.651126861572266
+    9. '[' → logprob: -14.026126861572266
+    10. ' and' → logprob: -14.151126861572266
+
+Token 49: '           ' (ID: 352)
+  Prédit: '           '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '           ' → logprob: -0.60386061668396
+    2. ':' → logprob: -1.35386061668396
+    3. '       ' → logprob: -1.97886061668396
+    4. ':return' → logprob: -3.47886061668396
+    5. ':
+' → logprob: -4.228860855102539
+    6. ' return' → logprob: -4.853860855102539
+    7. ' or' → logprob: -6.228860855102539
+    8. 'return' → logprob: -6.978860855102539
+    9. '   ' → logprob: -7.978860855102539
+    10. ' ' → logprob: -9.978860855102539
+
+Token 50: ' return' (ID: 622)
+  Prédit: 'return'
+  Correct (stricte): False
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'return' (adapté à ' return') → logprob: -1.0314967632293701
+    2. '           ' → logprob: -1.1564967632293701
+    3. ' return' → logprob: -1.1564967632293701
+    4. '       ' → logprob: -4.656497001647949
+    5. 'yield' → logprob: -6.156497001647949
+    6. ':return' → logprob: -6.406497001647949
+    7. ' yield' → logprob: -7.656497001647949
+    8. '   ' → logprob: -8.65649700164795
+    9. ':' → logprob: -8.90649700164795
+    10. '
+' → logprob: -9.15649700164795
+
+Token 51: ' ()
+' (ID: 29456)
+  Prédit: '
+'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '
+' → logprob: -0.5903037190437317
+    2. ' val' → logprob: -0.9653037190437317
+    3. 'val' → logprob: -3.090303659439087
+    4. ' None' → logprob: -4.965303897857666
+    5. ' yield' → logprob: -6.215303897857666
+    6. 'None' → logprob: -6.590303897857666
+    7. '
+' → logprob: -6.590303897857666
+    8. ' 
+' → logprob: -6.840303897857666
+    9. '        
+' → logprob: -6.840303897857666
+    10. 'yield' → logprob: -6.965303897857666
+
+Token 52: '       ' (ID: 309)
+  Prédit: '
+'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '
+' → logprob: -0.3030005097389221
+    2. '       ' → logprob: -1.4280004501342773
+    3. '\n' → logprob: -4.053000450134277
+    4. '        
+' → logprob: -6.553000450134277
+    5. '
+' → logprob: -7.303000450134277
+    6. 'val' → logprob: -7.428000450134277
+    7. 'gen' → logprob: -7.553000450134277
+    8. '\
+' → logprob: -8.428000450134277
+    9. '\' → logprob: -8.928000450134277
+    10. '   ' → logprob: -9.303000450134277
+
+Token 53: ' x' (ID: 1215)
+  Prédit: '       '
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '       ' → logprob: -0.4819074273109436
+    2. 'yield' → logprob: -1.1069073677062988
+    3. ' yield' → logprob: -3.731907367706299
+    4. '
+' → logprob: -3.856907367706299
+    5. 'val' → logprob: -5.981907367706299
+    6. '        
+' → logprob: -6.981907367706299
+    7. 'if' → logprob: -7.356907367706299
+    8. 'next' → logprob: -7.606907367706299
+    9. '   ' → logprob: -8.231907844543457
+    10. '    
+' → logprob: -8.481907844543457
+
+Token 54: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.00229620561003685
+    2. ' =' → logprob: -6.752295970916748
+    3. ',y' → logprob: -7.502295970916748
+    4. '=' → logprob: -7.877295970916748
+    5. ' ,' → logprob: -9.252296447753906
+    6. ',val' → logprob: -9.752296447753906
+    7. '_val' → logprob: -12.252296447753906
+    8. '_,' → logprob: -12.627296447753906
+    9. 's' → logprob: -13.002296447753906
+    10. ',next' → logprob: -13.127296447753906
+
+Token 55: ' rem' (ID: 1662)
+  Prédit: ' *'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' *' → logprob: -0.8905761241912842
+    2. '*' → logprob: -1.1405761241912842
+    3. ' y' → logprob: -2.515576124191284
+    4. 'rest' → logprob: -2.890576124191284
+    5. ' rest' → logprob: -3.015576124191284
+    6. ' xs' → logprob: -3.390576124191284
+    7. ' ys' → logprob: -4.015576362609863
+    8. 'y' → logprob: -4.390576362609863
+    9. '*y' → logprob: -4.640576362609863
+    10. 'xs' → logprob: -5.140576362609863
+
+Token 56: ' =' (ID: 314)
+  Prédit: ' ='
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' =' → logprob: -0.7105015516281128
+    2. 'a' → logprob: -1.2105015516281128
+    3. '=' → logprob: -1.9605015516281128
+    4. 'inder' → logprob: -3.8355016708374023
+    5. 'ainer' → logprob: -4.085501670837402
+    6. '   ' → logprob: -4.460501670837402
+    7. ',' → logprob: -4.960501670837402
+    8. 's' → logprob: -5.835501670837402
+    9. 'aining' → logprob: -5.960501670837402
+    10. '  ' → logprob: -6.460501670837402
+
+Token 57: ' quant' (ID: 8237)
+  Prédit: ' quant'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' quant' → logprob: -0.29403558373451233
+    2. ' val' → logprob: -2.1690356731414795
+    3. ' div' → logprob: -2.2940356731414795
+    4. 'quant' → logprob: -4.0440354347229
+    5. ' gen' → logprob: -4.4190354347229
+    6. 'div' → logprob: -5.2940354347229
+    7. ' yield' → logprob: -6.0440354347229
+    8. 'val' → logprob: -6.6690354347229
+    9. ' split' → logprob: -8.419035911560059
+    10. ' next' → logprob: -8.419035911560059
+
+Token 58: 'ize' (ID: 750)
+  Prédit: 'ize'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'ize' → logprob: -0.0024938490241765976
+    2. 'itize' → logprob: -6.752493858337402
+    3. 'iz' → logprob: -7.502493858337402
+    4. 'val' → logprob: -8.127493858337402
+    5. '(val' → logprob: -8.502493858337402
+    6. 'itze' → logprob: -9.127493858337402
+    7. 'izes' → logprob: -10.502493858337402
+    8. 'esize' → logprob: -10.502493858337402
+    9. '[val' → logprob: -10.752493858337402
+    10. 'alyze' → logprob: -11.627493858337402
+
+Token 59: '(val' (ID: 17391)
+  Prédit: '(val'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(val' → logprob: -0.00031270162435248494
+    2. 'val' → logprob: -8.250312805175781
+    3. ' val' → logprob: -10.125312805175781
+    4. '(' → logprob: -12.125312805175781
+    5. '[val' → logprob: -12.500312805175781
+    6. ',val' → logprob: -13.625312805175781
+    7. '	val' → logprob: -14.500312805175781
+    8. '(n' → logprob: -15.500312805175781
+    9. '(value' → logprob: -16.62531280517578
+    10. '(chain' → logprob: -16.62531280517578
+
+Token 60: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.001170460251159966
+    2. ' ,' → logprob: -7.001170635223389
+    3. '(ds' → logprob: -8.62617015838623
+    4. ')' → logprob: -11.25117015838623
+    5. '(' → logprob: -11.37617015838623
+    6. ',d' → logprob: -11.50117015838623
+    7. '   ' → logprob: -11.62617015838623
+    8. ',next' → logprob: -12.37617015838623
+    9. ',n' → logprob: -12.50117015838623
+    10. 's' → logprob: -12.62617015838623
+
+Token 61: ' ds' (ID: 22924)
+  Prédit: ' ds'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' ds' → logprob: -0.05675215646624565
+    2. 'ds' → logprob: -2.9317522048950195
+    3. ' next' → logprob: -6.5567522048950195
+    4. 'next' → logprob: -8.18175220489502
+    5. '	ds' → logprob: -10.05675220489502
+    6. 'chain' → logprob: -10.30675220489502
+    7. ' is' → logprob: -10.68175220489502
+    8. 'den' → logprob: -11.18175220489502
+    9. '(ds' → logprob: -11.18175220489502
+    10. ' chain' → logprob: -11.80675220489502
+
+Token 62: '[' (ID: 58)
+  Prédit: '['
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '[' → logprob: -0.007735580671578646
+    2. '0' → logprob: -4.882735729217529
+    3. 's' → logprob: -9.382735252380371
+    4. '1' → logprob: -11.132735252380371
+    5. '.' → logprob: -12.132735252380371
+    6. '(' → logprob: -12.507735252380371
+    7. '[-' → logprob: -12.507735252380371
+    8. '```' → logprob: -12.757735252380371
+    9. 'irst' → logprob: -12.882735252380371
+    10. '   ' → logprob: -13.257735252380371
+
+Token 63: '0' (ID: 15)
+  Prédit: '0'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '0' → logprob: -0.00019018957391381264
+    2. ' ' → logprob: -8.750189781188965
+    3. '[' → logprob: -12.187689781188965
+    4. '-' → logprob: -12.187689781188965
+    5. ')' → logprob: -12.812689781188965
+    6. '   ' → logprob: -13.187689781188965
+    7. '1' → logprob: -13.625189781188965
+    8. ':' → logprob: -13.687689781188965
+    9. ']' → logprob: -13.750189781188965
+    10. 'x' → logprob: -13.875189781188965
+
+Token 64: '])
+' (ID: 5169)
+  Prédit: '])'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '])' → logprob: -0.0005598236457444727
+    2. '])
+' → logprob: -8.12555980682373
+    3. ']' → logprob: -8.37555980682373
+    4. ' ])' → logprob: -11.62555980682373
+    5. '])
+
+' → logprob: -11.62555980682373
+    6. '])
+' → logprob: -12.00055980682373
+    7. ')' → logprob: -12.62555980682373
+    8. '])]' → logprob: -14.00055980682373
+    9. ']))' → logprob: -14.12555980682373
+    10. '][' → logprob: -14.12555980682373
+
+Token 65: '       ' (ID: 309)
+  Prédit: '
+'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '
+' → logprob: -0.3569478988647461
+    2. '       ' → logprob: -1.231947898864746
+    3. '        
+' → logprob: -5.731947898864746
+    4. 'yield' → logprob: -6.356947898864746
+    5. ' yield' → logprob: -7.231947898864746
+    6. '
+' → logprob: -7.231947898864746
+    7. '\n' → logprob: -7.606947898864746
+    8. ')' → logprob: -7.606947898864746
+    9. ')
+' → logprob: -7.981947898864746
+    10. '   ' → logprob: -9.356947898864746
+
+Token 66: ' return' (ID: 622)
+  Prédit: 'yield'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'yield' → logprob: -0.2086910456418991
+    2. ' yield' → logprob: -1.8336910009384155
+    3. '       ' → logprob: -3.583691120147705
+    4. '
+' → logprob: -8.833690643310547
+    5. '	yield' → logprob: -8.958690643310547
+    6. 'return' (adapté à ' return') → logprob: -9.333690643310547
+    7. 'y' → logprob: -9.458690643310547
+    8. '(y' → logprob: -9.458690643310547
+    9. 'if' → logprob: -10.083690643310547
+    10. '   ' → logprob: -10.083690643310547
+
+Token 67: ' chain' (ID: 13464)
+  Prédit: '(x'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(x' → logprob: -0.4912167489528656
+    2. '(chain' → logprob: -1.241216778755188
+    3. ' (' → logprob: -2.6162166595458984
+    4. '((' → logprob: -4.241216659545898
+    5. 'chain' → logprob: -4.991216659545898
+    6. '(' → logprob: -6.491216659545898
+    7. ' chain' → logprob: -7.241216659545898
+    8. '(y' → logprob: -7.741216659545898
+    9. '(ch' → logprob: -7.866216659545898
+    10. '(iter' → logprob: -7.991216659545898
+
+Token 68: '(re' (ID: 8178)
+  Prédit: '(('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '((' → logprob: -0.05949857831001282
+    2. '([' → logprob: -3.3094985485076904
+    3. '(re' → logprob: -4.0594987869262695
+    4. '(' → logprob: -5.5594987869262695
+    5. '(([' → logprob: -9.55949878692627
+    6. '([(' → logprob: -11.05949878692627
+    7. '.from' → logprob: -11.93449878692627
+    8. '(iter' → logprob: -12.05949878692627
+    9. '(((' → logprob: -12.30949878692627
+    10. '(chain' → logprob: -12.93449878692627
+
+Token 69: 'peat' (ID: 18888)
+  Prédit: 'peat'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'peat' → logprob: -0.001785490894690156
+    2. 'at' → logprob: -6.3767852783203125
+    3. 'eat' → logprob: -10.376785278320312
+    4. 'PEAT' → logprob: -11.251785278320312
+    5. '(' → logprob: -11.626785278320312
+    6. 'p' → logprob: -11.751785278320312
+    7. ' peat' → logprob: -12.251785278320312
+    8. 'pe' → logprob: -13.001785278320312
+    9. '(p' → logprob: -13.001785278320312
+    10. 'ate' → logprob: -13.126785278320312
+
+Token 70: '(ds' (ID: 76175)
+  Prédit: '(x'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(x' → logprob: -0.0032541234977543354
+    2. '((' → logprob: -6.128253936767578
+    3. ' (' → logprob: -7.878253936767578
+    4. '(' → logprob: -8.003253936767578
+    5. 'x' → logprob: -8.378253936767578
+    6. ')(' → logprob: -9.503253936767578
+    7. ')' → logprob: -10.753253936767578
+    8. ' x' → logprob: -11.503253936767578
+    9. ')x' → logprob: -11.628253936767578
+    10. ' ' → logprob: -13.003253936767578
+
+Token 71: '[' (ID: 58)
+  Prédit: '['
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '[' → logprob: -9.865583706414327e-05
+    2. '0' → logprob: -10.00009822845459
+    3. '(' → logprob: -11.50009822845459
+    4. ')' → logprob: -11.50009822845459
+    5. '[
+' → logprob: -11.87509822845459
+    6. '<|end|>' → logprob: -12.37509822845459
+    7. ' [' → logprob: -12.50009822845459
+    8. ',' → logprob: -13.00009822845459
+    9. ')[' → logprob: -13.06259822845459
+    10. '<|end|>' → logprob: -13.12509822845459
+
+Token 72: '0' (ID: 15)
+  Prédit: '0'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '0' → logprob: -6.825890159234405e-05
+    2. '[' → logprob: -9.875068664550781
+    3. ' ' → logprob: -11.500068664550781
+    4. 'x' → logprob: -13.937568664550781
+    5. '(' → logprob: -14.000068664550781
+    6. '1' → logprob: -14.312568664550781
+    7. 'index' → logprob: -14.500068664550781
+    8. ')' → logprob: -15.062568664550781
+    9. '   ' → logprob: -15.125068664550781
+    10. '00' → logprob: -15.250068664550781
+
+Token 73: '],' (ID: 2155)
+  Prédit: ','
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.006777658127248287
+    2. ',x' → logprob: -5.131777763366699
+    3. '),' → logprob: -7.131777763366699
+    4. 'x' → logprob: -10.5067777633667
+    5. ' ,' → logprob: -11.1317777633667
+    6. ' x' → logprob: -13.1317777633667
+    7. '(x' → logprob: -14.1317777633667
+    8. '},' → logprob: -14.5067777633667
+    9. '   ' → logprob: -14.5067777633667
+    10. ')' → logprob: -14.7567777633667
+
+Token 74: ' x' (ID: 1215)
+  Prédit: 'x'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'x' → logprob: -0.061971161514520645
+    2. ' x' → logprob: -2.8119711875915527
+    3. ' ' → logprob: -13.436970710754395
+    4. '	x' → logprob: -13.686970710754395
+    5. ')x' → logprob: -14.936970710754395
+    6. '(x' → logprob: -15.436970710754395
+    7. '{x' → logprob: -16.06197166442871
+    8. '   ' → logprob: -16.18697166442871
+    9. ' ' → logprob: -16.56197166442871
+    10. 'int' → logprob: -17.18697166442871
+
+Token 75: '),' (ID: 936)
+  Prédit: '),'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '),' → logprob: -0.00016682932619005442
+    2. ')' → logprob: -9.000166893005371
+    3. ' ),' → logprob: -10.250166893005371
+    4. '),
+' → logprob: -12.000166893005371
+    5. '),
+
+' → logprob: -14.375166893005371
+    6. '()),' → logprob: -15.375166893005371
+    7. '),(' → logprob: -15.375166893005371
+    8. '+' → logprob: -15.875166893005371
+    9. ' ' → logprob: -15.875166893005371
+    10. '))' → logprob: -15.875166893005371
+
+Token 76: ' gen' (ID: 3645)
+  Prédit: 'gen'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'gen' → logprob: -0.08909214287996292
+    2. ' gen' → logprob: -2.464092254638672
+    3. '(gen' → logprob: -9.589092254638672
+    4. 'is' → logprob: -10.339092254638672
+    5. '	gen' → logprob: -11.464092254638672
+    6. '()' → logprob: -11.714092254638672
+    7. '       ' → logprob: -11.839092254638672
+    8. '   ' → logprob: -12.089092254638672
+    9. 'tuple' → logprob: -12.214092254638672
+    10. ' is' → logprob: -12.714092254638672
+
+Token 77: '(rem' (ID: 150425)
+  Prédit: '(rem'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(rem' → logprob: -0.00014072739577386528
+    2. '(' → logprob: -9.000141143798828
+    3. ')(' → logprob: -11.500141143798828
+    4. 'rem' → logprob: -12.500141143798828
+    5. ' (' → logprob: -14.000141143798828
+    6. ')' → logprob: -14.125141143798828
+    7. '(rest' → logprob: -15.000141143798828
+    8. ',' → logprob: -15.500141143798828
+    9. '(n' → logprob: -15.625141143798828
+    10. ' ' → logprob: -15.750141143798828
+
+Token 78: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.0008074867073446512
+    2. ',[' → logprob: -8.625807762145996
+    3. ',(' → logprob: -9.000807762145996
+    4. '[' → logprob: -9.125807762145996
+    5. ' ,' → logprob: -9.125807762145996
+    6. '),' → logprob: -9.375807762145996
+    7. '(' → logprob: -9.500807762145996
+    8. ',s' → logprob: -10.250807762145996
+    9. ',d' → logprob: -10.500807762145996
+    10. ')' → logprob: -11.625807762145996
+
+Token 79: ' ds' (ID: 22924)
+  Prédit: 'ds'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'ds' → logprob: -0.061978328973054886
+    2. ' ds' → logprob: -2.811978340148926
+    3. '(ds' → logprob: -12.186978340148926
+    4. '	ds' → logprob: -12.561978340148926
+    5. ' ' → logprob: -13.811978340148926
+    6. '   ' → logprob: -14.811978340148926
+    7. 'd' → logprob: -15.686978340148926
+    8. '_ds' → logprob: -15.811978340148926
+    9. '  ' → logprob: -16.06197738647461
+    10. '    ' → logprob: -16.81197738647461
+
+Token 80: '[' (ID: 58)
+  Prédit: '['
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '[' → logprob: -0.014224499464035034
+    2. '1' → logprob: -4.264224529266357
+    3. '```' → logprob: -10.6392240524292
+    4. ' [' → logprob: -10.8892240524292
+    5. '2' → logprob: -11.7642240524292
+    6. ' ' → logprob: -12.2642240524292
+    7. '
+' → logprob: -14.2642240524292
+    8. '   ' → logprob: -14.2642240524292
+    9. '(' → logprob: -14.6392240524292
+    10. '`' → logprob: -15.0767240524292
+
+Token 81: '1' (ID: 16)
+  Prédit: '1'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '1' → logprob: -0.0003160393098369241
+    2. '[' → logprob: -8.12531566619873
+    3. ' ' → logprob: -11.12531566619873
+    4. '(' → logprob: -13.00031566619873
+    5. '   ' → logprob: -14.62531566619873
+    6. '>' → logprob: -15.50031566619873
+    7. ')' → logprob: -15.50031566619873
+    8. ' [' → logprob: -15.56281566619873
+    9. ':' → logprob: -15.75031566619873
+    10. '```' → logprob: -15.75031566619873
+
+Token 82: ':' (ID: 25)
+  Prédit: ':'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.0016657774103805423
+    2. '1' → logprob: -7.0016655921936035
+    3. ':]' → logprob: -7.2516655921936035
+    4. ']))' → logprob: -10.376666069030762
+    5. '+' → logprob: -11.876666069030762
+    6. ':],' → logprob: -13.001666069030762
+    7. '[' → logprob: -13.751666069030762
+    8. '']))' → logprob: -13.876666069030762
+    9. ':])
+' → logprob: -14.501666069030762
+    10. '"]))' → logprob: -14.501666069030762
+
+Token 83: ']))
+' (ID: 24801)
+  Prédit: ']))'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ']))' → logprob: -0.004728330299258232
+    2. '))' → logprob: -6.254728317260742
+    3. ')))' → logprob: -6.879728317260742
+    4. ']))
+' → logprob: -7.004728317260742
+    5. ']' → logprob: -7.754728317260742
+    6. ']))
+
+' → logprob: -8.754728317260742
+    7. '])' → logprob: -8.754728317260742
+    8. ')' → logprob: -10.004728317260742
+    9. '])))' → logprob: -10.379728317260742
+    10. '']))' → logprob: -11.379728317260742
+
+Token 84: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.30264049768447876
+    2. '       ' → logprob: -2.552640438079834
+    3. ')' → logprob: -2.677640438079834
+    4. 'def' → logprob: -3.177640438079834
+    5. 'return' → logprob: -4.302640438079834
+    6. '(' → logprob: -4.302640438079834
+    7. ',' → logprob: -4.427640438079834
+    8. '()' → logprob: -5.302640438079834
+    9. '    ' → logprob: -5.552640438079834
+    10. '()
+' → logprob: -5.677640438079834
+
+Token 85: ' return' (ID: 622)
+  Prédit: '   '
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -1.1566070318222046
+    2. '       ' → logprob: -1.5316070318222046
+    3. 'return' (adapté à ' return') → logprob: -1.6566070318222046
+    4. 'yield' → logprob: -1.9066070318222046
+    5. ' return' → logprob: -3.156607151031494
+    6. ' ' → logprob: -3.406607151031494
+    7. ' yield' → logprob: -3.406607151031494
+    8. '        
+' → logprob: -5.156607151031494
+    9. ')' → logprob: -5.406607151031494
+    10. '    ' → logprob: -6.031607151031494
+
+Token 86: ' list' (ID: 1562)
+  Prédit: 'tuple'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'tuple' → logprob: -0.21396924555301666
+    2. 'gen' → logprob: -2.7139692306518555
+    3. 'list' → logprob: -3.0889692306518555
+    4. 'is' → logprob: -3.2139692306518555
+    5. ' tuple' → logprob: -3.5889692306518555
+    6. 'chain' → logprob: -5.0889692306518555
+    7. 'lambda' → logprob: -5.9639692306518555
+    8. ' list' → logprob: -6.7139692306518555
+    9. ' gen' → logprob: -7.2139692306518555
+    10. 'iter' → logprob: -7.2139692306518555
+
+Token 87: '(gen' (ID: 80178)
+  Prédit: '(gen'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(gen' → logprob: -0.018251903355121613
+    2. '(is' → logprob: -4.018251895904541
+    3. '(chain' → logprob: -9.6432523727417
+    4. '(' → logprob: -10.2682523727417
+    5. 'is' → logprob: -13.6432523727417
+    6. '	gen' → logprob: -15.2682523727417
+    7. 'gen' → logprob: -15.3932523727417
+    8. ' (' → logprob: -15.3932523727417
+    9. '(generator' → logprob: -15.6432523727417
+    10. ')(' → logprob: -16.643251419067383
+
+Token 88: '(n' (ID: 2406)
+  Prédit: '(n'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(n' → logprob: -0.00035786881926469505
+    2. '(' → logprob: -8.000357627868652
+    3. ')(' → logprob: -11.500357627868652
+    4. ')' → logprob: -11.750357627868652
+    5. '(val' → logprob: -13.500357627868652
+    6. ')n' → logprob: -13.750357627868652
+    7. ' (' → logprob: -14.125357627868652
+    8. 'n' → logprob: -14.375357627868652
+    9. '((' → logprob: -16.00035858154297
+    10. ' ' → logprob: -16.25035858154297
+
+Token 89: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.00021736434428021312
+    2. ' ,' → logprob: -8.50021743774414
+    3. '),' → logprob: -12.12521743774414
+    4. ',n' → logprob: -12.37521743774414
+    5. ')' → logprob: -13.50021743774414
+    6. ',
+' → logprob: -14.37521743774414
+    7. ',d' → logprob: -14.87521743774414
+    8. ',len' → logprob: -15.50021743774414
+    9. '‌,' → logprob: -15.62521743774414
+    10. '(' → logprob: -15.75021743774414
+
+Token 90: ' den' (ID: 1786)
+  Prédit: 'den'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'den' → logprob: -0.1002756804227829
+    2. ' den' → logprob: -2.350275754928589
+    3. '   ' → logprob: -10.350275993347168
+    4. ' ' → logprob: -11.475275993347168
+    5. ' list' → logprob: -12.100275993347168
+    6. 'list' → logprob: -12.225275993347168
+    7. ')' → logprob: -12.225275993347168
+    8. '  ' → logprob: -13.037775993347168
+    9. '    ' → logprob: -13.037775993347168
+    10. 'd' → logprob: -14.225275993347168
+
+Token 91: 'oms' (ID: 8469)
+  Prédit: 'oms'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'oms' → logprob: -2.15310683415737e-05
+    2. 's' → logprob: -12.000021934509277
+    3. '[' → logprob: -12.125021934509277
+    4. ')' → logprob: -12.250021934509277
+    5. '   ' → logprob: -13.875021934509277
+    6. 'ms' → logprob: -14.250021934509277
+    7. 'ons' → logprob: -14.500021934509277
+    8. '```' → logprob: -15.000021934509277
+    9. 'om' → logprob: -15.625021934509277
+    10. '(' → logprob: -15.625021934509277
+
+Token 92: '))
+
+' (ID: 9746)
+  Prédit: '))'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '))' → logprob: -1.2948405128554441e-05
+    2. ')' → logprob: -12.12501335144043
+    3. '()))' → logprob: -12.50001335144043
+    4. '))
+' → logprob: -13.37501335144043
+    5. ')))' → logprob: -13.37501335144043
+    6. ' ))' → logprob: -14.37501335144043
+    7. '))
+
+' → logprob: -17.37501335144043
+    8. '()' → logprob: -18.50001335144043
+    9. '),' → logprob: -18.62501335144043
+    10. '(' → logprob: -18.75001335144043
+
+Token 93: 'def' (ID: 1314)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ')' → logprob: -0.1454034000635147
+    2. '(' → logprob: -2.7704033851623535
+    3. '<|end|>' → logprob: -3.3954033851623535
+    4. '[' → logprob: -3.5204033851623535
+    5. ' ' → logprob: -5.8954033851623535
+    6. ',' → logprob: -6.6454033851623535
+    7. '<|end|>' → logprob: -6.7704033851623535
+    8. '#' → logprob: -7.0204033851623535
+    9. ' )' → logprob: -7.6454033851623535
+    10. '_' → logprob: -7.6454033851623535
+
+Token 94: ' elaborate' (ID: 65742)
+  Prédit: ' quant'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' quant' → logprob: -1.25093674659729
+    2. ' main' → logprob: -2.12593674659729
+    3. ' test' → logprob: -2.25093674659729
+    4. ' factorial' → logprob: -3.37593674659729
+    5. ' gcd' → logprob: -3.50093674659729
+    6. ' sum' → logprob: -3.50093674659729
+    7. ' scale' → logprob: -3.62593674659729
+    8. ' is' → logprob: -3.87593674659729
+    9. ' map' → logprob: -4.000936508178711
+    10. ' chain' → logprob: -4.000936508178711
+
+Token 95: '_score' (ID: 22555)
+  Prédit: '(n'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(n' → logprob: -0.23677213490009308
+    2. '(' → logprob: -1.9867721796035767
+    3. ' (' → logprob: -2.861772060394287
+    4. '(s' → logprob: -5.986772060394287
+    5. '(lst' → logprob: -6.361772060394287
+    6. '(def' → logprob: -6.486772060394287
+    7. '(value' → logprob: -6.611772060394287
+    8. '(code' → logprob: -6.736772060394287
+    9. '(val' → logprob: -7.236772060394287
+    10. '(data' → logprob: -7.736772060394287
+
+Token 96: '(n' (ID: 2406)
+  Prédit: '(score'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(score' → logprob: -0.002739254618063569
+    2. '(' → logprob: -7.127739429473877
+    3. '(scores' → logprob: -7.377739429473877
+    4. '(n' → logprob: -8.252738952636719
+    5. ' (' → logprob: -9.002738952636719
+    6. '(base' → logprob: -9.002738952636719
+    7. '(s' → logprob: -9.377738952636719
+    8. '(def' → logprob: -9.502738952636719
+    9. '(song' → logprob: -9.877738952636719
+    10. '(sc' → logprob: -9.877738952636719
+
+Token 97: '):
+' (ID: 1883)
+  Prédit: ','
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.0005303950165398419
+    2. ',n' → logprob: -8.500530242919922
+    3. '):' → logprob: -8.500530242919922
+    4. ' ,' → logprob: -9.500530242919922
+    5. ',s' → logprob: -11.875530242919922
+    6. ',num' → logprob: -12.500530242919922
+    7. 'def' → logprob: -12.750530242919922
+    8. ',val' → logprob: -12.750530242919922
+    9. ',
+' → logprob: -12.875530242919922
+    10. ')' → logprob: -13.000530242919922
+
+Token 98: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.023098133504390717
+    2. 'def' → logprob: -4.023097991943359
+    3. 'den' → logprob: -5.773097991943359
+    4. ' if' → logprob: -7.648097991943359
+    5. 'return' → logprob: -8.02309799194336
+    6. ' return' → logprob: -8.14809799194336
+    7. ' den' → logprob: -8.27309799194336
+    8. 'if' → logprob: -9.14809799194336
+    9. ' def' → logprob: -9.14809799194336
+    10. 'from' → logprob: -9.77309799194336
+
+Token 99: ' den' (ID: 1786)
+  Prédit: ' den'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' den' → logprob: -1.3257746696472168
+    2. 'den' (adapté à ' den') → logprob: -1.8257746696472168
+    3. '   ' → logprob: -1.9507746696472168
+    4. ' if' → logprob: -2.450774669647217
+    5. ' return' → logprob: -2.450774669647217
+    6. 'def' → logprob: -2.700774669647217
+    7. 'return' → logprob: -3.825774669647217
+    8. ' def' → logprob: -3.825774669647217
+    9. ' score' → logprob: -3.950774669647217
+    10. 'score' → logprob: -4.200774669647217
+
+Token 100: 'oms' (ID: 8469)
+  Prédit: 'oms'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'oms' → logprob: -0.001576044363901019
+    2. 'def' → logprob: -7.126575946807861
+    3. 's' → logprob: -7.626575946807861
+    4. 'defs' → logprob: -9.50157642364502
+    5. '   ' → logprob: -10.00157642364502
+    6. '=' → logprob: -10.50157642364502
+    7. ' =' → logprob: -10.87657642364502
+    8. 'orm' → logprob: -11.12657642364502
+    9. 'ms' → logprob: -11.62657642364502
+    10. '_defs' → logprob: -11.62657642364502
+
+Token 101: ' =' (ID: 314)
+  Prédit: ' ='
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' =' → logprob: -0.038056179881095886
+    2. '=' → logprob: -3.2880561351776123
+    3. ' =[' → logprob: -11.788056373596191
+    4. '=[' → logprob: -13.163056373596191
+    5. ')' → logprob: -13.288056373596191
+    6. ',' → logprob: -13.913056373596191
+    7. ' ' → logprob: -14.538056373596191
+    8. '=[]' → logprob: -14.538056373596191
+    9. 's' → logprob: -14.663056373596191
+    10. '<|end|>' → logprob: -15.038056373596191
+
+Token 102: ' [' (ID: 723)
+  Prédit: '['
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '[' → logprob: -0.34883013367652893
+    2. ' [' → logprob: -1.2238301038742065
+    3. '(' → logprob: -8.348830223083496
+    4. ' (' → logprob: -9.223830223083496
+    5. '   ' → logprob: -10.473830223083496
+    6. ' ' → logprob: -11.223830223083496
+    7. '[(' → logprob: -12.723830223083496
+    8. '([' → logprob: -13.723830223083496
+    9. '[
+' → logprob: -13.973830223083496
+    10. ' [(' → logprob: -14.348830223083496
+
+Token 103: '500' (ID: 3234)
+  Prédit: '100'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '100' → logprob: -0.06238092854619026
+    2. '10' → logprob: -3.4373810291290283
+    3. '25' → logprob: -5.062380790710449
+    4. '20' → logprob: -5.437380790710449
+    5. '(' → logprob: -5.562380790710449
+    6. ' ' → logprob: -5.687380790710449
+    7. '5' → logprob: -5.687380790710449
+    8. '50' → logprob: -5.687380790710449
+    9. '16' → logprob: -7.312380790710449
+    10. '60' → logprob: -7.687380790710449
+
+Token 104: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.001200231839902699
+    2. ' ,' → logprob: -6.751200199127197
+    3. '0' → logprob: -10.876200675964355
+    4. ',
+' → logprob: -12.126200675964355
+    5. ' ' → logprob: -12.876200675964355
+    6. '   ' → logprob: -13.501200675964355
+    7. ',
+
+' → logprob: -14.876200675964355
+    8. '500' → logprob: -15.001200675964355
+    9. ']' → logprob: -15.126200675964355
+    10. ')' → logprob: -15.751200675964355
+
+Token 105: ' ' (ID: 220)
+  Prédit: '100'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '100' → logprob: -0.5695015788078308
+    2. ' ' → logprob: -1.0695016384124756
+    3. '200' → logprob: -2.4445016384124756
+    4. '250' → logprob: -6.4445013999938965
+    5. '400' → logprob: -6.5695013999938965
+    6. '50' → logprob: -7.6945013999938965
+    7. '300' → logprob: -7.9445013999938965
+    8. '20' → logprob: -8.819501876831055
+    9. '  ' → logprob: -9.569501876831055
+    10. '125' → logprob: -9.944501876831055
+
+Token 106: '5' (ID: 20)
+  Prédit: '100'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '100' → logprob: -0.07826881110668182
+    2. '200' → logprob: -2.7032687664031982
+    3. '400' → logprob: -5.828269004821777
+    4. '300' → logprob: -5.953269004821777
+    5. '250' → logprob: -6.578269004821777
+    6. '50' → logprob: -7.703269004821777
+    7. ' ' → logprob: -7.828269004821777
+    8. '150' → logprob: -8.828269004821777
+    9. '125' → logprob: -9.578269004821777
+    10. '20' → logprob: -9.828269004821777
+
+Token 107: ']
+' (ID: 1592)
+  Prédit: '00'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '00' → logprob: -0.007221345789730549
+    2. ',' → logprob: -5.632221221923828
+    3. '0' → logprob: -5.632221221923828
+    4. ' ' → logprob: -10.632221221923828
+    5. ' ,' → logprob: -12.007221221923828
+    6. ']' → logprob: -13.632221221923828
+    7. '000' → logprob: -13.632221221923828
+    8. '   ' → logprob: -15.007221221923828
+    9. '01' → logprob: -15.257221221923828
+    10. '  ' → logprob: -15.382221221923828
+
+Token 108: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.04768408089876175
+    2. ',' → logprob: -3.2976841926574707
+    3. '<|end|>' → logprob: -4.922684192657471
+    4. '[' → logprob: -7.047684192657471
+    5. '```' → logprob: -7.797684192657471
+    6. ' ' → logprob: -8.922683715820312
+    7. '    
+' → logprob: -8.922683715820312
+    8. ')' → logprob: -9.172683715820312
+    9. 'return' → logprob: -9.172683715820312
+    10. 'def' → logprob: -9.547683715820312
+
+Token 109: ' values' (ID: 4824)
+  Prédit: ' parts'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' parts' → logprob: -0.7593634724617004
+    2. ' return' → logprob: -2.1343634128570557
+    3. '   ' → logprob: -2.5093634128570557
+    4. ' result' → logprob: -2.8843634128570557
+    5. ' res' → logprob: -3.2593634128570557
+    6. 'return' → logprob: -3.5093634128570557
+    7. ' counts' → logprob: -3.8843634128570557
+    8. 'result' → logprob: -4.134363651275635
+    9. ' rem' → logprob: -4.134363651275635
+    10. 'parts' → logprob: -4.134363651275635
+
+Token 110: ' =' (ID: 314)
+  Prédit: ' ='
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' =' → logprob: -0.007649688050150871
+    2. '=' → logprob: -4.882649898529053
+    3. ',' → logprob: -10.132649421691895
+    4. ' ' → logprob: -13.507649421691895
+    5. ' ,' → logprob: -14.382649421691895
+    6. ' =[' → logprob: -14.757649421691895
+    7. '   ' → logprob: -15.382649421691895
+    8. '=[]' → logprob: -15.507649421691895
+    9. ' =)' → logprob: -15.632649421691895
+    10. ' =
+' → logprob: -15.882649421691895
+
+Token 111: ' {' (ID: 354)
+  Prédit: '['
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '[' → logprob: -0.8065822124481201
+    2. ' [' → logprob: -1.1815822124481201
+    3. ' unfold' → logprob: -1.8065822124481201
+    4. ' list' → logprob: -3.68158221244812
+    5. 'un' → logprob: -3.80658221244812
+    6. ' quant' → logprob: -4.806582450866699
+    7. '   ' → logprob: -5.556582450866699
+    8. 'list' → logprob: -5.681582450866699
+    9. 'quant' → logprob: -6.056582450866699
+    10. '{' → logprob: -6.056582450866699
+
+Token 112: '500' (ID: 3234)
+  Prédit: '500'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '500' → logprob: -0.4585696756839752
+    2. '   ' → logprob: -1.8335696458816528
+    3. ''' → logprob: -2.4585697650909424
+    4. '0' → logprob: -3.2085697650909424
+    5. '       ' → logprob: -3.7085697650909424
+    6. ' ' → logprob: -4.208569526672363
+    7. '1' → logprob: -4.833569526672363
+    8. '"' → logprob: -5.083569526672363
+    9. '100' → logprob: -5.333569526672363
+    10. '5' → logprob: -5.458569526672363
+
+Token 113: ':' (ID: 25)
+  Prédit: ':'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.00013381359167397022
+    2. ' :' → logprob: -9.250133514404297
+    3. '1' → logprob: -11.375133514404297
+    4. '0' → logprob: -11.500133514404297
+    5. '500' → logprob: -12.250133514404297
+    6. ',' → logprob: -12.875133514404297
+    7. ':return' → logprob: -13.125133514404297
+    8. '   ' → logprob: -13.875133514404297
+    9. '100' → logprob: -14.500133514404297
+    10. '2' → logprob: -14.750133514404297
+
+Token 114: ' ' (ID: 220)
+  Prédit: ' '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' ' → logprob: -1.081924319267273
+    2. '100' → logprob: -1.081924319267273
+    3. '1' → logprob: -2.2069244384765625
+    4. '5' → logprob: -3.4569244384765625
+    5. '500' → logprob: -3.4569244384765625
+    6. '50' → logprob: -3.7069244384765625
+    7. '10' → logprob: -3.9569244384765625
+    8. ''' → logprob: -4.3319244384765625
+    9. '"' → logprob: -4.5819244384765625
+    10. '2' → logprob: -4.5819244384765625
+
+Token 115: '100' (ID: 1353)
+  Prédit: '100'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '100' → logprob: -0.8483602404594421
+    2. '1' → logprob: -2.098360300064087
+    3. '5' → logprob: -2.473360300064087
+    4. '10' → logprob: -2.848360300064087
+    5. '50' → logprob: -3.098360300064087
+    6. '3' → logprob: -3.098360300064087
+    7. '[' → logprob: -3.348360300064087
+    8. '2' → logprob: -3.598360300064087
+    9. '"' → logprob: -3.598360300064087
+    10. ''' → logprob: -3.598360300064087
+
+Token 116: '0' (ID: 15)
+  Prédit: ','
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.10293366760015488
+    2. '0' → logprob: -2.352933645248413
+    3. ',
+' → logprob: -6.477933883666992
+    4. '00' → logprob: -7.852933883666992
+    5. ':' → logprob: -7.977933883666992
+    6. '000' → logprob: -9.102933883666992
+    7. ' ,' → logprob: -9.352933883666992
+    8. '   ' → logprob: -9.352933883666992
+    9. '}' → logprob: -9.602933883666992
+    10. '500' → logprob: -10.477933883666992
+
+Token 117: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.0019721693824976683
+    2. ',
+' → logprob: -6.251972198486328
+    3. ' ,' → logprob: -10.626972198486328
+    4. '   ' → logprob: -11.251972198486328
+    5. '}' → logprob: -13.626972198486328
+    6. ' ' → logprob: -13.751972198486328
+    7. ',
+
+' → logprob: -13.751972198486328
+    8. '  ' → logprob: -14.376972198486328
+    9. '500' → logprob: -14.501972198486328
+    10. ')' → logprob: -14.751972198486328
+
+Token 118: ' ' (ID: 220)
+  Prédit: '5'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '5' → logprob: -0.18028201162815094
+    2. ' ' → logprob: -1.8052819967269897
+    3. '  ' → logprob: -8.805281639099121
+    4. '500' → logprob: -8.930281639099121
+    5. '1' → logprob: -9.430281639099121
+    6. '   ' → logprob: -9.805281639099121
+    7. '    ' → logprob: -9.930281639099121
+    8. '100' → logprob: -10.680281639099121
+    9. '     ' → logprob: -11.055281639099121
+    10. '50' → logprob: -11.305281639099121
+
+Token 119: '5' (ID: 20)
+  Prédit: '5'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '5' → logprob: -0.00535980612039566
+    2. ' ' → logprob: -5.755359649658203
+    3. '1' → logprob: -6.380359649658203
+    4. '500' → logprob: -8.505359649658203
+    5. '100' → logprob: -8.630359649658203
+    6. '50' → logprob: -10.255359649658203
+    7. '  ' → logprob: -10.755359649658203
+    8. '   ' → logprob: -11.005359649658203
+    9. '200' → logprob: -12.005359649658203
+    10. '     ' → logprob: -12.130359649658203
+
+Token 120: ':' (ID: 25)
+  Prédit: ':'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -8.41866585687967e-06
+    2. '500' → logprob: -12.875008583068848
+    3. ',' → logprob: -13.125008583068848
+    4. ' :' → logprob: -13.250008583068848
+    5. '0' → logprob: -14.000008583068848
+    6. ':return' → logprob: -15.375008583068848
+    7. ':
+' → logprob: -15.500008583068848
+    8. '   ' → logprob: -15.625008583068848
+    9. '<|end|>' → logprob: -16.50000762939453
+    10. '100' → logprob: -16.50000762939453
+
+Token 121: ' ' (ID: 220)
+  Prédit: ' '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' ' → logprob: -1.1617480516433716
+    2. '100' → logprob: -1.2867480516433716
+    3. '1' → logprob: -2.161747932434082
+    4. '2' → logprob: -2.536747932434082
+    5. '10' → logprob: -2.911747932434082
+    6. '200' → logprob: -2.911747932434082
+    7. '50' → logprob: -2.911747932434082
+    8. '20' → logprob: -4.536747932434082
+    9. '500' → logprob: -4.911747932434082
+    10. '5' → logprob: -5.161747932434082
+
+Token 122: '5' (ID: 20)
+  Prédit: '100'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '100' → logprob: -0.789955198764801
+    2. '200' → logprob: -1.2899551391601562
+    3. '50' → logprob: -2.0399551391601562
+    4. '10' → logprob: -3.5399551391601562
+    5. '2' → logprob: -3.7899551391601562
+    6. '500' → logprob: -4.164955139160156
+    7. '1' → logprob: -4.414955139160156
+    8. '5' → logprob: -4.664955139160156
+    9. '150' → logprob: -4.789955139160156
+    10. '300' → logprob: -5.289955139160156
+
+Token 123: '}
+' (ID: 739)
+  Prédit: '}'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '}' → logprob: -0.020861949771642685
+    2. ',' → logprob: -3.895861864089966
+    3. ' }' → logprob: -8.270861625671387
+    4. '}
+' → logprob: -10.270861625671387
+    5. '   ' → logprob: -11.270861625671387
+    6. '}
+
+' → logprob: -12.395861625671387
+    7. ',
+' → logprob: -12.520861625671387
+    8. '500' → logprob: -12.895861625671387
+    9. ')' → logprob: -13.270861625671387
+    10. '})' → logprob: -14.020861625671387
+
+Token 124: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.0012833295622840524
+    2. 'def' → logprob: -7.751283168792725
+    3. 'result' → logprob: -8.001283645629883
+    4. ' result' → logprob: -8.626283645629883
+    5. 'score' → logprob: -9.876283645629883
+    6. '    
+' → logprob: -10.126283645629883
+    7. '    ' → logprob: -10.251283645629883
+    8. ' return' → logprob: -10.501283645629883
+    9. ')' → logprob: -10.626283645629883
+    10. '```' → logprob: -10.751283645629883
+
+Token 125: ' coins' (ID: 28969)
+  Prédit: 'result'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'result' → logprob: -0.9343851804733276
+    2. 'score' → logprob: -1.6843851804733276
+    3. 'counts' → logprob: -1.6843851804733276
+    4. 'def' → logprob: -2.559385299682617
+    5. 'parts' → logprob: -3.184385299682617
+    6. 'res' → logprob: -3.434385299682617
+    7. 'total' → logprob: -4.184385299682617
+    8. 'tokens' → logprob: -4.184385299682617
+    9. 'if' → logprob: -4.809385299682617
+    10. 'scores' → logprob: -5.059385299682617
+
+Token 126: ' =' (ID: 314)
+  Prédit: ' ='
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' =' → logprob: -0.00525154173374176
+    2. '=' → logprob: -5.255251407623291
+    3. ',' → logprob: -11.50525188446045
+    4. ' ' → logprob: -12.75525188446045
+    5. '   ' → logprob: -13.25525188446045
+    6. ')' → logprob: -13.88025188446045
+    7. '=[]' → logprob: -15.50525188446045
+    8. '[' → logprob: -15.63025188446045
+    9. ' =
+' → logprob: -15.63025188446045
+    10. '.' → logprob: -15.75525188446045
+
+Token 127: ' unfold' (ID: 63492)
+  Prédit: ' unfold'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' unfold' → logprob: -0.31476277112960815
+    2. 'un' → logprob: -1.314762830734253
+    3. '   ' → logprob: -8.314763069152832
+    4. ' un' → logprob: -8.439763069152832
+    5. ' ' → logprob: -8.689763069152832
+    6. ' unfolds' → logprob: -8.814763069152832
+    7. ' unfolded' → logprob: -8.939763069152832
+    8. ' unfolding' → logprob: -9.314763069152832
+    9. 'el' → logprob: -9.564763069152832
+    10. ' unravel' → logprob: -9.564763069152832
+
+Token 128: '(n' (ID: 2406)
+  Prédit: '(n'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(n' → logprob: -0.0001239196863025427
+    2. '(' → logprob: -9.000123977661133
+    3. '(
+' → logprob: -16.250123977661133
+    4. '(abs' → logprob: -16.500123977661133
+    5. '<|end|>' → logprob: -16.500123977661133
+    6. ' (' → logprob: -17.125123977661133
+    7. 'n' → logprob: -17.250123977661133
+    8. '((' → logprob: -17.875123977661133
+    9. '(noun' → logprob: -18.625123977661133
+    10. ')n' → logprob: -18.750123977661133
+
+Token 129: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.0003421375877223909
+    2. ',[' → logprob: -8.25034236907959
+    3. '(' → logprob: -10.12534236907959
+    4. '([' → logprob: -10.62534236907959
+    5. ' ,' → logprob: -11.62534236907959
+    6. '[' → logprob: -12.75034236907959
+    7. ',(' → logprob: -13.50034236907959
+    8. ',
+' → logprob: -13.62534236907959
+    9. ' ,[' → logprob: -14.62534236907959
+    10. ')' → logprob: -15.25034236907959
+
+Token 130: ' den' (ID: 1786)
+  Prédit: 'den'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'den' → logprob: -0.00770694250240922
+    2. ' den' → logprob: -4.882707118988037
+    3. '[' → logprob: -9.632706642150879
+    4. '   ' → logprob: -11.507706642150879
+    5. 'list' → logprob: -11.507706642150879
+    6. ' [' → logprob: -12.132706642150879
+    7. 'values' → logprob: -12.757706642150879
+    8. ' list' → logprob: -13.132706642150879
+    9. ' ' → logprob: -13.382706642150879
+    10. '  ' → logprob: -14.382706642150879
+
+Token 131: 'oms' (ID: 8469)
+  Prédit: 'oms'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'oms' → logprob: -4.4849443838757e-06
+    2. '[' → logprob: -12.375004768371582
+    3. 's' → logprob: -16.750003814697266
+    4. ' oms' → logprob: -17.000003814697266
+    5. 'om' → logprob: -17.250003814697266
+    6. 'OMS' → logprob: -18.125003814697266
+    7. ')' → logprob: -18.375003814697266
+    8. '(' → logprob: -18.375003814697266
+    9. 'ms' → logprob: -18.750003814697266
+    10. 'ons' → logprob: -18.750003814697266
+
+Token 132: ')
+' (ID: 446)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')' → logprob: -0.00020401719666551799
+    2. ')
+' → logprob: -8.500204086303711
+    3. ' )' → logprob: -15.000204086303711
+    4. ')
+
+' → logprob: -16.37520408630371
+    5. '   ' → logprob: -17.12520408630371
+    6. ' ' → logprob: -18.12520408630371
+    7. ')
+' → logprob: -18.25020408630371
+    8. '))' → logprob: -18.37520408630371
+    9. ')`' → logprob: -19.00020408630371
+    10. '),' → logprob: -19.25020408630371
+
+Token 133: '   ' (ID: 271)
+  Prédit: 'result'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'result' → logprob: -1.0556776523590088
+    2. '   ' → logprob: -1.1806776523590088
+    3. ' result' → logprob: -1.4306776523590088
+    4. ' total' → logprob: -3.180677652359009
+    5. 'total' → logprob: -3.430677652359009
+    6. 'score' → logprob: -4.18067741394043
+    7. 'return' → logprob: -5.43067741394043
+    8. ' return' → logprob: -5.68067741394043
+    9. ' score' → logprob: -6.05567741394043
+    10. 'res' → logprob: -6.18067741394043
+
+Token 134: ' groups' (ID: 8896)
+  Prédit: 'return'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'return' → logprob: -0.22761750221252441
+    2. 'score' → logprob: -2.2276175022125244
+    3. 'result' → logprob: -2.9776175022125244
+    4. 'total' → logprob: -3.7276175022125244
+    5. ' return' → logprob: -4.727617263793945
+    6. 'scores' → logprob: -6.227617263793945
+    7. '   ' → logprob: -6.352617263793945
+    8. 'sum' → logprob: -6.977617263793945
+    9. 'res' → logprob: -6.977617263793945
+    10. 'def' → logprob: -7.102617263793945
+
+Token 135: ' =' (ID: 314)
+  Prédit: ' ='
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' =' → logprob: -0.04866810142993927
+    2. '=' → logprob: -3.048668146133423
+    3. ',' → logprob: -9.923667907714844
+    4. '(' → logprob: -11.048667907714844
+    5. '   ' → logprob: -11.923667907714844
+    6. 's' → logprob: -12.673667907714844
+    7. '_counts' → logprob: -13.298667907714844
+    8. '=[]' → logprob: -14.048667907714844
+    9. ':' → logprob: -14.548667907714844
+    10. ')' → logprob: -14.798667907714844
+
+Token 136: ' map' (ID: 4014)
+  Prédit: '{'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '{' → logprob: -1.7343673706054688
+    2. '[]
+' → logprob: -1.7343673706054688
+    3. '{}
+' → logprob: -2.4843673706054688
+    4. '[' → logprob: -2.4843673706054688
+    5. '[(' → logprob: -2.4843673706054688
+    6. 'list' → logprob: -2.7343673706054688
+    7. '[[' → logprob: -3.3593673706054688
+    8. 'group' → logprob: -3.3593673706054688
+    9. ' [' → logprob: -3.6093673706054688
+    10. '{}' → logprob: -3.7343673706054688
+
+Token 137: '(lambda' (ID: 43341)
+  Prédit: '(lambda'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(lambda' → logprob: -0.010377802886068821
+    2. '(' → logprob: -4.635377883911133
+    3. '(values' → logprob: -7.885377883911133
+    4. '(list' → logprob: -9.760377883911133
+    5. '(
+' → logprob: -9.885377883911133
+    6. '((' → logprob: -9.885377883911133
+    7. '(part' → logprob: -10.010377883911133
+    8. '(f' → logprob: -12.010377883911133
+    9. '(len' → logprob: -12.010377883911133
+    10. '(count' → logprob: -12.010377883911133
+
+Token 138: ' d' (ID: 272)
+  Prédit: ' coin'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' coin' → logprob: -0.7453187704086304
+    2. ' c' → logprob: -0.9953187704086304
+    3. ' x' → logprob: -2.87031888961792
+    4. 'coin' → logprob: -2.99531888961792
+    5. 'x' → logprob: -3.74531888961792
+    6. 'c' → logprob: -3.87031888961792
+    7. ' coins' → logprob: -7.12031888961792
+    8. '(' → logprob: -7.12031888961792
+    9. ' group' → logprob: -7.49531888961792
+    10. ' lambda' → logprob: -7.74531888961792
+
+Token 139: ':' (ID: 25)
+  Prédit: ':'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.003255788702517748
+    2. ',' → logprob: -6.503255844116211
+    3. ' d' → logprob: -7.378255844116211
+    4. ' :' → logprob: -8.003255844116211
+    5. 's' → logprob: -8.253255844116211
+    6. 'd' → logprob: -9.003255844116211
+    7. ' s' → logprob: -9.128255844116211
+    8. ' x' → logprob: -9.503255844116211
+    9. 'x' → logprob: -9.753255844116211
+    10. '[' → logprob: -9.878255844116211
+
+Token 140: ' list' (ID: 1562)
+  Prédit: 'values'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'values' → logprob: -0.16575835645198822
+    2. ' values' → logprob: -2.0407583713531494
+    3. '(values' → logprob: -4.16575813293457
+    4. 'lambda' → logprob: -6.41575813293457
+    5. '[' → logprob: -6.66575813293457
+    6. 'repeat' → logprob: -7.04075813293457
+    7. '(lambda' → logprob: -7.41575813293457
+    8. ' lambda' → logprob: -7.41575813293457
+    9. ' (' → logprob: -7.54075813293457
+    10. '(' → logprob: -8.04075813293457
+
+Token 141: '(filter' (ID: 36366)
+  Prédit: '(re'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(re' → logprob: -0.7247607111930847
+    2. '(filter' → logprob: -1.9747607707977295
+    3. '(chain' → logprob: -1.9747607707977295
+    4. '(t' → logprob: -2.0997607707977295
+    5. '(is' → logprob: -2.2247607707977295
+    6. '(' → logprob: -6.09976053237915
+    7. '(d' → logprob: -6.34976053237915
+    8. '(group' → logprob: -6.84976053237915
+    9. '(drop' → logprob: -7.22476053237915
+    10. 'repeat' → logprob: -8.349761009216309
+
+Token 142: '(lambda' (ID: 43341)
+  Prédit: '(lambda'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(lambda' → logprob: -0.000946472748182714
+    2. '(' → logprob: -7.000946521759033
+    3. '(
+' → logprob: -11.375946044921875
+    4. 'lambda' → logprob: -11.875946044921875
+    5. '(d' → logprob: -12.250946044921875
+    6. '=lambda' → logprob: -12.500946044921875
+    7. '(None' → logprob: -12.625946044921875
+    8. '(co' → logprob: -13.250946044921875
+    9. '   ' → logprob: -13.875946044921875
+    10. ' (' → logprob: -14.500946044921875
+
+Token 143: ' c' (ID: 274)
+  Prédit: ' x'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' x' → logprob: -0.8012104630470276
+    2. 'x' → logprob: -1.0512104034423828
+    3. ' c' → logprob: -2.301210403442383
+    4. 'c' → logprob: -2.801210403442383
+    5. ' coin' → logprob: -3.926210403442383
+    6. 'coin' → logprob: -4.676210403442383
+    7. '(x' → logprob: -5.676210403442383
+    8. ' y' → logprob: -6.551210403442383
+    9. '   ' → logprob: -7.051210403442383
+    10. 'k' → logprob: -7.176210403442383
+
+Token 144: ':' (ID: 25)
+  Prédit: ':'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.01324540562927723
+    2. ' c' → logprob: -5.263245582580566
+    3. 'c' → logprob: -5.388245582580566
+    4. ':c' → logprob: -6.388245582580566
+    5. 'd' → logprob: -6.888245582580566
+    6. ' :' → logprob: -8.013245582580566
+    7. '(c' → logprob: -8.763245582580566
+    8. '=' → logprob: -9.638245582580566
+    9. ',c' → logprob: -10.388245582580566
+    10. ',' → logprob: -10.513245582580566
+
+Token 145: ' c' (ID: 274)
+  Prédit: 'c'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'c' → logprob: -0.16089002788066864
+    2. ' c' → logprob: -1.910889983177185
+    3. ' lambda' → logprob: -7.660890102386475
+    4. 'lambda' → logprob: -9.035889625549316
+    5. '    ' → logprob: -11.160889625549316
+    6. '   ' → logprob: -11.160889625549316
+    7. ' d' → logprob: -11.535889625549316
+    8. 'd' → logprob: -11.535889625549316
+    9. ' ' → logprob: -11.660889625549316
+    10. '	c' → logprob: -12.785889625549316
+
+Token 146: '==' (ID: 560)
+  Prédit: '=='
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '==' → logprob: -0.22557902336120605
+    2. ' ==' → logprob: -1.600579023361206
+    3. 'd' → logprob: -9.225579261779785
+    4. ' ' → logprob: -11.475579261779785
+    5. '=' → logprob: -11.600579261779785
+    6. ' c' → logprob: -11.725579261779785
+    7. 'c' → logprob: -12.100579261779785
+    8. ':' → logprob: -12.100579261779785
+    9. '<=' → logprob: -12.225579261779785
+    10. ' d' → logprob: -12.475579261779785
+
+Token 147: 'd' (ID: 67)
+  Prédit: 'd'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'd' → logprob: -0.02078804187476635
+    2. ' d' → logprob: -3.8957879543304443
+    3. 'c' → logprob: -8.395788192749023
+    4. ' c' → logprob: -11.145788192749023
+    5. ' ' → logprob: -13.395788192749023
+    6. '   ' → logprob: -13.395788192749023
+    7. '    ' → logprob: -14.520788192749023
+    8. ',' → logprob: -14.645788192749023
+    9. '(d' → logprob: -15.520788192749023
+    10. '	d' → logprob: -15.645788192749023
+
+Token 148: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.0017438429640606046
+    2. ' ,' → logprob: -6.751743793487549
+    3. 'coins' → logprob: -8.001744270324707
+    4. ' coins' → logprob: -8.626744270324707
+    5. '   ' → logprob: -10.876744270324707
+    6. ' and' → logprob: -11.501744270324707
+    7. '),' → logprob: -11.626744270324707
+    8. '(co' → logprob: -11.626744270324707
+    9. ' ' → logprob: -12.876744270324707
+    10. ',
+' → logprob: -13.251744270324707
+
+Token 149: ' coins' (ID: 28969)
+  Prédit: 'coins'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'coins' → logprob: -0.14285022020339966
+    2. ' coins' → logprob: -2.017850160598755
+    3. '   ' → logprob: -9.267849922180176
+    4. 'coin' → logprob: -10.517849922180176
+    5. ' ' → logprob: -10.642849922180176
+    6. 'co' → logprob: -11.830349922180176
+    7. '  ' → logprob: -12.955349922180176
+    8. '    ' → logprob: -13.205349922180176
+    9. ' coin' → logprob: -13.330349922180176
+    10. ' ' → logprob: -13.517849922180176
+
+Token 150: ')),' (ID: 12098)
+  Prédit: ')),'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')),' → logprob: -0.286070853471756
+    2. ')))' → logprob: -1.7860708236694336
+    3. '))' → logprob: -2.5360708236694336
+    4. '))),' → logprob: -6.411070823669434
+    5. ' ' → logprob: -8.911070823669434
+    6. ')),
+' → logprob: -9.661070823669434
+    7. '),' → logprob: -10.161070823669434
+    8. ')' → logprob: -10.286070823669434
+    9. '))))' → logprob: -10.661070823669434
+    10. '   ' → logprob: -10.786070823669434
+
+Token 151: ' den' (ID: 1786)
+  Prédit: 'den'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'den' → logprob: -0.14862310886383057
+    2. ' den' → logprob: -2.023622989654541
+    3. '[' → logprob: -5.398622989654541
+    4. ' [' → logprob: -7.148622989654541
+    5. 'set' → logprob: -8.6486234664917
+    6. '   ' → logprob: -8.8986234664917
+    7. ' set' → logprob: -9.0236234664917
+    8. '{' → logprob: -9.7736234664917
+    9. ' ' → logprob: -10.7736234664917
+    10. '(' → logprob: -11.3986234664917
+
+Token 152: 'oms' (ID: 8469)
+  Prédit: 'oms'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'oms' → logprob: -0.00024156268045771867
+    2. '[' → logprob: -9.00024127960205
+    3. 's' → logprob: -9.87524127960205
+    4. 'ons' → logprob: -10.75024127960205
+    5. '(' → logprob: -11.75024127960205
+    6. ')' → logprob: -11.87524127960205
+    7. 'om' → logprob: -12.25024127960205
+    8. ' oms' → logprob: -12.50024127960205
+    9. '   ' → logprob: -13.37524127960205
+    10. '#' → logprob: -13.37524127960205
+
+Token 153: ')
+' (ID: 446)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')' → logprob: -4.739826181321405e-05
+    2. '))' → logprob: -10.25004768371582
+    3. ')
+' → logprob: -11.75004768371582
+    4. ')))' → logprob: -13.00004768371582
+    5. '   ' → logprob: -13.50004768371582
+    6. ' )' → logprob: -14.75004768371582
+    7. '),' → logprob: -16.37504768371582
+    8. ' ' → logprob: -17.62504768371582
+    9. ')
+
+' → logprob: -17.62504768371582
+    10. '))))' → logprob: -18.12504768371582
+
+Token 154: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.039207350462675095
+    2. '
+' → logprob: -3.7892074584960938
+    3. ')' → logprob: -5.039207458496094
+    4. 'def' → logprob: -6.164207458496094
+    5. '    
+' → logprob: -6.289207458496094
+    6. '<|end|>' → logprob: -6.289207458496094
+    7. ',' → logprob: -6.914207458496094
+    8. 'result' → logprob: -7.789207458496094
+    9. ')
+' → logprob: -8.039207458496094
+    10. 'tokens' → logprob: -8.414207458496094
+
+Token 155: ' products' (ID: 3891)
+  Prédit: 'result'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'result' → logprob: -0.8049913644790649
+    2. '   ' → logprob: -1.179991364479065
+    3. 'counts' → logprob: -2.8049912452697754
+    4. 'scores' → logprob: -3.0549912452697754
+    5. ' result' → logprob: -3.5549912452697754
+    6. 'return' → logprob: -3.8049912452697754
+    7. 'results' → logprob: -4.429991245269775
+    8. 'def' → logprob: -4.554991245269775
+    9. 'score' → logprob: -4.679991245269775
+    10. 'values' → logprob: -4.929991245269775
+
+Token 156: ' =' (ID: 314)
+  Prédit: '='
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '=' → logprob: -0.47407805919647217
+    2. ' =' → logprob: -0.9740780591964722
+    3. '(' → logprob: -14.849078178405762
+    4. ')' → logprob: -15.474078178405762
+    5. '   ' → logprob: -15.724078178405762
+    6. '=list' → logprob: -16.474077224731445
+    7. ' ' → logprob: -16.599077224731445
+    8. ',' → logprob: -16.724077224731445
+    9. '＝' → logprob: -17.099077224731445
+    10. 's' → logprob: -17.224077224731445
+
+Token 157: ' map' (ID: 4014)
+  Prédit: 'map'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'map' → logprob: -0.2829095721244812
+    2. ' map' → logprob: -1.407909631729126
+    3. '(map' → logprob: -7.032909393310547
+    4. 'list' → logprob: -7.532909393310547
+    5. ' list' → logprob: -8.282909393310547
+    6. '   ' → logprob: -10.407909393310547
+    7. ' [' → logprob: -11.157909393310547
+    8. '[' → logprob: -11.407909393310547
+    9. ' (' → logprob: -11.532909393310547
+    10. ' ' → logprob: -12.532909393310547
+
+Token 158: '(lambda' (ID: 43341)
+  Prédit: '(lambda'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(lambda' → logprob: -0.00017314712749794126
+    2. '(' → logprob: -9.000173568725586
+    3. ' (' → logprob: -10.125173568725586
+    4. '   ' → logprob: -12.500173568725586
+    5. 'lambda' → logprob: -12.875173568725586
+    6. '(
+' → logprob: -13.000173568725586
+    7. '(len' → logprob: -15.250173568725586
+    8. '(f' → logprob: -15.500173568725586
+    9. '(l' → logprob: -15.625173568725586
+    10. '(func' → logprob: -15.750173568725586
+
+Token 159: ' grp' (ID: 111219)
+  Prédit: '(lambda'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(lambda' → logprob: -0.10221156477928162
+    2. ' (' → logprob: -2.7272114753723145
+    3. ' lambda' → logprob: -4.7272114753723145
+    4. 'd' → logprob: -4.9772114753723145
+    5. 'lambda' → logprob: -5.3522114753723145
+    6. ' d' → logprob: -5.4772114753723145
+    7. '(d' → logprob: -5.8522114753723145
+    8. '(' → logprob: -6.6022114753723145
+    9. 'g' → logprob: -7.4772114753723145
+    10. '(list' → logprob: -8.227211952209473
+
+Token 160: ',' (ID: 11)
+  Prédit: ':'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.006710513029247522
+    2. 's' → logprob: -5.631710529327393
+    3. ' :' → logprob: -6.131710529327393
+    4. ',' → logprob: -8.006710052490234
+    5. 'sum' → logprob: -8.506710052490234
+    6. ':list' → logprob: -9.381710052490234
+    7. '[' → logprob: -9.756710052490234
+    8. ' sum' → logprob: -9.881710052490234
+    9. 'd' → logprob: -10.006710052490234
+    10. ',sum' → logprob: -10.131710052490234
+
+Token 161: ' d' (ID: 272)
+  Prédit: 'lambda'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'lambda' → logprob: -0.35196033120155334
+    2. 'values' → logprob: -1.351960301399231
+    3. ' lambda' → logprob: -3.3519604206085205
+    4. ' values' → logprob: -6.351960182189941
+    5. 'den' → logprob: -7.601960182189941
+    6. 'val' → logprob: -7.851960182189941
+    7. 'vals' → logprob: -9.351960182189941
+    8. 'value' → logprob: -9.726960182189941
+    9. '   ' → logprob: -10.476960182189941
+    10. '(lambda' → logprob: -10.851960182189941
+
+Token 162: ':' (ID: 25)
+  Prédit: ':'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.00023727134976070374
+    2. ',' → logprob: -8.750237464904785
+    3. ' :' → logprob: -9.625237464904785
+    4. 's' → logprob: -12.250237464904785
+    5. '=' → logprob: -12.375237464904785
+    6. '=lambda' → logprob: -13.875237464904785
+    7. ':value' → logprob: -14.250237464904785
+    8. 'd' → logprob: -14.750237464904785
+    9. ':(' → logprob: -15.250237464904785
+    10. '   ' → logprob: -15.500237464904785
+
+Token 163: ' len' (ID: 4631)
+  Prédit: 'sum'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'sum' → logprob: -0.26645052433013916
+    2. ' sum' → logprob: -1.8914505243301392
+    3. 'reduce' → logprob: -2.7664504051208496
+    4. 'len' → logprob: -4.39145040512085
+    5. ' len' → logprob: -5.64145040512085
+    6. ' reduce' → logprob: -6.01645040512085
+    7. 'lambda' → logprob: -6.89145040512085
+    8. ' lambda' → logprob: -8.016450881958008
+    9. '[' → logprob: -8.766450881958008
+    10. '(sum' → logprob: -9.516450881958008
+
+Token 164: '(gr' (ID: 64506)
+  Prédit: '(gr'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(gr' → logprob: -1.7432603272027336e-06
+    2. '(' → logprob: -13.500001907348633
+    3. 'grp' → logprob: -16.000001907348633
+    4. '(group' → logprob: -16.375001907348633
+    5. '(groups' → logprob: -16.375001907348633
+    6. '(
+' → logprob: -18.750001907348633
+    7. '(lst' → logprob: -18.875001907348633
+    8. '(s' → logprob: -19.125001907348633
+    9. '(prod' → logprob: -19.250001907348633
+    10. ')' → logprob: -19.375001907348633
+
+Token 165: 'p' (ID: 79)
+  Prédit: 'p'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'p' → logprob: -2.618001053633634e-05
+    2. 'up' → logprob: -10.625025749206543
+    3. 'oup' → logprob: -14.875025749206543
+    4. 'ps' → logprob: -15.000025749206543
+    5. 'п' → logprob: -15.250025749206543
+    6. 'op' → logprob: -15.750025749206543
+    7. '[' → logprob: -16.37502670288086
+    8. 'o' → logprob: -16.50002670288086
+    9. '(p' → logprob: -16.50002670288086
+    10. '(gr' → logprob: -16.50002670288086
+
+Token 166: ')*' (ID: 11043)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')' → logprob: -0.19874417781829834
+    2. ',' → logprob: -2.073744297027588
+    3. ' *' → logprob: -3.698744297027588
+    4. ')*' → logprob: -4.323744297027588
+    5. '(d' → logprob: -5.323744297027588
+    6. ' ' → logprob: -5.573744297027588
+    7. ',d' → logprob: -5.573744297027588
+    8. '*' → logprob: -6.323744297027588
+    9. '*d' → logprob: -7.323744297027588
+    10. ' ,' → logprob: -7.323744297027588
+
+Token 167: 'values' (ID: 7222)
+  Prédit: 'values'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'values' → logprob: -0.2524881362915039
+    2. ' values' → logprob: -1.502488136291504
+    3. '(values' → logprob: -7.502488136291504
+    4. '.values' → logprob: -12.752488136291504
+    5. '	values' → logprob: -12.752488136291504
+    6. '-values' → logprob: -14.752488136291504
+    7. ' ' → logprob: -14.877488136291504
+    8. '(' → logprob: -16.127487182617188
+    9. 'd' → logprob: -16.377487182617188
+    10. ' (' → logprob: -16.752487182617188
+
+Token 168: '[d' (ID: 48377)
+  Prédit: '(d'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(d' → logprob: -0.0005693563143722713
+    2. '(' → logprob: -7.8755693435668945
+    3. ' (' → logprob: -8.625569343566895
+    4. ',' → logprob: -12.625569343566895
+    5. ',d' → logprob: -12.875569343566895
+    6. ')' → logprob: -13.750569343566895
+    7. '((' → logprob: -14.000569343566895
+    8. 'd' → logprob: -14.125569343566895
+    9. ' ' → logprob: -15.125569343566895
+    10. ')(' → logprob: -15.250569343566895
+
+Token 169: '],' (ID: 2155)
+  Prédit: ','
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.05432986840605736
+    2. '(d' → logprob: -3.8043298721313477
+    3. '),' → logprob: -3.8043298721313477
+    4. ',d' → logprob: -5.554329872131348
+    5. ' ,' → logprob: -5.554329872131348
+    6. ')' → logprob: -7.929329872131348
+    7. ' ),' → logprob: -9.679329872131348
+    8. '(' → logprob: -10.054329872131348
+    9. 'd' → logprob: -10.554329872131348
+    10. ' (' → logprob: -10.679329872131348
+
+Token 170: ' groups' (ID: 8896)
+  Prédit: ' groups'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' groups' → logprob: -0.28193628787994385
+    2. 'groups' → logprob: -1.4069362878799438
+    3. '    ' → logprob: -8.031936645507812
+    4. 'grp' → logprob: -9.031936645507812
+    5. ' grp' → logprob: -9.906936645507812
+    6. 'gr' → logprob: -10.156936645507812
+    7. '(groups' → logprob: -10.156936645507812
+    8. '   ' → logprob: -10.281936645507812
+    9. ' grupos' → logprob: -10.531936645507812
+    10. 'den' → logprob: -10.531936645507812
+
+Token 171: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -6.2729995988775045e-06
+    2. ' ,' → logprob: -13.000006675720215
+    3. ')' → logprob: -13.500006675720215
+    4. ',d' → logprob: -13.750006675720215
+    5. ',
+' → logprob: -14.500006675720215
+    6. ',)' → logprob: -15.125006675720215
+    7. '   ' → logprob: -15.500006675720215
+    8. ',",' → logprob: -15.625006675720215
+    9. '),' → logprob: -16.1250057220459
+    10. ',
+
+' → logprob: -16.8750057220459
+
+Token 172: ' den' (ID: 1786)
+  Prédit: 'den'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'den' → logprob: -0.20141948759555817
+    2. ' den' → logprob: -1.701419472694397
+    3. '    ' → logprob: -13.701419830322266
+    4. ' chain' → logprob: -13.826419830322266
+    5. 'chain' → logprob: -13.951419830322266
+    6. '   ' → logprob: -13.951419830322266
+    7. 'd' → logprob: -15.451419830322266
+    8. 'iter' → logprob: -15.576419830322266
+    9. '        ' → logprob: -15.576419830322266
+    10. ' ' → logprob: -15.576419830322266
+
+Token 173: 'oms' (ID: 8469)
+  Prédit: 'oms'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'oms' → logprob: -0.00018149138486478478
+    2. 's' → logprob: -8.750181198120117
+    3. '[' → logprob: -10.875181198120117
+    4. 'om' → logprob: -13.250181198120117
+    5. 'ons' → logprob: -14.000181198120117
+    6. '   ' → logprob: -15.875181198120117
+    7. 'ums' → logprob: -16.250181198120117
+    8. 'orm' → logprob: -16.250181198120117
+    9. '```' → logprob: -16.250181198120117
+    10. 'ims' → logprob: -16.375181198120117
+
+Token 174: ')
+' (ID: 446)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')' → logprob: -0.0015329512534663081
+    2. ')
+' → logprob: -6.501533031463623
+    3. '   ' → logprob: -10.501532554626465
+    4. ')
+
+' → logprob: -13.251532554626465
+    5. ' )' → logprob: -13.876532554626465
+    6. ' ' → logprob: -15.751532554626465
+    7. '))' → logprob: -16.00153350830078
+    8. '  ' → logprob: -16.62653350830078
+    9. ')
+' → logprob: -17.00153350830078
+    10. ' )
+' → logprob: -17.50153350830078
+
+Token 175: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.07342252135276794
+    2. '
+' → logprob: -3.448422431945801
+    3. 'return' → logprob: -3.573422431945801
+    4. ' return' → logprob: -4.698422431945801
+    5. '    
+' → logprob: -7.073422431945801
+    6. ')' → logprob: -7.573422431945801
+    7. ' 
+' → logprob: -8.9484224319458
+    8. 'result' → logprob: -9.4484224319458
+    9. '	return' → logprob: -9.9484224319458
+    10. '    ' → logprob: -10.3234224319458
+
+Token 176: ' return' (ID: 622)
+  Prédit: 'return'
+  Correct (stricte): False
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'return' (adapté à ' return') → logprob: -0.10277116298675537
+    2. ' return' → logprob: -2.477771282196045
+    3. '   ' → logprob: -4.477771282196045
+    4. 'total' → logprob: -6.977771282196045
+    5. 'result' → logprob: -7.102771282196045
+    6. '
+' → logprob: -8.477770805358887
+    7. ' total' → logprob: -8.727770805358887
+    8. 'score' → logprob: -9.352770805358887
+    9. ' result' → logprob: -9.852770805358887
+    10. ')' → logprob: -10.727770805358887
+
+Token 177: ' reduce' (ID: 10389)
+  Prédit: 'reduce'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'reduce' → logprob: -0.8200665712356567
+    2. ' sum' → logprob: -1.4450665712356567
+    3. 'sum' → logprob: -1.4450665712356567
+    4. ' reduce' → logprob: -2.445066452026367
+    5. ' list' → logprob: -7.070066452026367
+    6. 'list' → logprob: -7.570066452026367
+    7. ' max' → logprob: -10.945066452026367
+    8. 'max' → logprob: -11.195066452026367
+    9. ' ' → logprob: -12.570066452026367
+    10. 're' → logprob: -12.695066452026367
+
+Token 178: '(lambda' (ID: 43341)
+  Prédit: '(lambda'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(lambda' → logprob: -0.007332229521125555
+    2. '(' → logprob: -5.2573323249816895
+    3. '(operator' → logprob: -6.2573323249816895
+    4. '(int' → logprob: -9.007331848144531
+    5. '((' → logprob: -10.507331848144531
+    6. '(sum' → logprob: -11.507331848144531
+    7. ' (' → logprob: -12.507331848144531
+    8. '(add' → logprob: -12.507331848144531
+    9. 'lambda' → logprob: -12.757331848144531
+    10. '   ' → logprob: -13.132331848144531
+
+Token 179: ' a' (ID: 261)
+  Prédit: 'lambda'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'lambda' → logprob: -0.5781325101852417
+    2. ' lambda' → logprob: -0.8281325101852417
+    3. '(lambda' → logprob: -7.078132629394531
+    4. 'a' → logprob: -7.203132629394531
+    5. ' a' → logprob: -8.078132629394531
+    6. 'x' → logprob: -8.453132629394531
+    7. ' x' → logprob: -10.078132629394531
+    8. ' ' → logprob: -11.203132629394531
+    9. '   ' → logprob: -11.578132629394531
+    10. '=lambda' → logprob: -12.203132629394531
+
+Token 180: ',b' (ID: 17568)
+  Prédit: ','
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.8619771599769592
+    2. ' lambda' → logprob: -0.9869771599769592
+    3. 'lambda' → logprob: -1.6119771003723145
+    4. 'a' → logprob: -5.9869771003723145
+    5. 'x' → logprob: -6.9869771003723145
+    6. ' a' → logprob: -7.1119771003723145
+    7. '(lambda' → logprob: -7.7369771003723145
+    8. ' x' → logprob: -7.8619771003723145
+    9. ' ,' → logprob: -8.611977577209473
+    10. '=lambda' → logprob: -8.611977577209473
+
+Token 181: ':' (ID: 25)
+  Prédit: ':'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.10909558832645416
+    2. ',' → logprob: -2.359095573425293
+    3. ',a' → logprob: -5.359095573425293
+    4. ' :' → logprob: -5.734095573425293
+    5. 'a' → logprob: -7.734095573425293
+    6. ',b' → logprob: -8.484095573425293
+    7. ':a' → logprob: -8.734095573425293
+    8. ' ,' → logprob: -9.859095573425293
+    9. ' a' → logprob: -10.234095573425293
+    10. 'b' → logprob: -12.234095573425293
+
+Token 182: ' a' (ID: 261)
+  Prédit: 'a'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'a' → logprob: -0.004078639671206474
+    2. ' a' → logprob: -5.5040788650512695
+    3. '	a' → logprob: -15.75407886505127
+    4. '   ' → logprob: -17.004077911376953
+    5. ' ' → logprob: -17.504077911376953
+    6. 'lambda' → logprob: -17.629077911376953
+    7. '  ' → logprob: -19.254077911376953
+    8. '(a' → logprob: -20.254077911376953
+    9. ' ' → logprob: -20.504077911376953
+    10. ')a' → logprob: -20.629077911376953
+
+Token 183: '+b' (ID: 76609)
+  Prédit: ' +'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' +' → logprob: -0.7989245057106018
+    2. '+b' → logprob: -0.7989245057106018
+    3. '+' → logprob: -2.298924446105957
+    4. '+
+' → logprob: -12.673924446105957
+    5. ' +
+' → logprob: -13.923924446105957
+    6. ' ' → logprob: -14.173924446105957
+    7. '＋' → logprob: -14.298924446105957
+    8. ',b' → logprob: -14.548924446105957
+    9. ' plus' → logprob: -14.673924446105957
+    10. '+a' → logprob: -15.048924446105957
+
+Token 184: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.0019402962643653154
+    2. ' ,' → logprob: -6.2519402503967285
+    3. ',b' → logprob: -11.501940727233887
+    4. 'products' → logprob: -14.001940727233887
+    5. ',p' → logprob: -14.751940727233887
+    6. ' products' → logprob: -15.376940727233887
+    7. ')' → logprob: -16.12693977355957
+    8. '(products' → logprob: -16.75193977355957
+    9. '   ' → logprob: -17.50193977355957
+    10. ',
+' → logprob: -18.62693977355957
+
+Token 185: ' products' (ID: 3891)
+  Prédit: 'products'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'products' → logprob: -0.0019287518225610256
+    2. ' products' → logprob: -6.251928806304932
+    3. '(products' → logprob: -16.626928329467773
+    4. 'Products' → logprob: -17.376928329467773
+    5. '-products' → logprob: -17.876928329467773
+    6. '   ' → logprob: -18.251928329467773
+    7. 'productos' → logprob: -18.376928329467773
+    8. '.products' → logprob: -18.501928329467773
+    9. 'list' → logprob: -18.751928329467773
+    10. 'product' → logprob: -18.876928329467773
+
+Token 186: ',' (ID: 11)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')' → logprob: -1.2233183042553719e-05
+    2. ',' → logprob: -11.625012397766113
+    3. ' )' → logprob: -13.750012397766113
+    4. '))' → logprob: -14.000012397766113
+    5. '   ' → logprob: -14.500012397766113
+    6. ')
+' → logprob: -15.000012397766113
+    7. ')`' → logprob: -16.000011444091797
+    8. ',)' → logprob: -16.125011444091797
+    9. ')return' → logprob: -16.375011444091797
+    10. ')))' → logprob: -16.625011444091797
+
+Token 187: ' ' (ID: 220)
+  Prédit: '0'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '0' → logprob: -0.0024763736873865128
+    2. ' ' → logprob: -6.002476215362549
+    3. ')' → logprob: -15.439976692199707
+    4. '   ' → logprob: -15.502476692199707
+    5. '  ' → logprob: -16.25247573852539
+    6. '1' → logprob: -16.81497573852539
+    7. ' ' → logprob: -16.87747573852539
+    8. '100' → logprob: -17.06497573852539
+    9. ',' → logprob: -17.93997573852539
+    10. '10' → logprob: -18.12747573852539
+
+Token 188: '0' (ID: 15)
+  Prédit: '0'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '0' → logprob: -0.00010986098641296849
+    2. ' ' → logprob: -9.125109672546387
+    3. '100' → logprob: -15.500109672546387
+    4. ')' → logprob: -16.000110626220703
+    5. '1' → logprob: -16.062610626220703
+    6. '   ' → logprob: -16.500110626220703
+    7. '10' → logprob: -16.875110626220703
+    8. '00' → logprob: -16.937610626220703
+    9. '  ' → logprob: -17.062610626220703
+    10. '```' → logprob: -17.812610626220703
+
+Token 189: ')
+
+' (ID: 1029)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')' → logprob: -1.8624639324116288e-06
+    2. ')
+' → logprob: -13.500001907348633
+    3. ' )' → logprob: -15.125001907348633
+    4. '))' → logprob: -16.250001907348633
+    5. ')return' → logprob: -17.500001907348633
+    6. '   ' → logprob: -17.750001907348633
+    7. ')`' → logprob: -18.250001907348633
+    8. ')#' → logprob: -18.625001907348633
+    9. ')
+
+' → logprob: -18.750001907348633
+    10. ')}' → logprob: -19.125001907348633
+
+Token 190: 'print' (ID: 1598)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.6379814147949219
+    2. ')' → logprob: -0.7629814147949219
+    3. '[' → logprob: -6.637981414794922
+    4. 'n' → logprob: -6.887981414794922
+    5. '#' → logprob: -7.137981414794922
+    6. '<|end|>' → logprob: -7.512981414794922
+    7. ' ' → logprob: -7.637981414794922
+    8. '_' → logprob: -8.387981414794922
+    9. ' (' → logprob: -8.887981414794922
+    10. ',' → logprob: -9.137981414794922
+
+Token 191: '(el' (ID: 35872)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.030934151262044907
+    2. '(el' → logprob: -3.5309340953826904
+    3. '(print' → logprob: -7.1559343338012695
+    4. '('' → logprob: -8.28093433380127
+    5. '(e' → logprob: -10.28093433380127
+    6. ' (' → logprob: -10.90593433380127
+    7. '(en' → logprob: -11.15593433380127
+    8. '()' → logprob: -11.65593433380127
+    9. '(
+' → logprob: -11.65593433380127
+    10. '("' → logprob: -11.90593433380127
+
+Token 192: 'abor' (ID: 4181)
+  Prédit: 'abor'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'abor' → logprob: -1.580929347255733e-05
+    2. 'ab' → logprob: -11.125016212463379
+    3. 'abora' → logprob: -14.375016212463379
+    4. 'abo' → logprob: -15.750016212463379
+    5. 'aboration' → logprob: -16.000015258789062
+    6. 'abort' → logprob: -17.125015258789062
+    7. '(' → logprob: -17.125015258789062
+    8. 'ob' → logprob: -17.375015258789062
+    9. '```' → logprob: -17.750015258789062
+    10. 'bor' → logprob: -17.750015258789062
+
+Token 193: 'ate' (ID: 379)
+  Prédit: 'ate'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'ate' → logprob: -1.0280383548888494e-06
+    2. '_' → logprob: -14.000000953674316
+    3. 'a' → logprob: -16.375001907348633
+    4. '```' → logprob: -17.125001907348633
+    5. 'ated' → logprob: -17.875001907348633
+    6. '__' → logprob: -18.000001907348633
+    7. 'ately' → logprob: -18.125001907348633
+    8. 'rate' → logprob: -18.250001907348633
+    9. '**' → logprob: -18.375001907348633
+    10. ' ate' → logprob: -18.500001907348633
+
+Token 194: '_score' (ID: 22555)
+  Prédit: '_score'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '_score' → logprob: -1.3782830137643032e-05
+    2. '_scores' → logprob: -11.25001335144043
+    3. '_sc' → logprob: -14.62501335144043
+    4. '_s' → logprob: -15.25001335144043
+    5. 'score' → logprob: -17.25001335144043
+    6. '_SCORE' → logprob: -17.62501335144043
+    7. '_' → logprob: -18.00001335144043
+    8. ')_' → logprob: -18.00001335144043
+    9. '_code' → logprob: -18.75001335144043
+    10. '_scale' → logprob: -19.00001335144043
+
+Token 195: '(int' (ID: 2742)
+  Prédit: '('
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. '(' → logprob: -0.00015979631280060858
+    2. ')' → logprob: -8.875160217285156
+    3. '(n' → logprob: -11.500160217285156
+    4. '()' → logprob: -12.625160217285156
+    5. '((' → logprob: -12.875160217285156
+    6. '())' → logprob: -13.500160217285156
+    7. '(
+' → logprob: -13.875160217285156
+    8. '(
+
+' → logprob: -14.125160217285156
+    9. '(`' → logprob: -15.500160217285156
+    10. '(()' → logprob: -15.750160217285156
+
+Token 196: '(input' (ID: 10054)
+  Prédit: '(input'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(input' → logprob: -0.02782072313129902
+    2. '(' → logprob: -3.7778208255767822
+    3. 'input' → logprob: -5.402820587158203
+    4. '(
+' → logprob: -10.527820587158203
+    5. '('' → logprob: -11.277820587158203
+    6. '()' → logprob: -12.277820587158203
+    7. '(
+
+' → logprob: -12.402820587158203
+    8. ' (' → logprob: -12.527820587158203
+    9. ' input' → logprob: -12.902820587158203
+    10. ' ' → logprob: -13.527820587158203
+
+Token 197: '())))' (ID: 168342)
+  Prédit: '())))'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '())))' → logprob: -0.2949551045894623
+    2. '()))' → logprob: -1.5449551343917847
+    3. '())' → logprob: -3.919955015182495
+    4. '()' → logprob: -3.919955015182495
+    5. '(' → logprob: -6.669955253601074
+    6. '("' → logprob: -7.419955253601074
+    7. '('' → logprob: -8.294955253601074
+    8. '())))
+' → logprob: -9.794955253601074
+    9. '().' → logprob: -9.794955253601074
+    10. '()));' → logprob: -9.919955253601074
+
+
+RÉSUMÉ:
+--------------------------------------------------------------------------------
+Total des tokens analysés: 195
+Tokens correctement prédits (1ère position, stricte): 87
+Tokens correctement prédits (1ère position, avec adaptation): 89
+Tokens correctement prédits (top 10): 153
+Précision stricte (1ère position): 44.62%
+Précision adaptée (1ère position): 45.64%
+Précision (top 10): 78.46%
+================================================================================

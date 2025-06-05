@@ -1,0 +1,5020 @@
+================================================================================
+ANALYSE DE PRÉDICTION TOKEN PAR TOKEN (BATCH API)
+Date: 2025-06-04 20:18:18
+Modèle de tokenisation: gpt-4o-mini
+================================================================================
+
+SCRIPT ANALYSÉ:
+--------------------------------------------------------------------------------
+import sys
+sys.setrecursionlimit(10**7)
+
+class Parser:
+    def __init__(self, s):
+        self.s = s
+        self.pos = 0
+        self.len = len(s)
+
+    def peek(self):
+        if self.pos < self.len:
+            return self.s[self.pos]
+        return ''
+
+    def consume(self, c):
+        if self.s[self.pos:self.pos+len(c)] == c:
+            self.pos += len(c)
+            return True
+        return False
+
+    def parse_formula(self):
+        c = self.peek()
+        if c == 'T':
+            self.pos += 1
+            return ('T',)
+        if c == 'F':
+            self.pos += 1
+            return ('F',)
+        if c in 'abcdefghijk':
+            self.pos += 1
+            return ('var', c)
+        if c == '-':
+            self.pos += 1
+            f = self.parse_formula()
+            return ('not', f)
+        if c == '(':
+            self.pos += 1
+            left = self.parse_formula()
+            if self.consume('*'):
+                op = '*'
+            elif self.consume('+'):
+                op = '+'
+            elif self.consume("->"):
+                op = '->'
+            else:
+                # invalid op, but problem states BNF is guaranteed
+                op = ''
+            right = self.parse_formula()
+            if not self.consume(')'):
+                pass
+            return (op, left, right)
+        return None
+
+def eval_expr(expr, env):
+    t = expr[0]
+    if t == 'T':
+        return True
+    if t == 'F':
+        return False
+    if t == 'var':
+        return env[expr[1]]
+    if t == 'not':
+        return not eval_expr(expr[1], env)
+    if t == '*':
+        return eval_expr(expr[1], env) and eval_expr(expr[2], env)
+    if t == '+':
+        return eval_expr(expr[1], env) or eval_expr(expr[2], env)
+    if t == '->':
+        return (not eval_expr(expr[1], env)) or eval_expr(expr[2], env)
+
+def vars_in_expr(expr, s=None):
+    if s is None:
+        s = set()
+    t = expr[0]
+    if t == 'var':
+        s.add(expr[1])
+    elif t in ('not',):
+        vars_in_expr(expr[1], s)
+    elif t in ('*', '+', '->'):
+        vars_in_expr(expr[1], s)
+        vars_in_expr(expr[2], s)
+    return s
+
+for line in sys.stdin:
+    line = line.strip()
+    if line == '#':
+        break
+    eq_pos = line.find('=')
+    left_s = line[:eq_pos]
+    right_s = line[eq_pos+1:]
+    p1 = Parser(left_s)
+    p2 = Parser(right_s)
+    left_expr = p1.parse_formula()
+    right_expr = p2.parse_formula()
+    vars_set = vars_in_expr(left_expr).union(vars_in_expr(right_expr))
+    vars_list = sorted(vars_set)
+    n = len(vars_list)
+    is_id = True
+    for mask in range(1<<n):
+        env = {}
+        for i,v in enumerate(vars_list):
+            env[v] = (mask>>i)&1 == 1
+        if eval_expr(left_expr, env) != eval_expr(right_expr, env):
+            is_id = False
+            break
+    print("YES" if is_id else "NO")
+--------------------------------------------------------------------------------
+
+RÉSULTATS D'ANALYSE TOKEN PAR TOKEN:
+--------------------------------------------------------------------------------
+Token 0: 'import' (ID: 561)
+  → Token d'amorce (pas de prédiction)
+
+Token 1: ' sys' (ID: 12228)
+  → Token d'amorce (pas de prédiction)
+
+Token 2: '
+' (ID: 198)
+  → Token d'amorce (pas de prédiction)
+
+Token 3: 'sys' (ID: 17324)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 4: '.set' (ID: 1230)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 5: 'rec' (ID: 9285)
+  Prédit: 'trace'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. 'trace' → logprob: -0.3824406564235687
+    2. 't' → logprob: -2.5074405670166016
+    3. '_' → logprob: -2.6324405670166016
+    4. 'set' → logprob: -3.2574405670166016
+    5. '_trace' → logprob: -3.3824405670166016
+    6. 'x' → logprob: -3.7574405670166016
+    7. 's' → logprob: -4.507440567016602
+    8. 'default' → logprob: -5.007440567016602
+    9. 'sys' → logprob: -5.132440567016602
+    10. 'ex' → logprob: -5.507440567016602
+
+Token 6: 'ursion' (ID: 41658)
+  Prédit: 'ursion'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'ursion' → logprob: -0.003742952598258853
+    2. 'ursive' → logprob: -6.3787431716918945
+    3. 'limit' → logprob: -7.0037431716918945
+    4. 'ur' → logprob: -7.5037431716918945
+    5. 'urse' → logprob: -9.253743171691895
+    6. '_limit' → logprob: -9.628743171691895
+    7. 'urs' → logprob: -9.628743171691895
+    8. 'ut' → logprob: -9.753743171691895
+    9. 'u' → logprob: -10.003743171691895
+    10. 't' → logprob: -10.128743171691895
+
+Token 7: 'limit' (ID: 19698)
+  Prédit: '_limit'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '_limit' → logprob: -0.4866597652435303
+    2. 'limit' → logprob: -0.9866597652435303
+    3. '_depth' → logprob: -4.486660003662109
+    4. 'depth' → logprob: -7.486660003662109
+    5. '_' → logprob: -8.36166000366211
+    6. '_rate' → logprob: -9.98666000366211
+    7. 'lim' → logprob: -10.23666000366211
+    8. '(' → logprob: -10.36166000366211
+    9. '_factor' → logprob: -10.36166000366211
+    10. '_stack' → logprob: -10.61166000366211
+
+Token 8: '(' (ID: 7)
+  Prédit: '('
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '(' → logprob: -6.694766489090398e-05
+    2. '(
+' → logprob: -10.500066757202148
+    3. ' (' → logprob: -11.375066757202148
+    4. '40' → logprob: -11.875066757202148
+    5. '(
+
+' → logprob: -12.500066757202148
+    6. '((' → logprob: -12.750066757202148
+    7. '```' → logprob: -12.750066757202148
+    8. '(.' → logprob: -13.000066757202148
+    9. '('' → logprob: -13.125066757202148
+    10. '(()' → logprob: -13.250066757202148
+
+Token 9: '10' (ID: 702)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 10: '**' (ID: 410)
+  Prédit: '0'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '0' → logprob: -0.006857931148260832
+    2. '000' → logprob: -5.756857872009277
+    3. '00' → logprob: -5.881857872009277
+    4. '4' → logprob: -7.256857872009277
+    5. '6' → logprob: -8.881857872009277
+    6. '5' → logprob: -11.506857872009277
+    7. '```' → logprob: -12.006857872009277
+    8. ')' → logprob: -12.256857872009277
+    9. '3' → logprob: -12.381857872009277
+    10. '**' → logprob: -12.381857872009277
+
+Token 11: '7' (ID: 22)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 12: ')
+
+' (ID: 1029)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ')' → logprob: -1.3663626305060461e-05
+    2. '))' → logprob: -11.75001335144043
+    3. ' )' → logprob: -12.12501335144043
+    4. ')
+' → logprob: -15.62501335144043
+    5. ')))' → logprob: -16.75001335144043
+    6. ')`' → logprob: -17.00001335144043
+    7. ' ' → logprob: -17.25001335144043
+    8. '）' → logprob: -18.12501335144043
+    9. '`)' → logprob: -18.12501335144043
+    10. '```' → logprob: -18.50001335144043
+
+Token 13: 'class' (ID: 1444)
+  Prédit: 'def'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'def' → logprob: -0.0465119332075119
+    2. '
+' → logprob: -3.5465118885040283
+    3. '
+
+' → logprob: -4.921512126922607
+    4. '```' → logprob: -5.296512126922607
+    5. '\' → logprob: -6.421512126922607
+    6. '
+' → logprob: -7.046512126922607
+    7. 'class' → logprob: -7.546512126922607
+    8. '\n' → logprob: -7.671512126922607
+    9. 'import' → logprob: -8.04651165008545
+    10. ')' → logprob: -8.92151165008545
+
+Token 14: ' Parser' (ID: 44901)
+  Prédit: ' '
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+  Alternatives (top logprobs):
+    1. ' ' → logprob: -0.3706189692020416
+    2. ' Node' → logprob: -1.9956189393997192
+    3. ' My' → logprob: -2.870619058609009
+    4. ' Trie' → logprob: -3.120619058609009
+    5. ' Recursive' → logprob: -4.12061882019043
+    6. ' Exception' → logprob: -4.24561882019043
+    7. ' Tree' → logprob: -4.74561882019043
+    8. ' Factor' → logprob: -4.87061882019043
+    9. ' Binary' → logprob: -5.37061882019043
+    10. ' Solution' → logprob: -5.37061882019043
+
+Token 15: ':
+' (ID: 734)
+  Prédit: ':'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ':' → logprob: -0.0002764710516203195
+    2. '(' → logprob: -8.250276565551758
+    3. ' :' → logprob: -12.750276565551758
+    4. '(:' → logprob: -12.750276565551758
+    5. ':**' → logprob: -13.125276565551758
+    6. '():' → logprob: -13.375276565551758
+    7. ':
+' → logprob: -13.625276565551758
+    8. '.' → logprob: -13.625276565551758
+    9. '(Parser' → logprob: -14.125276565551758
+    10. '```' → logprob: -14.750276565551758
+
+Token 16: '   ' (ID: 271)
+  Prédit: '   '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '   ' → logprob: -0.020594563335180283
+    2. '(' → logprob: -5.270594596862793
+    3. '    ' → logprob: -5.520594596862793
+    4. ':' → logprob: -5.645594596862793
+    5. '    
+' → logprob: -5.770594596862793
+    6. '```' → logprob: -6.645594596862793
+    7. ' ' → logprob: -7.270594596862793
+    8. '<|end|>' → logprob: -7.645594596862793
+    9. '\' → logprob: -8.020594596862793
+    10. ' def' → logprob: -8.270594596862793
+
+Token 17: ' def' (ID: 1056)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 18: ' __' (ID: 2516)
+  Prédit: ' __'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' __' → logprob: -0.013289875350892544
+    2. ' init' → logprob: -4.513289928436279
+    3. '__' → logprob: -7.013289928436279
+    4. ' parse' → logprob: -7.138289928436279
+    5. ' def' → logprob: -8.263289451599121
+    6. 'init' → logprob: -8.388289451599121
+    7. '_init' → logprob: -10.763289451599121
+    8. ' _' → logprob: -10.888289451599121
+    9. '_' → logprob: -11.888289451599121
+    10. ' process' → logprob: -13.263289451599121
+
+Token 19: 'init' (ID: 3287)
+  Prédit: 'init'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'init' → logprob: -1.9361264946837764e-07
+    2. 'ini' → logprob: -15.75
+    3. ' init' → logprob: -17.375
+    4. 'int' → logprob: -19.875
+    5. 'in' → logprob: -20.5
+    6. 'innit' → logprob: -21.0
+    7. '_init' → logprob: -22.0
+    8. '	init' → logprob: -22.375
+    9. 'inite' → logprob: -22.5
+    10. 'call' → logprob: -22.75
+
+Token 20: '__(' (ID: 8241)
+  Prédit: '__('
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '__(' → logprob: -0.1604243814945221
+    2. '__' → logprob: -1.9104243516921997
+    3. '__(
+' → logprob: -9.41042423248291
+    4. '__((' → logprob: -9.53542423248291
+    5. '__('' → logprob: -10.66042423248291
+    6. '__(*' → logprob: -11.91042423248291
+    7. '___' → logprob: -12.28542423248291
+    8. '(self' → logprob: -12.53542423248291
+    9. '(' → logprob: -13.53542423248291
+    10. '__("' → logprob: -13.66042423248291
+
+Token 21: 'self' (ID: 1156)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 22: ',' (ID: 11)
+  Prédit: ','
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ',' → logprob: -0.02886257879436016
+    2. 'self' → logprob: -4.653862476348877
+    3. ')' → logprob: -5.028862476348877
+    4. ' ,' → logprob: -5.278862476348877
+    5. '(self' → logprob: -5.653862476348877
+    6. ',self' → logprob: -6.153862476348877
+    7. '(' → logprob: -6.778862476348877
+    8. ' self' → logprob: -8.903862953186035
+    9. ' )' → logprob: -8.903862953186035
+    10. ' (' → logprob: -10.028862953186035
+
+Token 23: ' s' (ID: 265)
+  Prédit: ' self'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ' self' → logprob: -0.31171175837516785
+    2. 'self' → logprob: -1.4367117881774902
+    3. ' text' → logprob: -4.31171178817749
+    4. ' input' → logprob: -5.06171178817749
+    5. 'text' → logprob: -5.56171178817749
+    6. ' source' → logprob: -5.93671178817749
+    7. 'input' → logprob: -6.43671178817749
+    8. 'source' → logprob: -7.31171178817749
+    9. ' s' → logprob: -7.81171178817749
+    10. 'data' → logprob: -8.561711311340332
+
+Token 24: '):
+' (ID: 1883)
+  Prédit: ')'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. ')' → logprob: -0.6932575106620789
+    2. '):' → logprob: -0.6932575106620789
+    3. ':' → logprob: -9.818257331848145
+    4. ' )' → logprob: -11.318257331848145
+    5. ' ):' → logprob: -11.318257331848145
+    6. '):
+' → logprob: -11.693257331848145
+    7. 's' → logprob: -12.068257331848145
+    8. ',' → logprob: -12.318257331848145
+    9. '=' → logprob: -12.443257331848145
+    10. '[' → logprob: -14.068257331848145
+
+Token 25: '       ' (ID: 309)
+  Prédit: '       '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '       ' → logprob: -0.0006944431224837899
+    2. 'self' → logprob: -7.375694274902344
+    3. ' self' → logprob: -10.500694274902344
+    4. '   ' → logprob: -11.250694274902344
+    5. '        ' → logprob: -11.375694274902344
+    6. '    ' → logprob: -11.750694274902344
+    7. '     ' → logprob: -13.125694274902344
+    8. '      ' → logprob: -13.125694274902344
+    9. 's' → logprob: -13.625694274902344
+    10. '        
+' → logprob: -14.625694274902344
+
+Token 26: ' self' (ID: 1051)
+  Prédit: 'self'
+  Correct (stricte): False
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 'self' (adapté à ' self') → logprob: -0.43448853492736816
+    2. ' self' → logprob: -1.4344885349273682
+    3. '       ' → logprob: -2.184488534927368
+    4. '        ' → logprob: -6.559488296508789
+    5. ' ' → logprob: -9.309488296508789
+    6. '   ' → logprob: -9.809488296508789
+    7. '    ' → logprob: -10.684488296508789
+    8. 's' → logprob: -10.809488296508789
+    9. '	self' → logprob: -11.934488296508789
+    10. ' s' → logprob: -12.184488296508789
+
+Token 27: '.s' (ID: 640)
+  Prédit: '.'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '.' → logprob: -0.5783671140670776
+    2. '.s' → logprob: -0.8283671140670776
+    3. 's' → logprob: -7.203367233276367
+    4. '.token' → logprob: -7.203367233276367
+    5. ' .' → logprob: -7.953367233276367
+    6. '.user' → logprob: -9.078367233276367
+    7. '.input' → logprob: -9.203367233276367
+    8. '.string' → logprob: -9.578367233276367
+    9. '.data' → logprob: -9.703367233276367
+    10. ' s' → logprob: -10.453367233276367
+
+Token 28: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 29: ' s' (ID: 265)
+  Prédit: 's'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. 's' → logprob: -0.5759397745132446
+    2. ' s' → logprob: -0.8259397745132446
+    3. ' ' → logprob: -15.700940132141113
+    4. '_s' → logprob: -16.575939178466797
+    5. '	s' → logprob: -16.700939178466797
+    6. ' ' → logprob: -17.325939178466797
+    7. '{s' → logprob: -17.950939178466797
+    8. '(s' → logprob: -18.325939178466797
+    9. '<s' → logprob: -19.575939178466797
+    10. '`s' → logprob: -19.950939178466797
+
+Token 30: '
+' (ID: 198)
+  Prédit: '       '
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '       ' → logprob: -0.0017287296941503882
+    2. '<|end|>' → logprob: -7.251728534698486
+    3. '   ' → logprob: -7.876728534698486
+    4. '
+' → logprob: -9.376729011535645
+    5. '<|end|>' → logprob: -9.501729011535645
+    6. '.' → logprob: -9.626729011535645
+    7. '\n' → logprob: -9.626729011535645
+    8. '      ' → logprob: -9.876729011535645
+    9. '\' → logprob: -9.876729011535645
+    10. ',' → logprob: -9.876729011535645
+
+Token 31: '       ' (ID: 309)
+  Prédit: '       '
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '       ' → logprob: -0.00037609596620313823
+    2. '   ' → logprob: -8.375375747680664
+    3. '<|end|>' → logprob: -9.750375747680664
+    4. '.' → logprob: -10.500375747680664
+    5. 'def' → logprob: -11.125375747680664
+    6. '      ' → logprob: -11.625375747680664
+    7. ',' → logprob: -12.125375747680664
+    8. '        ' → logprob: -12.250375747680664
+    9. ' ' → logprob: -12.250375747680664
+    10. ')' → logprob: -12.375375747680664
+
+Token 32: ' self' (ID: 1051)
+  Prédit: '       '
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '       ' → logprob: -0.00810764729976654
+    2. 'self' (adapté à ' self') → logprob: -4.883107662200928
+    3. '   ' → logprob: -8.00810718536377
+    4. ' self' → logprob: -9.38310718536377
+    5. 'def' → logprob: -9.50810718536377
+    6. '      ' → logprob: -12.63310718536377
+    7. ' ' → logprob: -13.88310718536377
+    8. 's' → logprob: -13.88310718536377
+    9. '    ' → logprob: -14.00810718536377
+    10. '.' → logprob: -14.13310718536377
+
+Token 33: '.pos' (ID: 25321)
+  Prédit: '.pos'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '.pos' → logprob: -0.2845231890678406
+    2. '.index' → logprob: -2.2845232486724854
+    3. '.idx' → logprob: -2.4095232486724854
+    4. '.i' → logprob: -3.2845232486724854
+    5. '.length' → logprob: -4.909523010253906
+    6. '.len' → logprob: -5.409523010253906
+    7. '.n' → logprob: -5.909523010253906
+    8. 'pos' → logprob: -7.159523010253906
+    9. '.' → logprob: -7.159523010253906
+    10. '.size' → logprob: -7.409523010253906
+
+Token 34: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 35: ' ' (ID: 220)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 36: '0' (ID: 15)
+  Prédit: '0'
+  Correct (stricte): True
+  Correct (adapté): True
+  Dans le top 10: True
+  Alternatives (top logprobs):
+    1. '0' → logprob: -1.4855663721391466e-05
+    2. ' ' → logprob: -11.125015258789062
+    3. '۰' → logprob: -18.250015258789062
+    4. '-' → logprob: -19.500015258789062
+    5. '０' → logprob: -20.812515258789062
+    6. '٠' → logprob: -20.812515258789062
+    7. '```' → logprob: -21.000015258789062
+    8. ')' → logprob: -21.187515258789062
+    9. '०' → logprob: -21.250015258789062
+    10. '০' → logprob: -21.312515258789062
+
+Token 37: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 38: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 39: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 40: '.len' (ID: 41284)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 41: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 42: ' len' (ID: 4631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 43: '(s' (ID: 1858)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 44: ')
+
+' (ID: 1029)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 45: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 46: ' def' (ID: 1056)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 47: ' peek' (ID: 54757)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 48: '(self' (ID: 2402)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 49: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 50: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 51: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 52: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 53: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 54: ' <' (ID: 464)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 55: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 56: '.len' (ID: 41284)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 57: ':
+' (ID: 734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 58: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 59: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 60: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 61: '.s' (ID: 640)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 62: '[self' (ID: 33734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 63: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 64: ']
+' (ID: 1592)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 65: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 66: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 67: ' ''
+
+' (ID: 107005)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 68: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 69: ' def' (ID: 1056)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 70: ' consume' (ID: 34881)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 71: '(self' (ID: 2402)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 72: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 73: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 74: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 75: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 76: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 77: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 78: '.s' (ID: 640)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 79: '[self' (ID: 33734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 80: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 81: ':self' (ID: 28173)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 82: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 83: '+' (ID: 10)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 84: 'len' (ID: 3303)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 85: '(c' (ID: 2410)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 86: ')]' (ID: 15710)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 87: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 88: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 89: ':
+' (ID: 734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 90: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 91: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 92: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 93: ' +=' (ID: 2757)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 94: ' len' (ID: 4631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 95: '(c' (ID: 2410)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 96: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 97: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 98: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 99: ' True' (ID: 6432)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 100: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 101: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 102: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 103: ' False' (ID: 7983)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 104: '
+
+' (ID: 279)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 105: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 106: ' def' (ID: 1056)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 107: ' parse' (ID: 8420)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 108: '_formula' (ID: 188631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 109: '(self' (ID: 2402)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 110: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 111: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 112: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 113: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 114: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 115: '.peek' (ID: 73296)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 116: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 117: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 118: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 119: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 120: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 121: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 122: 'T' (ID: 51)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 123: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 124: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 125: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 126: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 127: ' +=' (ID: 2757)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 128: ' ' (ID: 220)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 129: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 130: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 131: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 132: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 133: ' ('' (ID: 9906)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 134: 'T' (ID: 51)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 135: '',' (ID: 787)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 136: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 137: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 138: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 139: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 140: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 141: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 142: 'F' (ID: 37)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 143: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 144: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 145: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 146: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 147: ' +=' (ID: 2757)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 148: ' ' (ID: 220)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 149: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 150: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 151: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 152: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 153: ' ('' (ID: 9906)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 154: 'F' (ID: 37)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 155: '',' (ID: 787)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 156: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 157: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 158: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 159: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 160: ' in' (ID: 306)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 161: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 162: 'abcdefgh' (ID: 130783)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 163: 'ijk' (ID: 2852)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 164: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 165: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 166: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 167: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 168: ' +=' (ID: 2757)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 169: ' ' (ID: 220)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 170: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 171: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 172: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 173: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 174: ' ('' (ID: 9906)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 175: 'var' (ID: 1465)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 176: '',' (ID: 787)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 177: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 178: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 179: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 180: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 181: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 182: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 183: ' '-' (ID: 17489)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 184: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 185: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 186: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 187: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 188: ' +=' (ID: 2757)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 189: ' ' (ID: 220)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 190: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 191: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 192: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 193: ' f' (ID: 285)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 194: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 195: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 196: '.parse' (ID: 7259)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 197: '_formula' (ID: 188631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 198: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 199: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 200: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 201: ' ('' (ID: 9906)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 202: 'not' (ID: 2878)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 203: '',' (ID: 787)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 204: ' f' (ID: 285)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 205: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 206: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 207: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 208: ' c' (ID: 274)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 209: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 210: ' '('' (ID: 87284)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 211: ':
+' (ID: 734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 212: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 213: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 214: '.pos' (ID: 25321)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 215: ' +=' (ID: 2757)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 216: ' ' (ID: 220)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 217: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 218: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 219: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 220: ' left' (ID: 3561)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 221: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 222: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 223: '.parse' (ID: 7259)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 224: '_formula' (ID: 188631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 225: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 226: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 227: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 228: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 229: '.consume' (ID: 140765)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 230: '('*' (ID: 74916)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 231: ''):
+' (ID: 26539)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 232: '               ' (ID: 506)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 233: ' op' (ID: 991)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 234: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 235: ' '*' (ID: 34958)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 236: ''
+' (ID: 2207)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 237: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 238: ' elif' (ID: 9497)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 239: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 240: '.consume' (ID: 140765)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 241: '('+' (ID: 108514)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 242: ''):
+' (ID: 26539)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 243: '               ' (ID: 506)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 244: ' op' (ID: 991)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 245: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 246: ' '+' (ID: 30120)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 247: ''
+' (ID: 2207)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 248: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 249: ' elif' (ID: 9497)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 250: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 251: '.consume' (ID: 140765)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 252: '("' (ID: 568)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 253: '->' (ID: 609)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 254: '"):
+' (ID: 33645)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 255: '               ' (ID: 506)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 256: ' op' (ID: 991)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 257: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 258: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 259: '->' (ID: 609)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 260: ''
+' (ID: 2207)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 261: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 262: ' else' (ID: 1203)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 263: ':
+' (ID: 734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 264: '               ' (ID: 506)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 265: ' #' (ID: 1069)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 266: ' invalid' (ID: 15796)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 267: ' op' (ID: 991)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 268: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 269: ' but' (ID: 889)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 270: ' problem' (ID: 4792)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 271: ' states' (ID: 9407)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 272: ' B' (ID: 418)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 273: 'NF' (ID: 64104)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 274: ' is' (ID: 382)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 275: ' guaranteed' (ID: 21862)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 276: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 277: '               ' (ID: 506)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 278: ' op' (ID: 991)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 279: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 280: ' ''
+' (ID: 25366)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 281: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 282: ' right' (ID: 1849)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 283: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 284: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 285: '.parse' (ID: 7259)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 286: '_formula' (ID: 188631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 287: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 288: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 289: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 290: ' not' (ID: 625)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 291: ' self' (ID: 1051)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 292: '.consume' (ID: 140765)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 293: '('' (ID: 706)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 294: ')' (ID: 8)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 295: ''):
+' (ID: 26539)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 296: '               ' (ID: 506)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 297: ' pass' (ID: 1853)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 298: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 299: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 300: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 301: ' (' (ID: 350)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 302: 'op' (ID: 467)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 303: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 304: ' left' (ID: 3561)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 305: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 306: ' right' (ID: 1849)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 307: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 308: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 309: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 310: ' None' (ID: 4662)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 311: '
+
+' (ID: 279)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 312: 'def' (ID: 1314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 313: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 314: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 315: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 316: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 317: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 318: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 319: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 320: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 321: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 322: ' expr' (ID: 30206)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 323: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 324: '0' (ID: 15)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 325: ']
+' (ID: 1592)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 326: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 327: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 328: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 329: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 330: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 331: 'T' (ID: 51)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 332: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 333: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 334: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 335: ' True' (ID: 6432)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 336: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 337: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 338: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 339: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 340: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 341: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 342: 'F' (ID: 37)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 343: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 344: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 345: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 346: ' False' (ID: 7983)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 347: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 348: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 349: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 350: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 351: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 352: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 353: 'var' (ID: 1465)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 354: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 355: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 356: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 357: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 358: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 359: 'expr' (ID: 21343)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 360: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 361: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 362: ']]
+' (ID: 29446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 363: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 364: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 365: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 366: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 367: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 368: 'not' (ID: 2878)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 369: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 370: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 371: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 372: ' not' (ID: 625)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 373: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 374: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 375: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 376: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 377: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 378: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 379: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 380: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 381: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 382: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 383: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 384: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 385: ' '*' (ID: 34958)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 386: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 387: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 388: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 389: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 390: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 391: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 392: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 393: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 394: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 395: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 396: ')' (ID: 8)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 397: ' and' (ID: 326)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 398: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 399: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 400: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 401: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 402: '2' (ID: 17)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 403: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 404: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 405: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 406: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 407: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 408: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 409: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 410: ' '+' (ID: 30120)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 411: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 412: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 413: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 414: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 415: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 416: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 417: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 418: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 419: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 420: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 421: ')' (ID: 8)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 422: ' or' (ID: 503)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 423: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 424: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 425: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 426: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 427: '2' (ID: 17)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 428: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 429: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 430: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 431: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 432: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 433: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 434: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 435: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 436: '->' (ID: 609)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 437: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 438: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 439: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 440: ' (' (ID: 350)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 441: 'not' (ID: 2878)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 442: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 443: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 444: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 445: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 446: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 447: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 448: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 449: '))' (ID: 915)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 450: ' or' (ID: 503)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 451: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 452: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 453: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 454: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 455: '2' (ID: 17)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 456: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 457: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 458: ')
+
+' (ID: 1029)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 459: 'def' (ID: 1314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 460: ' vars' (ID: 36194)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 461: '_in' (ID: 2267)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 462: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 463: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 464: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 465: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 466: '=None' (ID: 12783)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 467: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 468: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 469: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 470: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 471: ' is' (ID: 382)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 472: ' None' (ID: 4662)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 473: ':
+' (ID: 734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 474: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 475: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 476: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 477: ' set' (ID: 920)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 478: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 479: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 480: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 481: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 482: ' expr' (ID: 30206)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 483: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 484: '0' (ID: 15)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 485: ']
+' (ID: 1592)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 486: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 487: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 488: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 489: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 490: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 491: 'var' (ID: 1465)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 492: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 493: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 494: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 495: '.add' (ID: 1950)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 496: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 497: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 498: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 499: '])
+' (ID: 5169)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 500: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 501: ' elif' (ID: 9497)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 502: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 503: ' in' (ID: 306)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 504: ' ('' (ID: 9906)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 505: 'not' (ID: 2878)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 506: '',' (ID: 787)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 507: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 508: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 509: ' vars' (ID: 36194)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 510: '_in' (ID: 2267)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 511: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 512: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 513: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 514: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 515: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 516: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 517: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 518: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 519: ' elif' (ID: 9497)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 520: ' t' (ID: 260)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 521: ' in' (ID: 306)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 522: ' ('' (ID: 9906)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 523: '*' (ID: 9)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 524: '',' (ID: 787)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 525: ' '+' (ID: 30120)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 526: '',' (ID: 787)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 527: ' '' (ID: 461)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 528: '->' (ID: 609)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 529: ''):
+' (ID: 26539)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 530: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 531: ' vars' (ID: 36194)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 532: '_in' (ID: 2267)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 533: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 534: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 535: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 536: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 537: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 538: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 539: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 540: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 541: ' vars' (ID: 36194)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 542: '_in' (ID: 2267)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 543: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 544: '(expr' (ID: 78746)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 545: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 546: '2' (ID: 17)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 547: '],' (ID: 2155)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 548: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 549: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 550: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 551: ' return' (ID: 622)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 552: ' s' (ID: 265)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 553: '
+
+' (ID: 279)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 554: 'for' (ID: 1938)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 555: ' line' (ID: 2543)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 556: ' in' (ID: 306)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 557: ' sys' (ID: 12228)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 558: '.stdin' (ID: 93480)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 559: ':
+' (ID: 734)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 560: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 561: ' line' (ID: 2543)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 562: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 563: ' line' (ID: 2543)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 564: '.strip' (ID: 40613)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 565: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 566: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 567: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 568: ' line' (ID: 2543)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 569: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 570: ' '#' (ID: 11284)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 571: '':
+' (ID: 7669)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 572: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 573: ' break' (ID: 2338)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 574: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 575: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 576: ' eq' (ID: 18955)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 577: '_pos' (ID: 14692)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 578: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 579: ' line' (ID: 2543)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 580: '.find' (ID: 4231)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 581: '('='' (ID: 190284)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 582: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 583: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 584: ' left' (ID: 3561)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 585: '_s' (ID: 1278)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 586: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 587: ' line' (ID: 2543)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 588: '[:' (ID: 7808)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 589: 'eq' (ID: 21725)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 590: '_pos' (ID: 14692)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 591: ']
+' (ID: 1592)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 592: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 593: ' right' (ID: 1849)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 594: '_s' (ID: 1278)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 595: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 596: ' line' (ID: 2543)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 597: '[' (ID: 58)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 598: 'eq' (ID: 21725)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 599: '_pos' (ID: 14692)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 600: '+' (ID: 10)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 601: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 602: ':]
+' (ID: 61598)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 603: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 604: ' p' (ID: 275)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 605: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 606: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 607: ' Parser' (ID: 44901)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 608: '(left' (ID: 32958)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 609: '_s' (ID: 1278)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 610: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 611: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 612: ' p' (ID: 275)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 613: '2' (ID: 17)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 614: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 615: ' Parser' (ID: 44901)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 616: '(right' (ID: 52104)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 617: '_s' (ID: 1278)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 618: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 619: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 620: ' left' (ID: 3561)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 621: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 622: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 623: ' p' (ID: 275)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 624: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 625: '.parse' (ID: 7259)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 626: '_formula' (ID: 188631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 627: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 628: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 629: ' right' (ID: 1849)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 630: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 631: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 632: ' p' (ID: 275)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 633: '2' (ID: 17)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 634: '.parse' (ID: 7259)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 635: '_formula' (ID: 188631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 636: '()
+' (ID: 1234)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 637: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 638: ' vars' (ID: 36194)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 639: '_set' (ID: 5451)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 640: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 641: ' vars' (ID: 36194)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 642: '_in' (ID: 2267)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 643: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 644: '(left' (ID: 32958)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 645: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 646: ').' (ID: 741)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 647: 'union' (ID: 37013)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 648: '(vars' (ID: 174980)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 649: '_in' (ID: 2267)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 650: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 651: '(right' (ID: 52104)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 652: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 653: '))
+' (ID: 2210)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 654: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 655: ' vars' (ID: 36194)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 656: '_list' (ID: 4162)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 657: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 658: ' sorted' (ID: 20099)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 659: '(vars' (ID: 174980)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 660: '_set' (ID: 5451)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 661: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 662: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 663: ' n' (ID: 297)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 664: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 665: ' len' (ID: 4631)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 666: '(vars' (ID: 174980)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 667: '_list' (ID: 4162)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 668: ')
+' (ID: 446)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 669: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 670: ' is' (ID: 382)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 671: '_id' (ID: 1537)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 672: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 673: ' True' (ID: 6432)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 674: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 675: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 676: ' for' (ID: 395)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 677: ' mask' (ID: 10910)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 678: ' in' (ID: 306)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 679: ' range' (ID: 3352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 680: '(' (ID: 7)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 681: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 682: '<<' (ID: 5354)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 683: 'n' (ID: 77)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 684: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 685: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 686: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 687: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 688: ' {}
+' (ID: 11421)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 689: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 690: ' for' (ID: 395)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 691: ' i' (ID: 575)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 692: ',v' (ID: 30680)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 693: ' in' (ID: 306)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 694: ' enumerate' (ID: 29671)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 695: '(vars' (ID: 174980)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 696: '_list' (ID: 4162)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 697: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 698: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 699: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 700: '[v' (ID: 36561)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 701: ']' (ID: 60)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 702: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 703: ' (' (ID: 350)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 704: 'mask' (ID: 22527)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 705: '>>' (ID: 3920)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 706: 'i' (ID: 72)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 707: ')&' (ID: 34370)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 708: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 709: ' ==' (ID: 951)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 710: ' ' (ID: 220)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 711: '1' (ID: 16)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 712: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 713: '       ' (ID: 309)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 714: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 715: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 716: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 717: '(left' (ID: 32958)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 718: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 719: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 720: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 721: ')' (ID: 8)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 722: ' !=' (ID: 1666)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 723: ' eval' (ID: 29383)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 724: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 725: '(right' (ID: 52104)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 726: '_expr' (ID: 53654)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 727: ',' (ID: 11)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 728: ' env' (ID: 9744)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 729: '):
+' (ID: 1883)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 730: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 731: ' is' (ID: 382)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 732: '_id' (ID: 1537)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 733: ' =' (ID: 314)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 734: ' False' (ID: 7983)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 735: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 736: '           ' (ID: 352)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 737: ' break' (ID: 2338)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 738: '
+' (ID: 198)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 739: '   ' (ID: 271)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 740: ' print' (ID: 2123)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 741: '("' (ID: 568)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 742: 'YES' (ID: 31958)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 743: '"' (ID: 1)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 744: ' if' (ID: 538)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 745: ' is' (ID: 382)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 746: '_id' (ID: 1537)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 747: ' else' (ID: 1203)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 748: ' "' (ID: 392)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 749: 'NO' (ID: 14695)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+Token 750: '")' (ID: 1405)
+  Prédit: 'ERROR'
+  Correct (stricte): False
+  Correct (adapté): False
+  Dans le top 10: False
+
+
+RÉSUMÉ:
+--------------------------------------------------------------------------------
+Total des tokens analysés: 748
+Tokens correctement prédits (1ère position, stricte): 11
+Tokens correctement prédits (1ère position, avec adaptation): 12
+Tokens correctement prédits (top 10): 22
+Précision stricte (1ère position): 1.47%
+Précision adaptée (1ère position): 1.60%
+Précision (top 10): 2.94%
+================================================================================

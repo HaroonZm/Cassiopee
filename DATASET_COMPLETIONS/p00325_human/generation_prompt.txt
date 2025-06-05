@@ -1,0 +1,125 @@
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from itertools import product
+
+def check():
+  n = int(input())
+  prog = [input().split() for _ in range(n)]
+  
+  v = set()
+  for ss in prog:
+    for s in ss:
+      if "a" <= s <= "z":
+        v.add(s)
+  v = sorted(list(v))
+  var_state = [0] * len(v)
+  var_to_ind = dict(zip(v, range(len(v))))
+  
+  line_to_ind = {}
+  for i, ss in enumerate(prog):
+    line_to_ind[ss[0]] = i
+  
+  def fix(p):
+    if p[1] == "ADD":
+      if p[4] in var_to_ind:
+        return [0, var_to_ind[p[2]], var_to_ind[p[3]], var_to_ind[p[4]]]
+      else:
+        return [1, var_to_ind[p[2]], var_to_ind[p[3]], int(p[4])]
+    if p[1] == "SUB":
+      if p[4] in var_to_ind:
+        return [2, var_to_ind[p[2]], var_to_ind[p[3]], var_to_ind[p[4]]]
+      else:
+        return [3, var_to_ind[p[2]], var_to_ind[p[3]], int(p[4])]
+    if p[1] == "SET":
+      if p[3] in var_to_ind:
+        return [4, var_to_ind[p[2]], var_to_ind[p[3]]]
+      else:
+        return [5, var_to_ind[p[2]], int(p[3])]
+    if p[1] == "IF":
+      if p[3] in line_to_ind:
+        return [6, var_to_ind[p[2]], line_to_ind[p[3]]]
+      else:
+        return [6, var_to_ind[p[2]], 100]
+    if p[1] == "HALT":
+      return [7]
+  
+  prog = list(map(fix, prog))
+  used = [[False] * n for _ in range(16 ** len(v))]
+  xs = [1, 16, 256, 4096, 65536]
+
+  ind = 0
+  h = 0
+  while True:
+    if ind >= n:
+      return True, v, var_state
+    if used[h][ind]:
+      return False, v, var_state
+    used[h][ind] = True
+  
+    p = prog[ind]
+    ins = p[0]
+    
+    if ins == 0:
+      v1, v2, v3 = p[1:]
+      temp = var_state[v2] + var_state[v3]
+      if not temp < 16:
+        return True, v, var_state
+      h += (temp - var_state[v1]) * xs[v1]
+      var_state[v1] = temp
+    
+    elif ins == 1:
+      v1, v2 = p[1:3]
+      con = p[3]
+      temp = var_state[v2] + con
+      if not temp < 16:
+        return True, v, var_state
+      h += (temp - var_state[v1]) * xs[v1]
+      var_state[v1] = temp
+    
+    elif ins == 2:
+      v1, v2, v3 = p[1:]
+      temp = var_state[v2] - var_state[v3]
+      if not 0 <= temp:
+        return True, v, var_state
+      h += (temp - var_state[v1]) * xs[v1]
+      var_state[v1] = temp
+    
+    elif ins == 3:
+      v1, v2 = p[1:3]
+      con = p[3]
+      temp = var_state[v2] - con
+      if not 0 <= temp:
+        return True, v, var_state
+      h += (temp - var_state[v1]) * xs[v1]
+      var_state[v1] = temp
+    
+    elif ins == 4:
+      v1, v2 = p[1:]
+      h += (var_state[v2] - var_state[v1]) * xs[v1]
+      var_state[v1] = var_state[v2]
+    
+    elif ins == 5:
+      v1 = p[1]
+      con = p[2]
+      h += (con - var_state[v1]) * xs[v1]
+      var_state[v1] = con
+    
+    elif ins == 6:
+      v1 = p[1]
+      dest = p[2]
+      if var_state[v1]:
+        ind = dest - 1
+  
+    else:
+      return True, v, var_state
+  
+    ind += 1
+
+flag, v, var_state = check()
+if flag:
+  for t in zip(v, var_state):
+    print(*t, sep="=")
+else:
+  print("inf")
+```

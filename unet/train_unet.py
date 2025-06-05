@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 import os
 import glob
 from sklearn.model_selection import train_test_split
@@ -180,12 +180,13 @@ def aggregate_tile_predictions(predictions, matrix_indices, content_ratios=None,
             results[matrix_idx] = np.mean(preds)
         
         elif strategy == 'vote':
-            # Vote majoritaire
+            # Vote majoritaire - calcul explicite du nombre de votes pour chaque classe
             votes_positive = sum(1 for p in preds if p > 0.5)
-            results[matrix_idx] = 1.0 if votes_positive > len(preds)/2 else 0.0
+            votes_negative = len(preds) - votes_positive
+            results[matrix_idx] = 1.0 if votes_positive > votes_negative else 0.0
         
         elif strategy == 'weighted' and content_ratios is not None:
-            # Moyenne pondérée par le contenu
+            # Moyenne pondérée par le contenu - s'assurer que les poids sont normalisés
             ratios = matrix_to_ratios[matrix_idx]
             total_ratio = sum(ratios)
             if total_ratio > 0:
@@ -195,36 +196,38 @@ def aggregate_tile_predictions(predictions, matrix_indices, content_ratios=None,
                 results[matrix_idx] = np.mean(preds)
         
         elif strategy == 'hybrid':
-            # Stratégie hybride adaptative
+            # Stratégie hybride adaptative avec biais corrigé
             n_tiles = len(preds)
             ratios = matrix_to_ratios[matrix_idx] if content_ratios is not None else [1.0] * n_tiles
             
-            if n_tiles < 3:
-                # Pour peu de tuiles, utiliser la tuile la plus significative
-                idx_max_ratio = np.argmax(ratios)
-                results[matrix_idx] = preds[idx_max_ratio]
+            # Calculer statistiques des prédictions pour détecter les biais
+            mean_pred = np.mean(preds)
+            median_pred = np.median(preds)
+            std_pred = np.std(preds)
             
-            elif n_tiles <= 10:
-                # Pour un nombre moyen de tuiles, utiliser une moyenne pondérée
-                total_ratio = sum(ratios)
-                if total_ratio > 0:
-                    weights = [r / total_ratio for r in ratios]
-                    results[matrix_idx] = sum(p * w for p, w in zip(preds, weights))
+            # Si les prédictions sont toutes proches (peu de variance),
+            # être plus prudent dans l'agrégation
+            if std_pred < 0.1:
+                # Pour les cas où les prédictions sont toutes similaires
+                # et proches de 0.5, pencher légèrement vers la classe humain
+                if 0.45 <= mean_pred <= 0.55:
+                    results[matrix_idx] = 0.48  # Léger biais vers humain quand incertain
                 else:
-                    results[matrix_idx] = np.mean(preds)
-            
+                    results[matrix_idx] = mean_pred
             else:
-                # Pour beaucoup de tuiles, utiliser un vote pondéré
+                # Pour des prédictions plus variées, utiliser vote majoritaire pondéré
                 weighted_positive = sum(ratios[i] for i in range(n_tiles) if preds[i] > 0.5)
                 weighted_negative = sum(ratios[i] for i in range(n_tiles) if preds[i] <= 0.5)
                 total_weight = weighted_positive + weighted_negative
                 
                 if weighted_positive > weighted_negative:
-                    # Score entre 0.5 et 1.0 selon la force du vote
+                    # Classe IA - s'assurer que la décision est forte
                     strength = 0.5 + 0.5 * (weighted_positive / total_weight)
+                    # Appliquer un facteur de correction pour éviter le biais systématique
+                    strength = min(strength, 0.95)  # Limiter la confiance max
                     results[matrix_idx] = strength
                 else:
-                    # Score entre 0.0 et 0.5 selon la force du vote
+                    # Classe Humain
                     strength = 0.5 * (weighted_negative / total_weight)
                     results[matrix_idx] = 0.5 - strength
         
@@ -336,14 +339,122 @@ def generate_model_filename(batch_name, model_type, num_epochs, batch_size, accu
     
     return filename
 
-# Fonction d'entraînement modifiée
+# Nouvelles fonctions pour l'entraînement amélioré
+
+def custom_weight_init(m):
+    """
+    Initialisation personnalisée des poids pour éviter les plateaux et les biais
+    """
+    if isinstance(m, nn.Conv2d):
+        nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+        if m.bias is not None:
+            # Initialiser les biais à un petit nombre négatif pour réduire les activations initiales
+            # Cela aide à éviter le biais vers la classe positive (IA)
+            nn.init.constant_(m.bias, -0.1)
+    elif isinstance(m, nn.Linear):
+        if m.out_features == 1:  # Couche de sortie pour classification binaire
+            # Initialisation spéciale pour la couche de sortie
+            nn.init.normal_(m.weight, mean=0.0, std=0.01)
+            nn.init.constant_(m.bias, -0.2)  # Biais légèrement négatif pour contrer la tendance à prédire la classe 1
+        else:
+            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.BatchNorm2d):
+        nn.init.ones_(m.weight)
+        nn.init.zeros_(m.bias)
+
+def create_balanced_sampler(dataset):
+    """
+    Crée un sampler pondéré pour équilibrer les classes avec une attention particulière 
+    aux cas extrêmes de déséquilibre
+    """
+    # Récupérer les étiquettes des tuiles
+    labels = []
+    for i in range(len(dataset)):
+        _, label, _, _ = dataset[i]
+        # Convertir en entier pour bincount
+        labels.append(int(label.item()))
+    
+    # Calculer la distribution des classes
+    class_counts = np.bincount(labels)
+    
+    # Afficher la distribution pour le diagnostic
+    logger.info(f"Distribution des classes avant équilibrage: {class_counts}")
+    
+    # Vérifier s'il y a un déséquilibre extrême
+    if len(class_counts) > 1:
+        ratio = max(class_counts) / min(class_counts)
+        if ratio > 20:
+            logger.warning(f"Déséquilibre extrême détecté: ratio de {ratio:.2f}. Application d'un plafonnement.")
+            # Plafonner le ratio à 20 pour éviter sur-pondération excessive
+            majority_count = max(class_counts)
+            minority_count = min(class_counts)
+            
+            # Trouver les indices des classes majoritaire et minoritaire
+            majority_idx = np.argmax(class_counts)
+            minority_idx = np.argmin(class_counts)
+            
+            # Créer des poids de classe personnalisés avec plafonnement
+            effective_ratio = min(ratio, 20.0)
+            weights = np.ones_like(class_counts, dtype=float)
+            weights[majority_idx] = 1.0
+            weights[minority_idx] = effective_ratio
+            
+            # Calculer les poids des exemples
+            sample_weights = [weights[label] for label in labels]
+        else:
+            # Calcul standard des poids inversement proportionnels
+            class_weights = 1.0 / class_counts
+            sample_weights = [class_weights[label] for label in labels]
+    else:
+        # S'il n'y a qu'une seule classe, utiliser des poids uniformes
+        logger.warning("Une seule classe détectée dans le dataset! Vérifiez vos données.")
+        sample_weights = np.ones(len(labels))
+    
+    # Normaliser les poids
+    total_weight = sum(sample_weights)
+    sample_weights = [w / total_weight * len(sample_weights) for w in sample_weights]
+    
+    # Créer le sampler
+    weights_tensor = torch.DoubleTensor(sample_weights)
+    sampler = WeightedRandomSampler(weights_tensor, len(weights_tensor))
+    
+    return sampler
+
+def get_class_distribution(dataset):
+    """
+    Retourne la distribution des classes dans le dataset
+    """
+    labels = []
+    for i in range(len(dataset)):
+        _, label, _, _ = dataset[i]
+        labels.append(label.item())
+    
+    # Calculer la distribution
+    unique, counts = np.unique(labels, return_counts=True)
+    distribution = dict(zip(unique, counts))
+    
+    return distribution
+
+# Remplacer la fonction d'entraînement existante par une version améliorée
 def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer, 
                           num_epochs=10, device='cuda', model_save_dir='.', 
-                          batch_name='default', use_amp=True):
+                          batch_name='default', use_amp=True, 
+                          early_stopping_patience=5, lr_scheduler=None, 
+                          use_class_weight=False, class_weights=None):
+    """
+    Fonction d'entraînement améliorée avec:
+    - Pondération des classes
+    - Early stopping
+    - Régularisation du gradient
+    - Affichage détaillé des métriques
+    """
     model.to(device)
     best_val_acc = 0.0
+    best_val_loss = float('inf')
     best_epoch = -1
-    best_model_filename = None  # Initialiser à None pour gérer le cas où aucun meilleur modèle n'est trouvé
+    best_model_filename = None
+    patience_counter = 0
     
     # Créer le dossier pour sauvegarder si nécessaire
     os.makedirs(model_save_dir, exist_ok=True)
@@ -354,13 +465,25 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
     # Initialiser le scaler pour la précision mixte
     scaler = GradScaler() if use_amp and device != 'cpu' else None
     
+    # Historique des métriques
+    history = {
+        'train_loss': [],
+        'val_loss': [],
+        'val_acc': [],
+        'val_acc_per_class': [],
+        'learning_rate': []
+    }
+    
     for epoch in range(num_epochs):
         # Mode entraînement
         model.train()
         train_loss = 0.0
         batch_count = 0
         
-        for inputs, labels, _, _ in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Training"):
+        # Barre de progression
+        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Training")
+        
+        for inputs, labels, _, _ in train_pbar:
             inputs, labels = inputs.to(device), labels.to(device)
             
             # Forward pass avec précision mixte si activée
@@ -374,11 +497,28 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
                     if outputs.ndim == 0:
                         outputs = outputs.unsqueeze(0)
                     
-                    # Calculer la perte
+                    # Calculer la perte avec ou sans poids de classe
                     loss = criterion(outputs, labels)
+                    
+                    # Appliquer les poids de classe manuellement si nécessaire
+                    if use_class_weight and class_weights is not None:
+                        # Créer un tenseur de poids correspondant aux étiquettes
+                        sample_weights = torch.ones_like(labels)
+                        for i, label in enumerate(labels):
+                            # Attribuer le poids approprié selon la classe (0 ou 1)
+                            weight_idx = int(label.item())
+                            sample_weights[i] = torch.tensor(class_weights[weight_idx], device=device)
+                        
+                        # Pondérer la perte
+                        loss = loss * sample_weights
+                        loss = loss.mean()  # Moyenne pondérée
                 
                 # Backward pass avec scaling
                 scaler.scale(loss).backward()
+                
+                # Clip gradient norm pour éviter l'explosion du gradient
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
                 scaler.step(optimizer)
                 scaler.update()
             else:
@@ -392,27 +532,64 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
                 # Calculer la perte
                 loss = criterion(outputs, labels)
                 
+                # Appliquer les poids de classe manuellement si nécessaire
+                if use_class_weight and class_weights is not None:
+                    # Créer un tenseur de poids correspondant aux étiquettes
+                    sample_weights = torch.ones_like(labels)
+                    for i, label in enumerate(labels):
+                        # Attribuer le poids approprié selon la classe (0 ou 1)
+                        weight_idx = int(label.item())
+                        sample_weights[i] = torch.tensor(class_weights[weight_idx], device=device)
+                    
+                    # Pondérer la perte
+                    loss = loss * sample_weights
+                    loss = loss.mean()  # Moyenne pondérée
+                
                 # Backward pass
                 loss.backward()
+                
+                # Clip gradient norm pour éviter l'explosion du gradient
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
                 optimizer.step()
             
             # Statistiques
             train_loss += loss.item()
             batch_count += 1
+            
+            # Mise à jour de la barre de progression
+            train_pbar.set_postfix({'loss': loss.item()})
         
         avg_train_loss = train_loss / batch_count if batch_count > 0 else float('inf')
         
         # Évaluation
         logger.info("Évaluation sur l'ensemble de validation...")
-        val_acc, _ = evaluate_model(model, val_loader, device)
+        val_loss, val_acc, val_acc_per_class = evaluate_model_with_metrics(model, val_loader, criterion, device)
+        
+        # Mettre à jour l'historique
+        history['train_loss'].append(avg_train_loss)
+        history['val_loss'].append(val_loss)
+        history['val_acc'].append(val_acc)
+        history['val_acc_per_class'].append(val_acc_per_class)
+        history['learning_rate'].append(optimizer.param_groups[0]['lr'])
         
         logger.info(f"Epoch {epoch+1}/{num_epochs} - "
-              f"Train Loss: {avg_train_loss:.4f}, Val Acc: {val_acc:.4f}")
+               f"Train Loss: {avg_train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
+        logger.info(f"Accuracy par classe - Humain: {val_acc_per_class.get(0, 0):.4f}, IA: {val_acc_per_class.get(1, 0):.4f}")
         
-        # Sauvegarde du meilleur modèle
+        # Mise à jour du scheduler si fourni
+        if lr_scheduler is not None:
+            if isinstance(lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                lr_scheduler.step(val_loss)
+            else:
+                lr_scheduler.step()
+        
+        # Sauvegarde du meilleur modèle (basé sur la précision de validation)
         if val_acc > best_val_acc:
             best_val_acc = val_acc
+            best_val_loss = val_loss
             best_epoch = epoch + 1
+            patience_counter = 0
             
             # Générer un nom de fichier unique pour le meilleur modèle
             best_model_filename = generate_model_filename(
@@ -423,6 +600,36 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
             torch.save(model.state_dict(), best_model_path)
             logger.info(f"Meilleur modèle sauvegardé avec précision de validation: {val_acc:.4f}")
             logger.info(f"Chemin: {best_model_path}")
+        else:
+            patience_counter += 1
+            logger.info(f"Pas d'amélioration. Patience: {patience_counter}/{early_stopping_patience}")
+            
+            # Early stopping
+            if patience_counter >= early_stopping_patience:
+                logger.info(f"Early stopping après {epoch+1} époques sans amélioration")
+                break
+    
+    # Sauvegarder l'historique d'entraînement
+    # Sanitiser le nom du batch pour éviter les chemins invalides
+    batch_name_safe = ''.join(c if c.isalnum() else '_' for c in os.path.basename(batch_name))
+    history_filename = f"training_history_{batch_name_safe}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    history_path = os.path.join(model_save_dir, history_filename)
+    
+    # S'assurer que le dossier existe
+    os.makedirs(model_save_dir, exist_ok=True)
+    
+    # Convertir les valeurs numpy en types Python standard pour JSON
+    for key in history:
+        if isinstance(history[key], list) and len(history[key]) > 0:
+            if isinstance(history[key][0], dict):
+                history[key] = [{k: float(v) for k, v in d.items()} for d in history[key]]
+            else:
+                history[key] = [float(x) for x in history[key]]
+    
+    with open(history_path, 'w') as f:
+        json.dump(history, f, indent=4)
+    
+    logger.info(f"Historique d'entraînement sauvegardé à: {history_path}")
     
     # Si aucun meilleur modèle n'a été trouvé (rare, mais possible)
     if best_model_filename is None:
@@ -437,7 +644,156 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
     
     return model, best_val_acc, best_epoch, best_model_filename
 
-# Fonction principale modifiée pour accepter les arguments en ligne de commande
+def evaluate_model_with_metrics(model, val_loader, criterion, device):
+    """
+    Évalue le modèle avec des métriques détaillées par classe et diagnostics avancés
+    """
+    model.eval()
+    all_predictions = []
+    all_matrix_indices = []
+    all_labels = []
+    all_raw_outputs = []  # Stocker les sorties brutes avant sigmoid
+    val_loss = 0.0
+    batch_count = 0
+    
+    with torch.no_grad():
+        for inputs, labels, matrix_indices, _ in val_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            matrix_indices = matrix_indices.to(device)
+            
+            # Obtenir les prédictions brutes (avant sigmoid)
+            raw_outputs = model(inputs).squeeze()
+            
+            # Si une seule tuile dans le batch
+            if raw_outputs.ndim == 0:
+                raw_outputs = raw_outputs.unsqueeze(0)
+            
+            # Calculer la perte
+            loss = criterion(raw_outputs, labels)
+            val_loss += loss.item()
+            batch_count += 1
+            
+            # Collecter les résultats
+            all_predictions.append(raw_outputs.sigmoid())  # Appliquer sigmoid pour les prédictions
+            all_raw_outputs.append(raw_outputs)  # Stocker les sorties brutes
+            all_matrix_indices.append(matrix_indices)
+            all_labels.append(labels)
+    
+    # Calculer la perte moyenne
+    avg_val_loss = val_loss / batch_count if batch_count > 0 else float('inf')
+    
+    # Concaténer tous les résultats
+    all_predictions = torch.cat(all_predictions)
+    all_raw_outputs = torch.cat(all_raw_outputs)
+    all_matrix_indices = torch.cat(all_matrix_indices)
+    all_labels = torch.cat(all_labels)
+    
+    # Diagnostic sur la distribution des prédictions
+    pred_mean = all_predictions.mean().item()
+    pred_std = all_predictions.std().item()
+    pred_min = all_predictions.min().item()
+    pred_max = all_predictions.max().item()
+    pred_median = all_predictions.median().item()
+    
+    # Histogramme des prédictions
+    pred_hist = torch.histc(all_predictions, bins=10, min=0.0, max=1.0).cpu().numpy()
+    
+    logger.info(f"Statistiques des prédictions - Mean: {pred_mean:.4f}, Std: {pred_std:.4f}, " 
+          f"Min: {pred_min:.4f}, Max: {pred_max:.4f}, Median: {pred_median:.4f}")
+    logger.info(f"Histogramme des prédictions: {pred_hist}")
+    
+    # Diagnostics sur les sorties brutes (avant sigmoid)
+    raw_mean = all_raw_outputs.mean().item()
+    raw_std = all_raw_outputs.std().item()
+    logger.info(f"Sorties brutes (avant sigmoid) - Mean: {raw_mean:.4f}, Std: {raw_std:.4f}")
+    
+    # Histogramme des sorties brutes
+    raw_hist = torch.histc(all_raw_outputs, bins=10, min=all_raw_outputs.min().item(), max=all_raw_outputs.max().item()).cpu().numpy()
+    logger.info(f"Histogramme des sorties brutes: {raw_hist}")
+    
+    # Si les prédictions sont très biaisées vers une classe, proposer un seuil ajusté
+    if pred_mean > 0.7:
+        # Si la plupart des prédictions sont > 0.7, suggérer un seuil plus élevé
+        suggested_threshold = min(0.9, pred_mean + 0.5 * pred_std)
+        logger.warning(f"Biais vers la classe IA détecté! Seuil suggéré: {suggested_threshold:.4f}")
+    elif pred_mean < 0.3:
+        # Si la plupart des prédictions sont < 0.3, suggérer un seuil plus bas
+        suggested_threshold = max(0.1, pred_mean - 0.5 * pred_std)
+        logger.warning(f"Biais vers la classe Humain détecté! Seuil suggéré: {suggested_threshold:.4f}")
+    else:
+        suggested_threshold = 0.5
+    
+    # Agréger les prédictions par matrice
+    matrix_to_preds = defaultdict(list)
+    matrix_to_labels = {}
+    
+    for i, matrix_idx in enumerate(all_matrix_indices.cpu().numpy()):
+        matrix_to_preds[matrix_idx].append(all_predictions[i].item())
+        if matrix_idx not in matrix_to_labels:
+            matrix_to_labels[matrix_idx] = all_labels[i].item()
+    
+    # Agréger et analyser
+    matrix_preds = []
+    matrix_labels = []
+    
+    for matrix_idx, preds in matrix_to_preds.items():
+        avg_pred = np.mean(preds)
+        matrix_preds.append(avg_pred)
+        matrix_labels.append(matrix_to_labels[matrix_idx])
+    
+    matrix_preds = np.array(matrix_preds)
+    matrix_labels = np.array(matrix_labels)
+    
+    # Évaluer avec différents seuils pour trouver l'optimal
+    thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    best_threshold = 0.5
+    best_accuracy = 0
+    
+    threshold_results = {}
+    for threshold in thresholds:
+        matrix_pred_classes = (matrix_preds >= threshold).astype(int)
+        accuracy = np.mean(matrix_pred_classes == matrix_labels)
+        threshold_results[threshold] = accuracy
+        
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
+            best_threshold = threshold
+    
+    logger.info(f"Performances avec différents seuils: {threshold_results}")
+    logger.info(f"Meilleur seuil: {best_threshold} (Accuracy: {best_accuracy:.4f})")
+    
+    # Utiliser le seuil de 0.5 standard pour les métriques officielles
+    matrix_pred_classes = (matrix_preds >= 0.5).astype(int)
+    
+    # Calculer l'accuracy globale
+    accuracy = np.mean(matrix_pred_classes == matrix_labels)
+    
+    # Calculer l'accuracy par classe
+    accuracy_per_class = {}
+    for cls in np.unique(matrix_labels):
+        mask = matrix_labels == cls
+        if np.sum(mask) > 0:
+            accuracy_per_class[int(cls)] = np.mean(matrix_pred_classes[mask] == matrix_labels[mask])
+        else:
+            accuracy_per_class[int(cls)] = 0.0
+    
+    # Calculer les métriques supplémentaires
+    true_pos = np.sum((matrix_pred_classes == 1) & (matrix_labels == 1))
+    false_pos = np.sum((matrix_pred_classes == 1) & (matrix_labels == 0))
+    true_neg = np.sum((matrix_pred_classes == 0) & (matrix_labels == 0))
+    false_neg = np.sum((matrix_pred_classes == 0) & (matrix_labels == 1))
+    
+    # Éviter la division par zéro
+    precision = true_pos / (true_pos + false_pos) if (true_pos + false_pos) > 0 else 0
+    recall = true_pos / (true_pos + false_neg) if (true_pos + false_neg) > 0 else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+    
+    logger.info(f"Métriques détaillées - Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
+    logger.info(f"Matrice de confusion - TP: {true_pos}, FP: {false_pos}, TN: {true_neg}, FN: {false_neg}")
+    
+    return avg_val_loss, accuracy, accuracy_per_class
+
+# Modification de la fonction principale pour intégrer les nouvelles options
 def main():
     # Configuration de l'analyse des arguments en ligne de commande
     parser = argparse.ArgumentParser(description="Entraînement du modèle de détection de code IA")
@@ -455,6 +811,18 @@ def main():
                        help="Étiquette par défaut à utiliser pour toutes les tuiles (0=humain, 1=IA)")
     parser.add_argument('--use_amp', action='store_true', 
                        help="Utiliser la précision mixte automatique pour accélérer l'entraînement (GPU uniquement)")
+    parser.add_argument('--weight_decay', type=float, default=1e-5, 
+                       help="Facteur de décroissance des poids (L2)")
+    parser.add_argument('--scheduler', type=str, default='none', choices=['reduce', 'cosine', 'step', 'none'], 
+                       help="Type de scheduler pour le taux d'apprentissage")
+    parser.add_argument('--use_sampler', action='store_true', 
+                       help="Utiliser un sampler pondéré pour équilibrer les classes")
+    parser.add_argument('--early_stopping', type=int, default=5, 
+                       help="Patience pour l'early stopping")
+    parser.add_argument('--class_weight', action='store_true', 
+                       help="Appliquer des poids de classe dans la fonction de perte")
+    parser.add_argument('--stratify', action='store_true', 
+                       help="Stratifier les données d'entraînement et de validation par classe")
     
     args = parser.parse_args()
     
@@ -466,6 +834,11 @@ def main():
     model_save_dir = args.model_save_dir
     default_label = args.default_label
     use_amp = args.use_amp
+    weight_decay = args.weight_decay
+    use_sampler = args.use_sampler
+    early_stopping_patience = args.early_stopping
+    use_class_weight = args.class_weight
+    stratify = args.stratify
     
     # Détection du dispositif
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -515,9 +888,26 @@ def main():
     
     # Division en ensembles d'entraînement et de validation (au niveau des matrices)
     unique_matrix_indices = list(range(len(dataset.unique_matrices)))
-    train_matrices, val_matrices = train_test_split(
-        unique_matrix_indices, test_size=0.2, random_state=42
-    )
+    
+    if stratify:
+        # Obtenir les étiquettes des matrices pour la stratification
+        matrix_labels = []
+        for idx in unique_matrix_indices:
+            matrix_id = dataset.unique_matrices[idx]
+            tile_idx = dataset.matrix_to_tiles[matrix_id][0]
+            _, label, _, _ = dataset[tile_idx]
+            matrix_labels.append(label.item())
+        
+        # Stratifier par classe
+        train_matrices, val_matrices = train_test_split(
+            unique_matrix_indices, test_size=0.2, random_state=42, stratify=matrix_labels
+        )
+        logger.info("Utilisation de la stratification par classe pour la division des données")
+    else:
+        # Division aléatoire sans stratification
+        train_matrices, val_matrices = train_test_split(
+            unique_matrix_indices, test_size=0.2, random_state=42
+        )
     
     print(f"Matrices d'entraînement: {len(train_matrices)}")
     print(f"Matrices de validation: {len(val_matrices)}")
@@ -562,20 +952,73 @@ def main():
         print("ERREUR CRITIQUE: Dataset vide après subdivision. Impossible de continuer l'entraînement.")
         return
     
+    # Obtenir la distribution des classes
+    train_distribution = get_class_distribution(train_dataset)
+    val_distribution = get_class_distribution(val_dataset)
+    
+    logger.info(f"Distribution des classes dans l'ensemble d'entraînement: {train_distribution}")
+    logger.info(f"Distribution des classes dans l'ensemble de validation: {val_distribution}")
+    
+    # Créer un sampler pondéré si demandé
+    train_sampler = None
+    if use_sampler:
+        train_sampler = create_balanced_sampler(train_dataset)
+        logger.info("Utilisation d'un sampler pondéré pour équilibrer les classes")
+    
     # Création des dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=(train_sampler is None),
+        sampler=train_sampler
+    )
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
     
     # Initialisation du modèle
     model = UNetForCodeDetection()
-    criterion = nn.BCELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    
+    # Initialisation personnalisée des poids
+    model.apply(custom_weight_init)
+    logger.info("Initialisation personnalisée des poids appliquée au modèle")
+    
+    # Définir les poids des classes pour la fonction de perte si demandé
+    class_weights = None
+    criterion = nn.BCELoss()  # Default criterion without weights
+    
+    if use_class_weight:
+        # Calculer les poids inversement proportionnels à la fréquence des classes
+        class_counts = np.array([train_distribution.get(0, 0), train_distribution.get(1, 0)])
+        if np.all(class_counts > 0):
+            class_weights = len(train_dataset) / (2.0 * class_counts)
+            logger.info(f"Poids des classes: {class_weights}")
+    
+    # Optimiseur avec régularisation L2
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    
+    # Scheduler pour le taux d'apprentissage
+    lr_scheduler = None
+    if args.scheduler == 'reduce':
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=2, verbose=True
+        )
+        logger.info("Utilisation d'un scheduler ReduceLROnPlateau")
+    elif args.scheduler == 'cosine':
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=num_epochs, eta_min=learning_rate/10
+        )
+        logger.info("Utilisation d'un scheduler CosineAnnealingLR")
+    elif args.scheduler == 'step':
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=5, gamma=0.5
+        )
+        logger.info("Utilisation d'un scheduler StepLR")
     
     # Entraînement du modèle
     logger.info(f"Début de l'entraînement...")
     model, best_val_acc, best_epoch, best_model_filename = train_model_with_tiles(
         model, train_loader, val_loader, criterion, optimizer, 
-        num_epochs, device, model_save_dir, batch_dir, use_amp
+        num_epochs, device, model_save_dir, batch_dir, use_amp, 
+        early_stopping_patience, lr_scheduler, use_class_weight, class_weights
     )
     
     # Sauvegarder le modèle final
@@ -587,21 +1030,28 @@ def main():
     logger.info(f"Modèle final sauvegardé à: {final_model_path}")
     
     # Évaluer le modèle final
-    final_val_acc, _ = evaluate_model(model, val_loader, device)
+    final_val_loss, final_val_acc, final_val_acc_per_class = evaluate_model_with_metrics(model, val_loader, criterion, device)
     
     # Sauvegarder les métadonnées d'entraînement
     metadata = {
         'batch_directory': batch_dir,
         'num_epochs': num_epochs,
         'batch_size': batch_size,
-        'learning_rate': learning_rate,
+        'learning_rate': float(learning_rate),
+        'weight_decay': float(weight_decay),
+        'use_sampler': use_sampler,
+        'use_class_weight': use_class_weight,
+        'scheduler': args.scheduler,
         'best_validation_accuracy': float(best_val_acc),
         'best_epoch': best_epoch,
         'final_validation_accuracy': float(final_val_acc),
+        'final_validation_accuracy_per_class': {str(k): float(v) for k, v in final_val_acc_per_class.items()},
         'num_tiles': len(tile_paths),
         'num_matrices': len(unique_matrix_indices),
         'num_train_tiles': len(train_dataset),
         'num_val_tiles': len(val_dataset),
+        'train_class_distribution': {str(k): int(v) for k, v in train_distribution.items()},
+        'val_class_distribution': {str(k): int(v) for k, v in val_distribution.items()},
         'device': str(device),
         'best_model_file': best_model_filename if best_model_filename is not None else "none",
         'final_model_file': final_model_filename,
@@ -621,6 +1071,9 @@ def main():
     
     logger.info(f"Métadonnées d'entraînement sauvegardées à: {metadata_path}")
     logger.info("Entraînement terminé!")
+    logger.info(f"Meilleure accuracy: {best_val_acc:.4f} (epoch {best_epoch})")
+    logger.info(f"Accuracy finale: {final_val_acc:.4f}")
+    logger.info(f"Accuracy par classe - Humain: {final_val_acc_per_class.get(0, 0):.4f}, IA: {final_val_acc_per_class.get(1, 0):.4f}")
 
 # Conserver votre architecture UNet originale
 class UNetForCodeDetection(nn.Module):

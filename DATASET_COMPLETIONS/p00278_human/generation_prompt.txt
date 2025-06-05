@@ -1,0 +1,61 @@
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+from bisect import bisect
+import operator
+import sys
+from collections import defaultdict
+readline = sys.stdin.readline
+write = sys.stdout.write
+
+N, Q = map(int, readline().split())
+R = [int(readline()) for i in range(N)]
+S = list(set(R))
+S.sort()
+mp = {e: i for i, e in enumerate(S)}
+D = defaultdict(int)
+
+T = R[:]
+T.sort()
+mpm = {}
+for i, e in enumerate(T):
+    mpm[e] = i
+
+INF = 10**9+1
+ps = []
+for i in range(Q):
+    t, x = readline().split(); x = int(x)
+    if t == 'ADD':
+        y = R[x-1]
+        if D[y] == 0:
+            z = mp[y]
+            idx = bisect(ps, z-1)
+            ps = ps[:idx] + [z] + ps[idx:]
+        D[y] += 1
+    elif t == 'REMOVE':
+        y = R[x-1]
+        D[y] -= 1
+        if D[y] == 0:
+            z = mp[y]
+            idx = bisect(ps, z-1)
+            ps.pop(idx)
+    else:
+        left = -1; right = INF
+        while left+1 < right:
+            mid = (left + right) >> 1
+            prv = -1
+            cnt = 0
+            for e in ps:
+                s = S[e]; v = mpm[s]
+                idx = max(bisect(T, s-mid-1)-1, prv)
+                cnt += v - idx
+                prv = v
+            if N - cnt <= x:
+                right = mid
+            else:
+                left = mid
+        if right == INF:
+            write("NA\n")
+        else:
+            write("%d\n" % right)
+```

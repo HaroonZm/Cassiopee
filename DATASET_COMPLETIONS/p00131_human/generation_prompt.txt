@@ -1,0 +1,31 @@
+En te basant sur cet énoncé, réécris le code suivant tout en conservant exactement sa fonctionnalité.
+
+```python
+import itertools
+def change(m, x, y):
+    m[y][x] ^= 1
+    if y>0: m[y-1][x] ^= 1
+    if x>0: m[y][x-1] ^= 1
+    if x<9: m[y][x+1] ^= 1
+    if y<9: m[y+1][x] ^= 1
+ans = [[0] * 10 for i in xrange(10)]
+for t in xrange(input()):
+    m = [map(int, raw_input().split()) for i in xrange(10)]
+    for p in itertools.product((0,1), repeat=10):
+        mm = [m[i][:] for i in xrange(10)]
+        for i in xrange(10):
+            if p[i]:
+                change(mm, i, 0)
+            ans[0][i] = p[i]
+        for i in xrange(9):
+            for j in xrange(10):
+                if mm[i][j]:
+                    change(mm, j, i+1)
+                    ans[i+1][j] = 1
+                else:
+                    ans[i+1][j] = 0
+        if not any(mm[9]):
+            for i in xrange(10):
+                print " ".join(map(str, ans[i]))
+            break
+```
