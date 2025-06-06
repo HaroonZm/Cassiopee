@@ -1130,20 +1130,60 @@ class UNetTrainingTab(QWidget):
     def initUI(self):
         layout = QVBoxLayout()
         
+        # Mode d'entraînement (tuiles ou matrices)
+        mode_group = QGroupBox("Mode d'entraînement")
+        mode_layout = QHBoxLayout()
+        
+        self.tiles_mode_radio = QRadioButton("Entraînement sur tuiles (classique)")
+        self.matrices_mode_radio = QRadioButton("Entraînement sur matrices complètes (amélioré)")
+        self.tiles_mode_radio.setChecked(True)
+        self.tiles_mode_radio.toggled.connect(self.toggle_training_mode)
+        self.matrices_mode_radio.toggled.connect(self.toggle_training_mode)
+        
+        mode_layout.addWidget(self.tiles_mode_radio)
+        mode_layout.addWidget(self.matrices_mode_radio)
+        mode_group.setLayout(mode_layout)
+        
+        # Type de modèle (UNet ou ResNet)
+        model_type_group = QGroupBox("Type de modèle")
+        model_type_layout = QHBoxLayout()
+        
+        self.unet_model_radio = QRadioButton("UNet")
+        self.resnet_model_radio = QRadioButton("ResNet")
+        self.unet_model_radio.setChecked(True)
+        
+        model_type_layout.addWidget(self.unet_model_radio)
+        model_type_layout.addWidget(self.resnet_model_radio)
+        model_type_group.setLayout(model_type_layout)
+        
         # Sélection des données
         data_group = QGroupBox("Données d'entraînement")
         data_layout = QVBoxLayout()
         
-        batch_layout = QHBoxLayout()
-        batch_layout.addWidget(QLabel("Dossier batch:"))
+        # Layout pour tuiles
+        self.tiles_layout = QHBoxLayout()
+        self.tiles_layout.addWidget(QLabel("Dossier batch (tuiles):"))
         self.batch_directory = QLineEdit()
         self.batch_directory.setPlaceholderText("Chemin vers le dossier batch contenant les tuiles")
         browse_button = QPushButton("Parcourir...")
         browse_button.clicked.connect(self.browse_batch_directory)
-        batch_layout.addWidget(self.batch_directory)
-        batch_layout.addWidget(browse_button)
+        self.tiles_layout.addWidget(self.batch_directory)
+        self.tiles_layout.addWidget(browse_button)
         
-        data_layout.addLayout(batch_layout)
+        # Layout pour matrices
+        self.matrices_layout = QHBoxLayout()
+        self.matrices_layout.addWidget(QLabel("Dossier matrices:"))
+        self.matrix_directory = QLineEdit()
+        self.matrix_directory.setPlaceholderText("Chemin vers le dossier contenant les matrices (.npy, .npz)")
+        self.matrix_directory.setEnabled(False)
+        matrix_browse_button = QPushButton("Parcourir...")
+        matrix_browse_button.clicked.connect(self.browse_matrix_directory)
+        matrix_browse_button.setEnabled(False)
+        self.matrices_layout.addWidget(self.matrix_directory)
+        self.matrices_layout.addWidget(matrix_browse_button)
+        
+        data_layout.addLayout(self.tiles_layout)
+        data_layout.addLayout(self.matrices_layout)
         data_group.setLayout(data_layout)
         
         # Paramètres d'entraînement
@@ -1155,7 +1195,7 @@ class UNetTrainingTab(QWidget):
         epochs_layout.addWidget(QLabel("Nombre d'époques:"))
         self.epochs_spinbox = QSpinBox()
         self.epochs_spinbox.setRange(1, 1000)
-        self.epochs_spinbox.setValue(20)  # Valeur par défaut selon le guide
+        self.epochs_spinbox.setValue(50)  # Valeur par défaut selon le guide
         epochs_layout.addWidget(self.epochs_spinbox)
         
         batch_size_layout = QHBoxLayout()
@@ -1170,6 +1210,54 @@ class UNetTrainingTab(QWidget):
         self.lr_spinbox = QLineEdit("0.001")  # Valeur par défaut selon le guide
         lr_layout.addWidget(self.lr_spinbox)
         
+        # Paramètres spécifiques aux matrices
+        normalize_layout = QHBoxLayout()
+        normalize_layout.addWidget(QLabel("Normalisation:"))
+        self.normalize_combo = QComboBox()
+        self.normalize_combo.addItems(["minmax", "zscore", "robust"])
+        normalize_layout.addWidget(self.normalize_combo)
+        
+        # Remplacer les stratégies de redimensionnement par une seule taille fixe
+        fixed_size_layout = QVBoxLayout()
+        fixed_size_title = QHBoxLayout()
+        fixed_size_title.addWidget(QLabel("Taille fixe des matrices:"))
+        fixed_size_layout.addLayout(fixed_size_title)
+        
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(QLabel("Hauteur:"))
+        self.height_spinbox = QSpinBox()
+        self.height_spinbox.setRange(16, 512)
+        self.height_spinbox.setValue(64)
+        self.height_spinbox.setSingleStep(8)
+        size_layout.addWidget(self.height_spinbox)
+        
+        size_layout.addWidget(QLabel("Largeur:"))
+        self.width_spinbox = QSpinBox()
+        self.width_spinbox.setRange(16, 1024)
+        self.width_spinbox.setValue(128)
+        self.width_spinbox.setSingleStep(8)
+        size_layout.addWidget(self.width_spinbox)
+        fixed_size_layout.addLayout(size_layout)
+        
+        padding_info = QLabel("Note: Les matrices trop grandes seront tronquées, celles trop petites seront complétées avec des valeurs 100")
+        padding_info.setStyleSheet("color: gray; font-style: italic;")
+        fixed_size_layout.addWidget(padding_info)
+        
+        # Option pour sauvegarder les matrices redimensionnées
+        save_resized_layout = QVBoxLayout()
+        self.save_resized_checkbox = QCheckBox("Sauvegarder les matrices redimensionnées")
+        save_resized_layout.addWidget(self.save_resized_checkbox)
+        
+        resized_output_layout = QHBoxLayout()
+        resized_output_layout.addWidget(QLabel("Dossier pour matrices redimensionnées:"))
+        self.resized_output_dir = QLineEdit()
+        self.resized_output_dir.setPlaceholderText("Dossier où sauvegarder les matrices redimensionnées")
+        resized_output_button = QPushButton("Parcourir...")
+        resized_output_button.clicked.connect(self.browse_resized_output_dir)
+        resized_output_layout.addWidget(self.resized_output_dir)
+        resized_output_layout.addWidget(resized_output_button)
+        save_resized_layout.addLayout(resized_output_layout)
+        
         # Sauvegarde du modèle
         save_layout = QHBoxLayout()
         save_layout.addWidget(QLabel("Dossier de sauvegarde:"))
@@ -1179,10 +1267,31 @@ class UNetTrainingTab(QWidget):
         save_layout.addWidget(self.save_dir)
         save_layout.addWidget(save_button)
         
+        # Options avancées (early stopping, stratification, etc.)
+        advanced_layout = QHBoxLayout()
+        advanced_layout.addWidget(QLabel("Early stopping (patience):"))
+        self.early_stopping_spinbox = QSpinBox()
+        self.early_stopping_spinbox.setRange(1, 50)
+        self.early_stopping_spinbox.setValue(15)
+        advanced_layout.addWidget(self.early_stopping_spinbox)
+        
+        self.stratify_checkbox = QCheckBox("Stratifier les données")
+        self.stratify_checkbox.setChecked(True)
+        advanced_layout.addWidget(self.stratify_checkbox)
+        
+        self.balance_classes_checkbox = QCheckBox("Équilibrer les classes")
+        self.balance_classes_checkbox.setChecked(True)
+        advanced_layout.addWidget(self.balance_classes_checkbox)
+        
+        # Ajouter tous les layouts au layout des paramètres
         params_layout.addLayout(epochs_layout)
         params_layout.addLayout(batch_size_layout)
         params_layout.addLayout(lr_layout)
+        params_layout.addLayout(normalize_layout)
+        params_layout.addLayout(fixed_size_layout)
+        params_layout.addLayout(save_resized_layout)
         params_layout.addLayout(save_layout)
+        params_layout.addLayout(advanced_layout)
         params_group.setLayout(params_layout)
         
         # Bouton d'action
@@ -1214,6 +1323,8 @@ class UNetTrainingTab(QWidget):
         self.progress_bar.hide()
         
         # Construction du layout principal
+        layout.addWidget(mode_group)
+        layout.addWidget(model_type_group)
         layout.addWidget(data_group)
         layout.addWidget(params_group)
         layout.addWidget(self.train_button)
@@ -1230,31 +1341,116 @@ class UNetTrainingTab(QWidget):
         self.val_accuracies = []
         self.current_epoch = 0
         self.training_thread = None
+        
+        # Initialiser l'interface selon le mode
+        self.toggle_training_mode()
+    
+    def toggle_training_mode(self):
+        """Change l'interface en fonction du mode d'entraînement sélectionné"""
+        is_tiles_mode = self.tiles_mode_radio.isChecked()
+        is_matrices_mode = self.matrices_mode_radio.isChecked()
+        
+        # Activer/désactiver les éléments spécifiques au mode tuiles
+        self.batch_directory.setEnabled(is_tiles_mode)
+        for i in range(self.tiles_layout.count()):
+            widget = self.tiles_layout.itemAt(i).widget()
+            if widget:
+                widget.setEnabled(is_tiles_mode)
+        
+        # Activer/désactiver les éléments spécifiques au mode matrices
+        self.matrix_directory.setEnabled(is_matrices_mode)
+        for i in range(self.matrices_layout.count()):
+            widget = self.matrices_layout.itemAt(i).widget()
+            if widget:
+                widget.setEnabled(is_matrices_mode)
+        
+        # Activer/désactiver les options spécifiques aux matrices
+        self.normalize_combo.setEnabled(is_matrices_mode)
+        self.height_spinbox.setEnabled(is_matrices_mode)
+        self.width_spinbox.setEnabled(is_matrices_mode)
+        self.save_resized_checkbox.setEnabled(is_matrices_mode)
+        self.resized_output_dir.setEnabled(is_matrices_mode and self.save_resized_checkbox.isChecked())
+        
+        # Activer/désactiver l'option ResNet (uniquement disponible en mode matrices)
+        self.resnet_model_radio.setEnabled(is_matrices_mode)
+        if is_tiles_mode and self.resnet_model_radio.isChecked():
+            self.unet_model_radio.setChecked(True)
     
     def browse_batch_directory(self):
         folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier batch")
         if folder:
             self.batch_directory.setText(folder)
     
+    def browse_matrix_directory(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de matrices")
+        if folder:
+            self.matrix_directory.setText(folder)
+    
     def browse_save_dir(self):
         folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier de sauvegarde")
         if folder:
             self.save_dir.setText(folder)
     
+    def browse_resized_output_dir(self):
+        folder = QFileDialog.getExistingDirectory(self, "Sélectionner le dossier pour matrices redimensionnées")
+        if folder:
+            self.resized_output_dir.setText(folder)
+    
     def train_model(self):
-        if not self.batch_directory.text():
-            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier batch.")
-            return
+        is_tiles_mode = self.tiles_mode_radio.isChecked()
+        is_matrices_mode = self.matrices_mode_radio.isChecked()
+        is_unet = self.unet_model_radio.isChecked()
+        is_resnet = self.resnet_model_radio.isChecked()
         
-        # Créer la commande d'entraînement
-        cmd = ['python', './unet/train_unet.py']
-        
-        # Ajouter les paramètres
-        cmd.extend(['--batch_directory', self.batch_directory.text()])
-        cmd.extend(['--batch_size', str(self.batch_size_spinbox.value())])
-        cmd.extend(['--num_epochs', str(self.epochs_spinbox.value())])
-        cmd.extend(['--learning_rate', self.lr_spinbox.text()])
-        cmd.extend(['--model_save_dir', self.save_dir.text()])
+        # Vérifier les entrées selon le mode
+        if is_tiles_mode:
+            if not self.batch_directory.text():
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier batch.")
+                return
+            
+            # Créer la commande d'entraînement pour les tuiles
+            cmd = ['python', './unet/train_unet.py']
+            
+            # Ajouter les paramètres
+            cmd.extend(['--batch_directory', self.batch_directory.text()])
+            cmd.extend(['--batch_size', str(self.batch_size_spinbox.value())])
+            cmd.extend(['--num_epochs', str(self.epochs_spinbox.value())])
+            cmd.extend(['--learning_rate', self.lr_spinbox.text()])
+            cmd.extend(['--model_save_dir', self.save_dir.text()])
+            
+        else:  # Mode matrices
+            if not self.matrix_directory.text():
+                QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un dossier de matrices.")
+                return
+            
+            # Déterminer le script à utiliser (UNet ou ResNet)
+            if is_unet:
+                cmd = ['python', './unet/train_unet_matrices.py']
+            else:  # ResNet
+                cmd = ['python', './unet/train_resnet_matrices.py']
+            
+            # Ajouter les paramètres communs
+            cmd.extend(['--matrix_directory', self.matrix_directory.text()])
+            cmd.extend(['--batch_size', str(self.batch_size_spinbox.value())])
+            cmd.extend(['--num_epochs', str(self.epochs_spinbox.value())])
+            cmd.extend(['--learning_rate', self.lr_spinbox.text()])
+            cmd.extend(['--model_save_dir', self.save_dir.text()])
+            
+            # Ajouter les paramètres spécifiques aux matrices
+            cmd.extend(['--normalize', self.normalize_combo.currentText()])
+            cmd.extend(['--fixed_size', str(self.height_spinbox.value()), str(self.width_spinbox.value())])
+            cmd.extend(['--early_stopping', str(self.early_stopping_spinbox.value())])
+            
+            if self.stratify_checkbox.isChecked():
+                cmd.append('--stratify')
+                
+            if self.balance_classes_checkbox.isChecked():
+                cmd.append('--balance_classes')
+                
+            # Ajouter les options pour les matrices redimensionnées
+            if self.save_resized_checkbox.isChecked() and self.resized_output_dir.text():
+                cmd.append('--save_resized')
+                cmd.extend(['--resized_output_dir', self.resized_output_dir.text()])
         
         # Préparation de l'interface
         self.console.clear()
@@ -1300,7 +1496,7 @@ class UNetTrainingTab(QWidget):
         # Analyser la sortie pour les métriques d'entraînement
         try:
             # Extraire époque en cours
-            if "Époque" in text and "/" in text:
+            if "Epoch" in text and "/" in text:
                 parts = text.split("/")
                 current_epoch = int(parts[0].split()[-1])
                 total_epochs = int(parts[1].split()[0])
@@ -1309,29 +1505,29 @@ class UNetTrainingTab(QWidget):
                 self.current_epoch = current_epoch
             
             # Extraire pertes et précisions
-            if "Perte d'entraînement:" in text:
-                train_loss = float(text.split("Perte d'entraînement:")[1].split(",")[0].strip())
+            if "Train Loss:" in text:
+                train_loss = float(text.split("Train Loss:")[1].split(",")[0].strip())
                 if self.current_epoch >= len(self.train_losses):
                     self.train_losses.append(train_loss)
                 else:
                     self.train_losses[self.current_epoch-1] = train_loss
             
-            if "Perte de validation:" in text:
-                val_loss = float(text.split("Perte de validation:")[1].split(",")[0].strip())
+            if "Val Loss:" in text:
+                val_loss = float(text.split("Val Loss:")[1].split(",")[0].strip())
                 if self.current_epoch >= len(self.val_losses):
                     self.val_losses.append(val_loss)
                 else:
                     self.val_losses[self.current_epoch-1] = val_loss
             
-            if "Précision d'entraînement:" in text:
-                train_acc = float(text.split("Précision d'entraînement:")[1].split("%")[0].strip())
+            if "Train Acc:" in text:
+                train_acc = float(text.split("Train Acc:")[1].split(",")[0].strip())
                 if self.current_epoch >= len(self.train_accuracies):
                     self.train_accuracies.append(train_acc)
                 else:
                     self.train_accuracies[self.current_epoch-1] = train_acc
             
-            if "Précision de validation:" in text:
-                val_acc = float(text.split("Précision de validation:")[1].split("%")[0].strip())
+            if "Val Acc:" in text:
+                val_acc = float(text.split("Val Acc:")[1].split(",")[0].strip())
                 if self.current_epoch >= len(self.val_accuracies):
                     self.val_accuracies.append(val_acc)
                 else:
@@ -1364,7 +1560,7 @@ class UNetTrainingTab(QWidget):
         self.ax1.set_ylabel("Perte")
         self.ax2.set_title("Précision")
         self.ax2.set_xlabel("Époque")
-        self.ax2.set_ylabel("Précision (%)")
+        self.ax2.set_ylabel("Précision")
         
         # Tracer les courbes
         epochs = list(range(1, len(self.train_losses) + 1))
@@ -1390,7 +1586,16 @@ class UNetTrainingTab(QWidget):
             
             # Afficher le résumé final
             self.console.append("\n=== RÉSUMÉ DE L'ENTRAÎNEMENT ===")
-            self.console.append(f"Dossier batch: {self.batch_directory.text()}")
+            
+            if self.tiles_mode_radio.isChecked():
+                self.console.append(f"Mode: Entraînement sur tuiles")
+                self.console.append(f"Dossier batch: {self.batch_directory.text()}")
+            else:
+                self.console.append(f"Mode: Entraînement sur matrices complètes")
+                self.console.append(f"Dossier matrices: {self.matrix_directory.text()}")
+                self.console.append(f"Normalisation: {self.normalize_combo.currentText()}")
+                self.console.append(f"Taille fixe des matrices: {self.height_spinbox.value()}x{self.width_spinbox.value()}")
+            
             self.console.append(f"Époques: {self.current_epoch}/{self.epochs_spinbox.value()}")
             
             if self.train_losses and self.val_losses:
@@ -1398,15 +1603,12 @@ class UNetTrainingTab(QWidget):
                 self.console.append(f"Perte finale (validation): {self.val_losses[-1]:.6f}")
                 
             if self.train_accuracies and self.val_accuracies:
-                self.console.append(f"Précision finale (entraînement): {self.train_accuracies[-1]:.2f}%")
-                self.console.append(f"Précision finale (validation): {self.val_accuracies[-1]:.2f}%")
+                self.console.append(f"Précision finale (entraînement): {self.train_accuracies[-1]:.4f}")
+                self.console.append(f"Précision finale (validation): {self.val_accuracies[-1]:.4f}")
                 
             # Afficher le chemin du modèle sauvegardé
             model_path = os.path.join(self.save_dir.text())
             self.console.append(f"Modèles sauvegardés dans: {model_path}")
-            self.console.append("Deux modèles ont été sauvegardés:")
-            self.console.append("  - Le meilleur modèle (préfixe 'best_')")
-            self.console.append("  - Le modèle final (préfixe 'final_')")
         else:
             QMessageBox.warning(self, "Erreur", f"Entraînement terminé avec erreur: {message}")
 

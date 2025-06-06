@@ -501,9 +501,8 @@ def main():
     parser.add_argument('--normalize', type=str, default='minmax', 
                        choices=['minmax', 'zscore', 'robust'],
                        help="Type de normalisation des données")
-    parser.add_argument('--resize_strategy', type=str, default='pad_to_max', 
-                       choices=['pad_to_max', 'center_crop', 'adaptive_pooling'],
-                       help="Stratégie de redimensionnement des matrices")
+    parser.add_argument('--fixed_size', type=int, nargs=2, default=[64, 128],
+                       help="Taille fixe pour les matrices (hauteur largeur)")
     parser.add_argument('--augmentation', action='store_true',
                        help="Activer l'augmentation de données")
     parser.add_argument('--balance_classes', action='store_true',
@@ -519,6 +518,10 @@ def main():
     parser.add_argument('--seed', type=int, default=42, help="Graine aléatoire pour la reproductibilité")
     parser.add_argument('--bilinear', action='store_true', 
                        help="Utiliser l'interpolation bilinéaire pour l'upsampling")
+    parser.add_argument('--save_resized', action='store_true',
+                       help="Sauvegarder les matrices redimensionnées")
+    parser.add_argument('--resized_output_dir', type=str, default=None,
+                       help="Dossier de sortie pour les matrices redimensionnées")
     
     args = parser.parse_args()
     
@@ -560,7 +563,9 @@ def main():
     dataset = MatrixDataset(
         matrix_paths,
         normalize_type=args.normalize,
-        resize_strategy=args.resize_strategy
+        fixed_size=tuple(args.fixed_size),
+        save_resized=args.save_resized,
+        output_dir=args.resized_output_dir
     )
     
     # Vérifier qu'il y a des matrices valides
@@ -704,7 +709,7 @@ def main():
     # Résumé final
     logger.info("\n=== Résumé de l'entraînement ===")
     logger.info(f"Modèle: UNet adaptatif (bilinear={args.bilinear})")
-    logger.info(f"Stratégie de redimensionnement: {args.resize_strategy}")
+    logger.info(f"Stratégie de redimensionnement: {args.normalize}")
     logger.info(f"Meilleure accuracy: {best_val_acc:.4f} (epoch {best_epoch})")
     logger.info(f"Nombre de matrices d'entraînement: {len(train_dataset)}")
     logger.info(f"Nombre de matrices de validation: {len(val_dataset)}")

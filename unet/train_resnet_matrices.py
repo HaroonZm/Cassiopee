@@ -29,10 +29,17 @@ class MatrixDataset(Dataset):
     Dataset pour charger directement les matrices au lieu des tuiles
     Gère les matrices de différentes tailles
     """
-    def __init__(self, matrix_paths, normalize_type='minmax', resize_strategy='pad_to_max'):
+    def __init__(self, matrix_paths, normalize_type='minmax', fixed_size=(64, 128), save_resized=False, output_dir=None):
         self.matrix_paths = matrix_paths
         self.normalize_type = normalize_type
-        self.resize_strategy = resize_strategy
+        self.fixed_size = fixed_size
+        self.save_resized = save_resized
+        self.output_dir = output_dir
+        
+        # Créer le dossier de sortie si spécifié et s'il n'existe pas
+        if self.save_resized and self.output_dir:
+            os.makedirs(self.output_dir, exist_ok=True)
+            logger.info(f"Les matrices redimensionnées seront sauvegardées dans: {self.output_dir}")
         
         # Extraire les métadonnées des noms de fichiers
         self.matrix_info = []
@@ -80,8 +87,8 @@ class MatrixDataset(Dataset):
             })
         
         # Trouver la taille maximale pour le padding (si nécessaire)
-        if resize_strategy == 'pad_to_max':
-            max_rows, max_cols = 0, 0
+        if fixed_size:
+            max_rows, max_cols = fixed_size
             valid_matrices = []
             
             for info in self.matrix_info:
@@ -180,8 +187,12 @@ class MatrixDataset(Dataset):
     
     def _resize_matrix(self, matrix):
         """
-        Redimensionne la matrice selon la stratégie choisie
+        Redimensionne la matrice à une taille fixe
+        Coupe si trop grande, remplit avec des 100 si trop petite
         """
+        # Récupérer la taille fixe des arguments ou utiliser une valeur par défaut
+        target_size = self.fixed_size if hasattr(self, 'fixed_size') else (64, 128)
+        
         # Normaliser l'orientation des matrices
         # Pour que toutes les matrices aient la même orientation (hauteur ≤ largeur)
         rows, cols = matrix.shape
@@ -191,52 +202,17 @@ class MatrixDataset(Dataset):
             # Mettre à jour les dimensions
             rows, cols = matrix.shape
         
-        if self.resize_strategy == 'pad_to_max':
-            # Padding pour atteindre la taille maximale
-            padded = np.zeros(self.max_size)
-            padded[:rows, :cols] = matrix
-            return padded
-        elif self.resize_strategy == 'center_crop':
-            # Redimensionner à une taille fixe (64x64) par cropping ou padding
-            target_size = (64, 64)
-            result = np.zeros(target_size)
-            
-            # Calculer les offsets pour le centrage
-            row_offset = max(0, (target_size[0] - rows) // 2)
-            col_offset = max(0, (target_size[1] - cols) // 2)
-            
-            # Déterminer la région à copier
-            src_row_start = max(0, (rows - target_size[0]) // 2)
-            src_col_start = max(0, (cols - target_size[1]) // 2)
-            
-            src_row_end = min(rows, src_row_start + target_size[0])
-            src_col_end = min(cols, src_col_start + target_size[1])
-            
-            # Calculer les dimensions à copier
-            copy_rows = src_row_end - src_row_start
-            copy_cols = src_col_end - src_col_start
-            
-            # Copier la partie centrale
-            result[row_offset:row_offset+copy_rows, col_offset:col_offset+copy_cols] = \
-                matrix[src_row_start:src_row_end, src_col_start:src_col_end]
-            
-            return result
-        elif self.resize_strategy == 'adaptive_pooling':
-            # Utiliser un pooling adaptatif pour redimensionner à une taille fixe
-            # Cette approche est plus efficace avec PyTorch
-            target_size = (64, 64)
-            
-            # Convertir en tenseur pour utiliser le pooling adaptatif
-            tensor = torch.from_numpy(matrix).float().unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
-            
-            # Appliquer un pooling adaptatif
-            pooled = F.adaptive_avg_pool2d(tensor, target_size)
-            
-            # Reconvertir en numpy
-            return pooled.squeeze().numpy()
-        else:
-            # Retourner la matrice telle quelle
-            return matrix
+        # Créer une matrice de destination remplie de la valeur de padding (100)
+        result = np.full(target_size, 100.0)
+        
+        # Déterminer les dimensions à copier (min de la taille source et cible)
+        copy_rows = min(rows, target_size[0])
+        copy_cols = min(cols, target_size[1])
+        
+        # Copier la partie de la matrice source qui rentre dans la cible
+        result[:copy_rows, :copy_cols] = matrix[:copy_rows, :copy_cols]
+        
+        return result
     
     def __getitem__(self, idx):
         # Charger les informations de la matrice
@@ -257,7 +233,7 @@ class MatrixDataset(Dataset):
         matrix = self._resize_matrix(matrix)
         
         # Forcer la taille standard pour toutes les matrices
-        if self.resize_strategy == 'pad_to_max':
+        if self.fixed_size:
             # S'assurer que la matrice a exactement la taille maximale
             # et toujours le même format (hauteur, largeur)
             standardized = np.zeros(self.max_size)
@@ -272,6 +248,17 @@ class MatrixDataset(Dataset):
             # Appliquer le padding
             standardized[:rows, :cols] = matrix
             matrix = standardized
+        
+        # Sauvegarder la matrice redimensionnée si demandé
+        if self.save_resized and self.output_dir:
+            # Générer un nom de fichier pour la matrice redimensionnée
+            base_filename = os.path.basename(info['path'])
+            name, ext = os.path.splitext(base_filename)
+            resized_filename = f"{name}_resized.npy"
+            resized_path = os.path.join(self.output_dir, resized_filename)
+            
+            # Sauvegarder la matrice
+            np.save(resized_path, matrix)
         
         # Conversion en tenseurs
         matrix_tensor = torch.tensor(matrix, dtype=torch.float32).unsqueeze(0)  # Ajouter la dimension du canal
@@ -1019,9 +1006,8 @@ def main():
     parser.add_argument('--normalize', type=str, default='minmax', 
                        choices=['minmax', 'zscore', 'robust'],
                        help="Type de normalisation des données")
-    parser.add_argument('--resize_strategy', type=str, default='pad_to_max', 
-                       choices=['pad_to_max', 'center_crop', 'adaptive_pooling'],
-                       help="Stratégie de redimensionnement des matrices")
+    parser.add_argument('--fixed_size', type=int, nargs=2, default=[64, 128],
+                       help="Taille fixe pour les matrices (hauteur largeur)")
     parser.add_argument('--augmentation', action='store_true',
                        help="Activer l'augmentation de données")
     parser.add_argument('--balance_classes', action='store_true',
@@ -1035,6 +1021,10 @@ def main():
     parser.add_argument('--val_split', type=float, default=0.2,
                        help="Pourcentage des données à utiliser pour la validation")
     parser.add_argument('--seed', type=int, default=42, help="Graine aléatoire pour la reproductibilité")
+    parser.add_argument('--save_resized', action='store_true',
+                       help="Sauvegarder les matrices redimensionnées")
+    parser.add_argument('--resized_output_dir', type=str, default=None,
+                       help="Dossier de sortie pour les matrices redimensionnées")
     
     args = parser.parse_args()
     
@@ -1076,7 +1066,9 @@ def main():
     dataset = MatrixDataset(
         matrix_paths,
         normalize_type=args.normalize,
-        resize_strategy=args.resize_strategy
+        fixed_size=tuple(args.fixed_size),
+        save_resized=args.save_resized,
+        output_dir=args.resized_output_dir
     )
     
     # Vérifier qu'il y a des matrices valides
@@ -1221,7 +1213,7 @@ def main():
     # Résumé final
     logger.info("\n=== Résumé de l'entraînement ===")
     logger.info(f"Modèle: {args.model_type}")
-    logger.info(f"Stratégie de redimensionnement: {args.resize_strategy}")
+    logger.info(f"Stratégie de redimensionnement: {args.fixed_size}")
     logger.info(f"Meilleure accuracy: {best_val_acc:.4f} (epoch {best_epoch})")
     logger.info(f"Nombre de matrices d'entraînement: {len(train_dataset)}")
     logger.info(f"Nombre de matrices de validation: {len(val_dataset)}")
