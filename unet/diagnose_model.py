@@ -12,6 +12,7 @@ from collections import defaultdict
 from torch.utils.data import DataLoader, Subset
 import random
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
+import re
 
 # Importer les modules nécessaires
 from train_unet import PreTiledCodeMatrixDataset, UNetForCodeDetection
@@ -23,12 +24,50 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def extract_input_size_from_model_name(model_path):
+    """
+    Extrait les dimensions d'entrée du nom du modèle.
+    Format attendu: *_HxW_* où H et W sont les dimensions.
+    Par exemple: unet_batch1_64x128_best_e100_b32.pth
+    
+    Returns:
+        tuple: (height, width) ou (64, 128) par défaut si non trouvé
+    """
+    try:
+        # Chercher le pattern de dimensions dans le nom du fichier
+        filename = os.path.basename(model_path)
+        match = re.search(r'_(\d+)x(\d+)_', filename)
+        
+        if match:
+            height = int(match.group(1))
+            width = int(match.group(2))
+            logger.info(f"Dimensions extraites du nom du modèle : {height}x{width}")
+            return height, width
+        else:
+            logger.warning("Dimensions non trouvées dans le nom du modèle, utilisation des valeurs par défaut (64x128)")
+            return 64, 128
+    except Exception as e:
+        logger.warning(f"Erreur lors de l'extraction des dimensions : {e}. Utilisation des valeurs par défaut (64x128)")
+        return 64, 128
+
 def load_model(model_path, device):
-    """Charge un modèle préentraîné."""
+    """
+    Charge un modèle préentraîné et configure ses dimensions d'entrée.
+    Les dimensions sont extraites du nom du fichier du modèle.
+    """
+    # Extraire les dimensions du nom du modèle
+    input_height, input_width = extract_input_size_from_model_name(model_path)
+    
+    # Créer le modèle avec les dimensions extraites
     model = UNetForCodeDetection()
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)
     model.eval()
+    
+    # Stocker les dimensions comme attributs du modèle pour référence future
+    model.input_height = input_height
+    model.input_width = input_width
+    
     return model
 
 def analyze_model_weights(model):

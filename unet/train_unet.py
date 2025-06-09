@@ -23,9 +23,10 @@ logger = logging.getLogger(__name__)
 
 # Dataset pour les tuiles pré-découpées avec identification simplifiée des matrices sources
 class PreTiledCodeMatrixDataset(Dataset):
-    def __init__(self, tile_paths, group_by_matrix=True, default_label=None):
+    def __init__(self, tile_paths, group_by_matrix=True, default_label=None, target_size=None):
         self.tile_paths = tile_paths
         self.default_label = default_label
+        self.target_size = target_size  # (height, width)
         
         # Extraire les métadonnées des noms de fichiers
         self.tile_info = []
@@ -126,21 +127,28 @@ class PreTiledCodeMatrixDataset(Dataset):
         if max_val > min_val:  # Éviter la division par zéro
             tile = (tile - min_val) / (max_val - min_val)
         
+        # Redimensionner la tuile si nécessaire
+        if self.target_size is not None:
+            tile = torch.tensor(tile, dtype=torch.float32).unsqueeze(0)  # Ajouter dimension canal
+            if tile.shape[-2:] != self.target_size:
+                tile = F.interpolate(tile.unsqueeze(0), size=self.target_size, mode='bilinear', align_corners=True)
+                tile = tile.squeeze(0)  # Retirer la dimension batch
+        else:
+            tile = torch.tensor(tile, dtype=torch.float32).unsqueeze(0)
+        
         # Créer un identifiant numérique pour la matrice source
         matrix_id = self.unique_matrices.index(info['matrix_id']) if hasattr(self, 'unique_matrices') else -1
         
         # Conversion en tenseurs
-        tile_tensor = torch.tensor(tile, dtype=torch.float32).unsqueeze(0)
         label_tensor = torch.tensor(info['label'], dtype=torch.float32)
         matrix_id_tensor = torch.tensor(matrix_id, dtype=torch.long)
         
-        # Calculer le ratio de contenu non-padding (si nécessaire)
-        # Supposons que 100 est la valeur de padding
+        # Calculer le ratio de contenu non-padding
         padding_value = 100
-        content_ratio = np.mean(tile != padding_value) if np.any(tile == padding_value) else 1.0
+        content_ratio = torch.mean((tile != padding_value).float())
         content_ratio_tensor = torch.tensor(content_ratio, dtype=torch.float32)
         
-        return tile_tensor, label_tensor, matrix_id_tensor, content_ratio_tensor
+        return tile, label_tensor, matrix_id_tensor, content_ratio_tensor
 
 # Fonction d'agrégation des prédictions de tuiles
 def aggregate_tile_predictions(predictions, matrix_indices, content_ratios=None, strategy='hybrid'):
@@ -305,7 +313,7 @@ def evaluate_model(model, val_loader, device):
     return accuracy, aggregated_results
 
 # Générer un nom de fichier unique pour le modèle
-def generate_model_filename(batch_name, model_type, num_epochs, batch_size, accuracy=None):
+def generate_model_filename(batch_name, model_type, num_epochs, batch_size, input_size=(64, 128), accuracy=None):
     """
     Génère un nom de fichier unique pour le modèle.
     
@@ -314,6 +322,7 @@ def generate_model_filename(batch_name, model_type, num_epochs, batch_size, accu
         model_type: Type de modèle ('best', 'final')
         num_epochs: Nombre d'époques d'entraînement
         batch_size: Taille du batch utilisé
+        input_size: Tuple (hauteur, largeur) de la taille d'entrée
         accuracy: Précision du modèle (optionnel)
     
     Returns:
@@ -326,8 +335,8 @@ def generate_model_filename(batch_name, model_type, num_epochs, batch_size, accu
     batch_name = os.path.basename(batch_name)
     batch_name = ''.join(c if c.isalnum() else '_' for c in batch_name)
     
-    # Construire le nom de fichier
-    filename = f"unet_{batch_name}_{model_type}_e{num_epochs}_b{batch_size}"
+    # Construire le nom de fichier avec les dimensions
+    filename = f"unet_{batch_name}_{input_size[0]}x{input_size[1]}_{model_type}_e{num_epochs}_b{batch_size}"
     
     # Ajouter la précision si disponible
     if accuracy is not None:
@@ -441,7 +450,8 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
                           num_epochs=10, device='cuda', model_save_dir='.', 
                           batch_name='default', use_amp=True, 
                           early_stopping_patience=5, lr_scheduler=None, 
-                          use_class_weight=False, class_weights=None):
+                          use_class_weight=False, class_weights=None,
+                          input_size=(64, 128)):
     """
     Fonction d'entraînement améliorée avec:
     - Pondération des classes
@@ -505,31 +515,22 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
                         # Créer un tenseur de poids correspondant aux étiquettes
                         sample_weights = torch.ones_like(labels)
                         for i, label in enumerate(labels):
-                            # Attribuer le poids approprié selon la classe (0 ou 1)
-                            weight_idx = int(label.item())
-                            sample_weights[i] = torch.tensor(class_weights[weight_idx], device=device)
-                        
-                        # Pondérer la perte
+                            sample_weights[i] = class_weights[int(label.item())]
                         loss = loss * sample_weights
-                        loss = loss.mean()  # Moyenne pondérée
+                        loss = loss.mean()
                 
-                # Backward pass avec scaling
+                # Backward pass avec précision mixte
                 scaler.scale(loss).backward()
-                
-                # Clip gradient norm pour éviter l'explosion du gradient
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                
                 scaler.step(optimizer)
                 scaler.update()
             else:
-                # Version standard sans précision mixte
                 outputs = model(inputs).squeeze()
                 
                 # Si une seule tuile dans le batch
                 if outputs.ndim == 0:
                     outputs = outputs.unsqueeze(0)
                 
-                # Calculer la perte
+                # Calculer la perte avec ou sans poids de classe
                 loss = criterion(outputs, labels)
                 
                 # Appliquer les poids de classe manuellement si nécessaire
@@ -537,110 +538,78 @@ def train_model_with_tiles(model, train_loader, val_loader, criterion, optimizer
                     # Créer un tenseur de poids correspondant aux étiquettes
                     sample_weights = torch.ones_like(labels)
                     for i, label in enumerate(labels):
-                        # Attribuer le poids approprié selon la classe (0 ou 1)
-                        weight_idx = int(label.item())
-                        sample_weights[i] = torch.tensor(class_weights[weight_idx], device=device)
-                    
-                    # Pondérer la perte
+                        sample_weights[i] = class_weights[int(label.item())]
                     loss = loss * sample_weights
-                    loss = loss.mean()  # Moyenne pondérée
+                    loss = loss.mean()
                 
-                # Backward pass
+                # Backward pass standard
                 loss.backward()
-                
-                # Clip gradient norm pour éviter l'explosion du gradient
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                
                 optimizer.step()
             
-            # Statistiques
+            # Mettre à jour les métriques
             train_loss += loss.item()
             batch_count += 1
             
-            # Mise à jour de la barre de progression
-            train_pbar.set_postfix({'loss': loss.item()})
+            # Mettre à jour la barre de progression
+            train_pbar.set_postfix({'loss': f"{loss.item():.4f}"})
         
-        avg_train_loss = train_loss / batch_count if batch_count > 0 else float('inf')
+        # Calculer la perte moyenne d'entraînement
+        train_loss = train_loss / batch_count
         
-        # Évaluation
-        logger.info("Évaluation sur l'ensemble de validation...")
-        val_loss, val_acc, val_acc_per_class = evaluate_model_with_metrics(model, val_loader, criterion, device)
+        # Évaluation sur l'ensemble de validation
+        val_loss, val_acc, val_acc_per_class = evaluate_model_with_metrics(
+            model, val_loader, criterion, device
+        )
         
         # Mettre à jour l'historique
-        history['train_loss'].append(avg_train_loss)
+        history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
         history['val_acc'].append(val_acc)
         history['val_acc_per_class'].append(val_acc_per_class)
         history['learning_rate'].append(optimizer.param_groups[0]['lr'])
         
-        logger.info(f"Epoch {epoch+1}/{num_epochs} - "
-               f"Train Loss: {avg_train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
-        logger.info(f"Accuracy par classe - Humain: {val_acc_per_class.get(0, 0):.4f}, IA: {val_acc_per_class.get(1, 0):.4f}")
+        # Afficher les métriques
+        logger.info(f"\nEpoch {epoch+1}/{num_epochs}:")
+        logger.info(f"Train Loss: {train_loss:.4f}")
+        logger.info(f"Val Loss: {val_loss:.4f}")
+        logger.info(f"Val Accuracy: {val_acc:.4f}")
+        logger.info(f"Val Accuracy per class: {val_acc_per_class}")
         
-        # Mise à jour du scheduler si fourni
+        # Mettre à jour le scheduler si nécessaire
         if lr_scheduler is not None:
             if isinstance(lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                 lr_scheduler.step(val_loss)
             else:
                 lr_scheduler.step()
         
-        # Sauvegarde du meilleur modèle (basé sur la précision de validation)
+        # Sauvegarder le meilleur modèle
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            best_val_loss = val_loss
             best_epoch = epoch + 1
-            patience_counter = 0
-            
-            # Générer un nom de fichier unique pour le meilleur modèle
             best_model_filename = generate_model_filename(
-                batch_name, "best", num_epochs, batch_size, val_acc
+                batch_name, "best", num_epochs, batch_size, 
+                input_size=input_size, accuracy=val_acc
             )
             best_model_path = os.path.join(model_save_dir, best_model_filename)
-            
             torch.save(model.state_dict(), best_model_path)
-            logger.info(f"Meilleur modèle sauvegardé avec précision de validation: {val_acc:.4f}")
-            logger.info(f"Chemin: {best_model_path}")
+            logger.info(f"Nouveau meilleur modèle sauvegardé: {best_model_filename}")
+            patience_counter = 0
         else:
             patience_counter += 1
-            logger.info(f"Pas d'amélioration. Patience: {patience_counter}/{early_stopping_patience}")
-            
-            # Early stopping
-            if patience_counter >= early_stopping_patience:
-                logger.info(f"Early stopping après {epoch+1} époques sans amélioration")
-                break
+        
+        # Early stopping
+        if patience_counter >= early_stopping_patience:
+            logger.info(f"Early stopping après {epoch + 1} époques")
+            break
     
-    # Sauvegarder l'historique d'entraînement
-    # Sanitiser le nom du batch pour éviter les chemins invalides
-    batch_name_safe = ''.join(c if c.isalnum() else '_' for c in os.path.basename(batch_name))
-    history_filename = f"training_history_{batch_name_safe}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    history_path = os.path.join(model_save_dir, history_filename)
-    
-    # S'assurer que le dossier existe
-    os.makedirs(model_save_dir, exist_ok=True)
-    
-    # Convertir les valeurs numpy en types Python standard pour JSON
-    for key in history:
-        if isinstance(history[key], list) and len(history[key]) > 0:
-            if isinstance(history[key][0], dict):
-                history[key] = [{k: float(v) for k, v in d.items()} for d in history[key]]
-            else:
-                history[key] = [float(x) for x in history[key]]
-    
-    with open(history_path, 'w') as f:
-        json.dump(history, f, indent=4)
-    
-    logger.info(f"Historique d'entraînement sauvegardé à: {history_path}")
-    
-    # Si aucun meilleur modèle n'a été trouvé (rare, mais possible)
-    if best_model_filename is None:
-        logger.warning("Attention: Aucune amélioration de la précision pendant l'entraînement.")
-        # Créer un nom de fichier pour le modèle final qui servira aussi de meilleur modèle
-        best_model_filename = generate_model_filename(
-            batch_name, "best_final", num_epochs, batch_size, 0.0
-        )
-        best_model_path = os.path.join(model_save_dir, best_model_filename)
-        torch.save(model.state_dict(), best_model_path)
-        logger.info(f"Modèle sauvegardé comme meilleur modèle par défaut: {best_model_path}")
+    # Sauvegarder le modèle final
+    final_model_filename = generate_model_filename(
+        batch_name, "final", num_epochs, batch_size,
+        input_size=input_size
+    )
+    final_model_path = os.path.join(model_save_dir, final_model_filename)
+    torch.save(model.state_dict(), final_model_path)
+    logger.info(f"Modèle final sauvegardé: {final_model_filename}")
     
     return model, best_val_acc, best_epoch, best_model_filename
 
@@ -823,6 +792,10 @@ def main():
                        help="Appliquer des poids de classe dans la fonction de perte")
     parser.add_argument('--stratify', action='store_true', 
                        help="Stratifier les données d'entraînement et de validation par classe")
+    parser.add_argument('--input_height', type=int, default=64,
+                       help="Hauteur des images d'entrée pour le modèle")
+    parser.add_argument('--input_width', type=int, default=128,
+                       help="Largeur des images d'entrée pour le modèle")
     
     args = parser.parse_args()
     
@@ -839,6 +812,7 @@ def main():
     early_stopping_patience = args.early_stopping
     use_class_weight = args.class_weight
     stratify = args.stratify
+    input_size = (args.input_height, args.input_width)
     
     # Détection du dispositif
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -873,7 +847,12 @@ def main():
     
     # Créer le dataset avec les tuiles pré-découpées
     try:
-        dataset = PreTiledCodeMatrixDataset(tile_paths, group_by_matrix=True, default_label=default_label)
+        dataset = PreTiledCodeMatrixDataset(
+            tile_paths, 
+            group_by_matrix=True, 
+            default_label=default_label,
+            target_size=input_size
+        )
         
         # S'assurer qu'il y a des tuiles valides
         if len(dataset) == 0:
@@ -1018,12 +997,14 @@ def main():
     model, best_val_acc, best_epoch, best_model_filename = train_model_with_tiles(
         model, train_loader, val_loader, criterion, optimizer, 
         num_epochs, device, model_save_dir, batch_dir, use_amp, 
-        early_stopping_patience, lr_scheduler, use_class_weight, class_weights
+        early_stopping_patience, lr_scheduler, use_class_weight, class_weights,
+        input_size=input_size
     )
     
     # Sauvegarder le modèle final
     final_model_filename = generate_model_filename(
-        batch_dir, "final", num_epochs, batch_size
+        batch_dir, "final", num_epochs, batch_size,
+        input_size=input_size
     )
     final_model_path = os.path.join(model_save_dir, final_model_filename)
     torch.save(model.state_dict(), final_model_path)
