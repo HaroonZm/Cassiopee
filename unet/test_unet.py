@@ -169,32 +169,86 @@ class UNetForCodeDetection(nn.Module):
         # Classification finale avec global pooling et MLP
         return self.classifier(x)
 
-def preprocess_matrix(matrix):
+def preprocess_matrix(matrix, normalize_type='unet_default', fixed_size=(64, 128), save_resized=False, output_dir=None):
     """
-    Prétraite une matrice de la même manière que pendant l'entraînement
+    Prétraite une matrice avec options de normalisation et redimensionnement étendues
+    
+    Args:
+        matrix: La matrice à prétraiter
+        normalize_type: Type de normalisation ('unet_default', 'minmax', 'zscore', 'robust')
+        fixed_size: Taille cible pour le redimensionnement (hauteur, largeur)
+        save_resized: Si True, sauvegarde la matrice redimensionnée
+        output_dir: Répertoire de sortie pour les matrices redimensionnées
     """
     try:
-        # Check if the matrix contains non-numeric data (strings or objects)
+        # Check if the matrix contains non-numeric data
         if np.issubdtype(matrix.dtype, np.str_) or np.issubdtype(matrix.dtype, np.object_):
-            # If it's a metadata file or contains non-numeric data, convert to a numeric matrix
-            # Return a small dummy matrix with numeric values
             logger.warning(f"Matrix contains non-numeric data (dtype: {matrix.dtype}). Creating a dummy matrix.")
-            return np.zeros((16, 16), dtype=np.float32)
+            return np.zeros(fixed_size, dtype=np.float32)
         
-        # Remplacer les valeurs -inf ou NaN par une valeur numérique
+        # Remplacer les valeurs -inf ou NaN
         matrix = np.nan_to_num(matrix, neginf=-100.0)
         
-        # Normalisation min-max pour ramener entre 0 et 1
-        min_val = np.min(matrix)
-        max_val = np.max(matrix)
-        if max_val > min_val:  # Éviter la division par zéro
-            matrix = (matrix - min_val) / (max_val - min_val)
+        # Normalisation selon le type choisi
+        if normalize_type == 'unet_default':
+            # Normalisation originale UNet (min-max simple)
+            min_val = np.min(matrix)
+            max_val = np.max(matrix)
+            if max_val > min_val:
+                matrix = (matrix - min_val) / (max_val - min_val)
+        elif normalize_type == 'zscore':
+            # Z-score normalization from ResNet
+            mean = np.mean(matrix)
+            std = np.std(matrix)
+            if std > 0:
+                matrix = (matrix - mean) / std
+            else:
+                matrix = np.zeros_like(matrix)
+        elif normalize_type == 'robust':
+            # Robust scaling from ResNet
+            q25 = np.percentile(matrix, 25)
+            q75 = np.percentile(matrix, 75)
+            iqr = q75 - q25
+            if iqr > 0:
+                matrix = (matrix - q25) / iqr
+            else:
+                min_val = np.min(matrix)
+                max_val = np.max(matrix)
+                if max_val > min_val:
+                    matrix = (matrix - min_val) / (max_val - min_val)
+                else:
+                    matrix = np.zeros_like(matrix)
         
-        return matrix
+        # Contraindre les valeurs entre 0 et 1
+        matrix = np.clip(matrix, 0, 1)
+        
+        # Redimensionnement de la matrice
+        rows, cols = matrix.shape
+        if rows > cols:
+            # Normaliser l'orientation (hauteur ≤ largeur)
+            matrix = matrix.T
+            rows, cols = cols, rows
+        
+        # Créer une matrice de destination avec padding
+        result = np.full(fixed_size, 0.0)  # UNet utilise 0 comme padding au lieu de 100
+        
+        # Copier la partie de la matrice qui rentre dans la taille cible
+        copy_rows = min(rows, fixed_size[0])
+        copy_cols = min(cols, fixed_size[1])
+        result[:copy_rows, :copy_cols] = matrix[:copy_rows, :copy_cols]
+        
+        # Sauvegarder la matrice redimensionnée si demandé
+        if save_resized and output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, f"resized_{os.path.basename(file_path)}")
+            np.save(output_path, result)
+            logger.info(f"Matrice redimensionnée sauvegardée: {output_path}")
+        
+        return result
+        
     except Exception as e:
         logger.error(f"Erreur lors du prétraitement de la matrice: {str(e)}")
-        # En cas d'erreur, retourner une matrice dummy
-        return np.zeros((16, 16), dtype=np.float32)
+        return np.zeros(fixed_size, dtype=np.float32)
 
 def normalize_path(path):
     """
@@ -273,9 +327,19 @@ def determine_true_class(filename):
     else:
         return "Inconnu"
 
-def test_single_file(model, file_path, device, model_path=None):
+def test_single_file(model, file_path, device, model_path=None, normalize_type='unet_default', matrix_size=(64, 128), save_resized=False, resized_output=None):
     """
     Teste le modèle sur un seul fichier
+    
+    Args:
+        model: Le modèle UNet chargé
+        file_path: Chemin vers le fichier à tester
+        device: Device à utiliser
+        model_path: Chemin vers le modèle (pour le cache)
+        normalize_type: Type de normalisation à utiliser
+        matrix_size: Taille cible des matrices (hauteur, largeur)
+        save_resized: Sauvegarder les matrices redimensionnées
+        resized_output: Dossier de sortie pour les matrices redimensionnées
     """
     # Normaliser le chemin du fichier
     file_path = normalize_path(file_path)
@@ -289,23 +353,13 @@ def test_single_file(model, file_path, device, model_path=None):
     try:
         # Charger et prétraiter la matrice
         matrix = np.load(file_path)
-        matrix = preprocess_matrix(matrix)
-        
-        # Vérifier la taille de la matrice
-        logger.info(f"Taille de la matrice originale: {matrix.shape}")
-        
-        # Si la matrice est trop petite, la redimensionner
-        # La taille minimale requise dépend de l'architecture UNet
-        # Pour un modèle avec 4 couches de downsample, la taille minimale est 16x16
-        min_size = 16
-        if matrix.shape[0] < min_size or matrix.shape[1] < min_size:
-            logger.info(f"Matrice redimensionnée de {matrix.shape} à au moins {min_size}x{min_size}")
-            # Créer une nouvelle matrice de taille minimale, remplie de zéros
-            new_matrix = np.zeros((max(min_size, matrix.shape[0]), max(min_size, matrix.shape[1])))
-            # Copier les valeurs de la matrice originale
-            new_matrix[:matrix.shape[0], :matrix.shape[1]] = matrix
-            matrix = new_matrix
-            logger.info(f"Nouvelle taille de matrice: {matrix.shape}")
+        matrix = preprocess_matrix(
+            matrix,
+            normalize_type=normalize_type,
+            fixed_size=matrix_size,
+            save_resized=save_resized,
+            output_dir=resized_output
+        )
         
         # Conversion en tenseur
         matrix_tensor = torch.tensor(matrix, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
@@ -351,24 +405,24 @@ def test_single_file(model, file_path, device, model_path=None):
         
     except Exception as e:
         logger.error(f"Erreur lors du test de {file_path}: {e}")
-        traceback.print_exc()  # Afficher la trace complète de l'erreur
+        traceback.print_exc()
         return None
 
-def test_directory(model, test_dir, device, recursive=False):
+def test_directory(model, test_dir, device, normalize_type='unet_default', matrix_size=(64, 128), save_resized=False, resized_output=None):
     """
-    Teste le modèle sur tous les fichiers .npy d'un répertoire
+    Teste le modèle sur tous les fichiers .npy d'un répertoire et ses sous-dossiers
     
     Args:
         model: Le modèle UNet chargé
         test_dir: Le répertoire contenant les fichiers .npy à tester
         device: Le périphérique de calcul (CPU/GPU)
-        recursive: Si True, recherche également dans les sous-dossiers
+        normalize_type: Type de normalisation à utiliser
+        matrix_size: Taille cible des matrices (hauteur, largeur)
+        save_resized: Sauvegarder les matrices redimensionnées
+        resized_output: Dossier de sortie pour les matrices redimensionnées
     """
-    # Trouver tous les fichiers .npy dans le répertoire
-    if recursive:
-        test_files = glob.glob(os.path.join(test_dir, "**/*.npy"), recursive=True)
-    else:
-        test_files = glob.glob(os.path.join(test_dir, "*.npy"))
+    # Trouver tous les fichiers .npy dans le répertoire et ses sous-dossiers
+    test_files = glob.glob(os.path.join(test_dir, "**/*.npy"), recursive=True)
     
     print(f"Trouvé {len(test_files)} fichiers à tester dans {test_dir}")
     
@@ -378,7 +432,15 @@ def test_directory(model, test_dir, device, recursive=False):
     
     results = []
     for file_path in tqdm(test_files, desc="Test des fichiers"):
-        result = test_single_file(model, file_path, device)
+        result = test_single_file(
+            model, 
+            file_path, 
+            device,
+            normalize_type=normalize_type,
+            matrix_size=matrix_size,
+            save_resized=save_resized,
+            resized_output=resized_output
+        )
         if result:
             results.append(result)
     
@@ -691,7 +753,7 @@ def analyze_tiles_directory(model, tiles_dir, device):
     
     return result
 
-def analyze_python_file(model_path, python_file, device=None):
+def analyze_python_file(model_path, python_file, device=None, normalize_type='unet_default', matrix_size=(64, 128), save_resized=False, resized_output=None):
     """
     Analyse un fichier Python pour déterminer s'il est généré par IA
     
@@ -699,6 +761,10 @@ def analyze_python_file(model_path, python_file, device=None):
         model_path: Chemin vers le modèle UNet entraîné
         python_file: Chemin vers le fichier Python à analyser
         device: Périphérique de calcul (None pour auto-détection)
+        normalize_type: Type de normalisation à utiliser
+        matrix_size: Taille cible des matrices (hauteur, largeur)
+        save_resized: Sauvegarder les matrices redimensionnées
+        resized_output: Dossier de sortie pour les matrices redimensionnées
     
     Returns:
         Dictionnaire contenant les résultats d'analyse
@@ -749,7 +815,16 @@ def analyze_python_file(model_path, python_file, device=None):
             result = analyze_tiles_directory(model, matrix_file, device)
         else:
             # Si c'est un fichier unique, utiliser test_single_file
-            result = test_single_file(model, matrix_file, device, model_path)
+            result = test_single_file(
+                model,
+                matrix_file,
+                device,
+                model_path,
+                normalize_type=normalize_type,
+                matrix_size=matrix_size,
+                save_resized=save_resized,
+                resized_output=resized_output
+            )
         
         # Ajouter le nom du fichier Python d'origine si c'est un .py
         if python_file.endswith('.py') and result:
@@ -762,166 +837,76 @@ def analyze_python_file(model_path, python_file, device=None):
     else:
         return None
 
-def analyze_python_directory(model_path, directory, recursive=False, device=None):
+def analyze_python_directory(model_path, directory, device=None, normalize_type='unet_default', matrix_size=(64, 128), save_resized=False, resized_output=None):
     """
-    Analyse tous les fichiers Python et NPY dans un répertoire
+    Analyse tous les fichiers Python d'un répertoire et ses sous-dossiers
     
     Args:
-        model_path: Chemin vers le modèle UNet entraîné
+        model_path: Chemin vers le modèle UNet
         directory: Répertoire contenant les fichiers Python
-        recursive: Si True, recherche également dans les sous-dossiers
-        device: Périphérique de calcul (None pour auto-détection)
-    
-    Returns:
-        Liste de dictionnaires contenant les résultats d'analyse
+        device: Device à utiliser (None pour auto)
+        normalize_type: Type de normalisation à utiliser
+        matrix_size: Taille cible des matrices (hauteur, largeur)
+        save_resized: Sauvegarder les matrices redimensionnées
+        resized_output: Dossier de sortie pour les matrices redimensionnées
     """
-    # Déterminer le device
-    if device is None:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # Trouver tous les fichiers Python et NPY dans le répertoire et ses sous-dossiers
+    py_files = glob.glob(os.path.join(directory, "**/*.py"), recursive=True)
+    npy_files = glob.glob(os.path.join(directory, "**/*.npy"), recursive=True)
     
-    print(f"Utilisation de: {device}")
+    logger.info(f"Trouvé {len(py_files)} fichiers Python et {len(npy_files)} matrices dans {directory}")
     
-    # Vérifier que le modèle existe
-    if not os.path.exists(model_path):
-        print(f"Erreur: Le fichier modèle '{model_path}' n'existe pas!")
-        return []
-    
-    # Charger le modèle
-    try:
-        model = UNetForCodeDetection()
-        model.load_state_dict(torch.load(model_path, map_location=device))
-        model.to(device)
-        model.eval()
-        print(f"Modèle chargé avec succès: {model_path}")
-    except Exception as e:
-        print(f"Erreur lors du chargement du modèle: {e}")
-        return []
-    
-    # Trouver tous les fichiers Python et NPY dans le répertoire
-    py_files = []
-    npy_files = []
-    
-    if recursive:
-        py_files = glob.glob(os.path.join(directory, "**/*.py"), recursive=True)
-        npy_files = glob.glob(os.path.join(directory, "**/*.npy"), recursive=True)
-    else:
-        py_files = glob.glob(os.path.join(directory, "*.py"))
-        npy_files = glob.glob(os.path.join(directory, "*.npy"))
-    
-    print(f"Trouvé {len(py_files)} fichiers Python et {len(npy_files)} fichiers NPY dans {directory}")
-    
-    if len(py_files) == 0 and len(npy_files) == 0:
-        print("Aucun fichier Python ou NPY trouvé dans le répertoire spécifié!")
-        return []
-    
-    # Créer un répertoire temporaire pour les matrices générées à partir des fichiers Python
-    temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_matrices")
-    os.makedirs(temp_dir, exist_ok=True)
-    
-    # Traiter d'abord les fichiers .npy qui sont déjà des matrices
     results = []
+    
+    # Traiter d'abord les fichiers NPY existants
     if npy_files:
-        print("Analyse des matrices .npy existantes...")
-        for npy_file in tqdm(npy_files, desc="Analyse des matrices existantes"):
-            result = test_single_file(model, npy_file, device)
-            if result:
-                results.append(result)
-    
-    # Générer les matrices pour les fichiers Python et les analyser
-    if py_files:
-        print("Génération des matrices à partir des fichiers Python...")
-        for py_file in tqdm(py_files, desc="Génération et analyse des fichiers Python"):
-            # Note: Ici nous utilisons generate_matrix_and_tiles_from_python, pas generate_matrix_from_python
-            matrix_file = generate_matrix_and_tiles_from_python(py_file, temp_dir, token_model=args.token_model, pred_model=args.pred_model, api_key=args.api_key, local_api_url=args.local_api_url)
-            if matrix_file:
-                # Vérifier si le chemin est un répertoire ou un fichier
-                if os.path.isdir(matrix_file):
-                    result = analyze_tiles_directory(model, matrix_file, device)
-                else:
-                    result = test_single_file(model, matrix_file, device)
-                
+        logger.info("Analyse des matrices existantes...")
+        for npy_file in tqdm(npy_files, desc="Analyse des matrices"):
+            try:
+                result = test_single_file(None, npy_file, device, model_path, normalize_type=normalize_type, matrix_size=matrix_size, save_resized=save_resized, resized_output=resized_output)
                 if result:
-                    result['python_file'] = py_file
                     results.append(result)
+            except Exception as e:
+                logger.error(f"Erreur lors du traitement de {npy_file}: {str(e)}")
     
-    # Afficher les statistiques globales
-    correct_count = sum(1 for r in results if r.get('correct') == True)
-    total_known = sum(1 for r in results if r.get('correct') is not None)
-    
-    print("\n" + "="*60)
-    print("RÉSULTATS GLOBAUX")
-    print("-"*60)
-    
-    print(f"Total des fichiers analysés: {len(results)}")
-    
-    if total_known > 0:
-        accuracy = correct_count / total_known
-        print(f"Précision globale: {accuracy*100:.2f}% ({correct_count}/{total_known})")
-        
-        # Statistiques par classe
-        ia_total = sum(1 for r in results if r.get('true_class') == "IA")
-        ia_correct = sum(1 for r in results if r.get('true_class') == "IA" and r.get('correct'))
-        
-        human_total = sum(1 for r in results if r.get('true_class') == "Humain")
-        human_correct = sum(1 for r in results if r.get('true_class') == "Humain" and r.get('correct'))
-        
-        if ia_total > 0:
-            print(f"Précision sur code IA: {(ia_correct/ia_total)*100:.2f}% ({ia_correct}/{ia_total})")
-        
-        if human_total > 0:
-            print(f"Précision sur code Humain: {(human_correct/human_total)*100:.2f}% ({human_correct}/{human_total})")
-    else:
-        print("Aucun fichier avec une classe connue n'a été testé.")
-    
-    print("="*60)
+    # Ensuite traiter les fichiers Python
+    if py_files:
+        logger.info("Analyse des fichiers Python...")
+        for py_file in tqdm(py_files, desc="Analyse des fichiers Python"):
+            try:
+                result = analyze_python_file(model_path, py_file, device, normalize_type=normalize_type, matrix_size=matrix_size, save_resized=save_resized, resized_output=resized_output)
+                if result:
+                    results.append(result)
+            except Exception as e:
+                logger.error(f"Erreur lors du traitement de {py_file}: {str(e)}")
     
     return results
 
-def analyze_python_directory_parallel(model_path, directory, recursive=False, device=None, max_workers=None):
+def analyze_python_directory_parallel(model_path, directory, device=None, max_workers=None, normalize_type='unet_default', matrix_size=(64, 128), save_resized=False, resized_output=None):
     """
-    Analyse tous les fichiers Python et NPY dans un répertoire en parallèle
+    Analyse tous les fichiers Python d'un répertoire et ses sous-dossiers en parallèle
     
     Args:
-        model_path: Chemin vers le modèle UNet entraîné
+        model_path: Chemin vers le modèle UNet
         directory: Répertoire contenant les fichiers Python
-        recursive: Si True, recherche également dans les sous-dossiers
-        device: Périphérique de calcul (None pour auto-détection)
+        device: Device à utiliser (None pour auto)
         max_workers: Nombre maximum de workers pour le traitement parallèle
-    
-    Returns:
-        Liste de dictionnaires contenant les résultats d'analyse
+        normalize_type: Type de normalisation à utiliser
+        matrix_size: Taille cible des matrices (hauteur, largeur)
+        save_resized: Sauvegarder les matrices redimensionnées
+        resized_output: Dossier de sortie pour les matrices redimensionnées
     """
-    # Normaliser le chemin
-    directory = normalize_path(directory)
-    model_path = normalize_path(model_path)
+    # Trouver tous les fichiers Python et NPY dans le répertoire et ses sous-dossiers
+    py_files = glob.glob(os.path.join(directory, "**/*.py"), recursive=True)
+    npy_files = glob.glob(os.path.join(directory, "**/*.npy"), recursive=True)
     
-    # Déterminer le device
+    logger.info(f"Trouvé {len(py_files)} fichiers Python et {len(npy_files)} matrices dans {directory}")
+    
+    # Définir le device local pour chaque worker
     if device is None:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-    logger.info(f"Utilisation de: {device}")
-    
-    # Vérifier que le modèle existe
-    if not os.path.exists(model_path):
-        logger.error(f"Erreur: Le fichier modèle '{model_path}' n'existe pas!")
-        return []
-    
-    # Trouver tous les fichiers Python et NPY dans le répertoire
-    py_files = []
-    npy_files = []
-    
-    if recursive:
-        py_files = glob.glob(os.path.join(directory, "**/*.py"), recursive=True)
-        npy_files = glob.glob(os.path.join(directory, "**/*.npy"), recursive=True)
+        local_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
-        py_files = glob.glob(os.path.join(directory, "*.py"))
-        npy_files = glob.glob(os.path.join(directory, "*.npy"))
-    
-    logger.info(f"Trouvé {len(py_files)} fichiers Python et {len(npy_files)} fichiers NPY dans {directory}")
-    
-    if len(py_files) == 0 and len(npy_files) == 0:
-        logger.warning("Aucun fichier Python ou NPY trouvé dans le répertoire spécifié!")
-        return []
+        local_device = device
     
     # Créer un répertoire temporaire pour les matrices générées
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_matrices")
@@ -936,13 +921,21 @@ def analyze_python_directory_parallel(model_path, directory, recursive=False, de
                 return cached_result
             
             # Charger le modèle si nécessaire (à l'intérieur de la fonction pour que chaque thread ait sa propre instance)
-            local_device = torch.device('cpu')  # Pour le parallélisme, on utilise CPU pour éviter les conflits CUDA
             model = UNetForCodeDetection()
             model.load_state_dict(torch.load(model_path, map_location=local_device))
             model.to(local_device)
             model.eval()
             
-            result = test_single_file(model, npy_file, local_device, model_path)
+            result = test_single_file(
+                model,
+                npy_file,
+                local_device,
+                model_path,
+                normalize_type=normalize_type,
+                matrix_size=matrix_size,
+                save_resized=save_resized,
+                resized_output=resized_output
+            )
             return result
         except Exception as e:
             logger.error(f"Erreur lors du traitement de {npy_file}: {str(e)}")
@@ -966,7 +959,6 @@ def analyze_python_directory_parallel(model_path, directory, recursive=False, de
                 return None
             
             # Charger le modèle si nécessaire
-            local_device = torch.device('cpu')  # Pour le parallélisme, on utilise CPU pour éviter les conflits CUDA
             model = UNetForCodeDetection()
             model.load_state_dict(torch.load(model_path, map_location=local_device))
             model.to(local_device)
@@ -976,7 +968,16 @@ def analyze_python_directory_parallel(model_path, directory, recursive=False, de
             if os.path.isdir(matrix_file):
                 result = analyze_tiles_directory(model, matrix_file, local_device)
             else:
-                result = test_single_file(model, matrix_file, local_device, model_path)
+                result = test_single_file(
+                    model,
+                    matrix_file,
+                    local_device,
+                    model_path,
+                    normalize_type=normalize_type,
+                    matrix_size=matrix_size,
+                    save_resized=save_resized,
+                    resized_output=resized_output
+                )
             
             if result:
                 result['python_file'] = py_file
@@ -1054,10 +1055,18 @@ def main():
     parser = argparse.ArgumentParser(description='Test du modèle UNet sur des fichiers Python')
     parser.add_argument('--model', required=True, help='Chemin vers le modèle UNet')
     parser.add_argument('--input', required=True, help='Chemin vers le fichier ou dossier à analyser')
-    parser.add_argument('--recursive', action='store_true', help='Rechercher récursivement dans les sous-dossiers')
     parser.add_argument('--device', default='auto', help='Device à utiliser (auto, cuda, cpu)')
     parser.add_argument('--token_model', type=str, default='gpt-4o-mini', help='Modèle à utiliser pour la tokenisation via tiktoken.')
     parser.add_argument('--pred_model', type=str, default='gpt-4o-mini', help='Modèle de prédiction à utiliser pour la génération de matrice.')
+    parser.add_argument('--normalize', type=str, default='unet_default', 
+                       choices=['unet_default', 'minmax', 'zscore', 'robust'],
+                       help='Type de normalisation à utiliser')
+    parser.add_argument('--matrix_size', type=int, nargs=2, default=[64, 128],
+                       help='Taille cible des matrices (hauteur largeur)')
+    parser.add_argument('--save_resized', action='store_true',
+                       help='Sauvegarder les matrices redimensionnées')
+    parser.add_argument('--resized_output', type=str, default=None,
+                       help='Dossier de sortie pour les matrices redimensionnées')
     parser.add_argument('--visualize-tiles', action='store_true', help='Visualiser les tuiles générées')
     parser.add_argument('--visualize-activations', action='store_true', help='Visualiser les activations du modèle')
     parser.add_argument('--viz-output', help='Dossier de sortie pour les visualisations')
@@ -1101,7 +1110,15 @@ def main():
     if os.path.isfile(args.input):
         if args.input.endswith('.py'):
             # Analyser un fichier Python
-            results = analyze_python_file(args.model, args.input, device)
+            results = analyze_python_file(
+                args.model,
+                args.input,
+                device,
+                normalize_type=args.normalize,
+                matrix_size=args.matrix_size,
+                save_resized=args.save_resized,
+                resized_output=args.resized_output
+            )
             
             # Générer les visualisations si demandé
             if args.visualize_tiles or args.visualize_activations:
@@ -1151,25 +1168,40 @@ def main():
                 
         else:
             # Analyser une matrice ou un dossier de tuiles
-            results = test_single_file(model, args.input, device, args.model)
+            results = test_single_file(
+                model,
+                args.input,
+                device,
+                args.model,
+                normalize_type=args.normalize,
+                matrix_size=args.matrix_size,
+                save_resized=args.save_resized,
+                resized_output=args.resized_output
+            )
     else:
         # Analyser un dossier
         if args.parallel:
             # Utiliser l'analyse parallèle
             results = analyze_python_directory_parallel(
-                args.model, 
-                args.input, 
-                recursive=args.recursive, 
+                args.model,
+                args.input,
                 device=device,
-                max_workers=args.workers
+                max_workers=args.workers,
+                normalize_type=args.normalize,
+                matrix_size=args.matrix_size,
+                save_resized=args.save_resized,
+                resized_output=args.resized_output
             )
         else:
             # Utiliser l'analyse séquentielle
             results = analyze_python_directory(
-                args.model, 
-                args.input, 
-                recursive=args.recursive, 
-                device=device
+                args.model,
+                args.input,
+                device=device,
+                normalize_type=args.normalize,
+                matrix_size=args.matrix_size,
+                save_resized=args.save_resized,
+                resized_output=args.resized_output
             )
     
     return 0
