@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Gestionnaire simple pour les batchs OpenAI.
-Ce script permet de lister, vérifier l'état et récupérer les résultats des batchs OpenAI.
+Gestionnaire simple pour les batchs OpenAI, pour lister, vérifier et récupérer les résultats.
 """
 
 import os
@@ -11,9 +10,8 @@ import argparse
 import logging
 from pathlib import Path
 from openai import OpenAI
+from datetime import datetime
 
-
-OPENAI_API_KEY = "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"
 
 # Configuration du logging
 logging.basicConfig(
@@ -34,20 +32,14 @@ class SimpleBatchManager:
         Initialise le gestionnaire de batch simple.
         
         Args:
-            api_key (str, optional): Clé API OpenAI. Par défaut, utilise la clé définie dans le script.
+            api_key (str, optional): Clé API OpenAI. Si non fournie, utilise la variable d'environnement OPENAI_API_KEY.
             output_dir (str): Répertoire de sortie pour les résultats
         """
-        # Priorité: clé dans le script > argument > variable d'environnement
-        if OPENAI_API_KEY is not None:
-            self.client = OpenAI(api_key=OPENAI_API_KEY)
-        elif api_key:
-            self.client = OpenAI(api_key=api_key)
-        else:
-            env_api_key = os.environ.get("OPENAI_API_KEY")
-            if not env_api_key:
-                raise ValueError("Aucune clé API OpenAI trouvée.")
-            self.client = OpenAI(api_key=env_api_key)
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("Aucune clé API OpenAI trouvée. Fournissez-la via le paramètre --api-key ou la variable d'environnement OPENAI_API_KEY.")
         
+        self.client = OpenAI(api_key=self.api_key)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -56,21 +48,24 @@ class SimpleBatchManager:
         Liste tous les batchs disponibles via l'API.
         
         Args:
-            limit (int): Nombre maximum de batchs à récupérer
+            limit (int): Nombre maximum de batchs à récupérer au total.
             
         Returns:
             list: Liste des batchs
         """
         try:
             print(f"Récupération des batchs depuis l'API OpenAI (limite: {limit})...")
-            batches = []
             
-            # Utilisation directe de l'itérateur de l'API
-            for batch in self.client.batches.list(limit=limit):
-                batches.append(batch)
+            all_batches = []
+            # L'itérateur gère la pagination automatiquement.
+            # On utilise limit=100 pour la taille de page (le max) pour être efficace.
+            for batch in self.client.batches.list(limit=100):
+                all_batches.append(batch)
+                if len(all_batches) >= limit:
+                    break
             
-            print(f"Trouvé {len(batches)} batchs.")
-            return batches
+            print(f"Trouvé {len(all_batches)} batchs.")
+            return all_batches
         
         except Exception as e:
             logger.error(f"Erreur lors de la récupération des batchs: {e}")
@@ -91,6 +86,26 @@ class SimpleBatchManager:
         except Exception as e:
             logger.error(f"Erreur lors de la récupération du batch {batch_id}: {e}")
             return None
+    
+    def find_by_date(self, start_date_str, end_date_str, limit=1000):
+        """
+        Trouve les lots dans une plage de dates donnée.
+        """
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").timestamp()
+            end_date = datetime.strptime(end_date_str + " 23:59:59", "%Y-%m-%d %H:%M:%S").timestamp()
+        except ValueError:
+            logger.error("Format de date invalide. Utilisez YYYY-MM-DD.")
+            return []
+
+        all_batches = self.list_batches(limit=limit)
+        
+        found_batches = []
+        for batch in all_batches:
+            if start_date <= batch.created_at <= end_date:
+                found_batches.append(batch)
+        
+        return found_batches
     
     def clean_code_response(self, response):
         """Nettoie la réponse de l'API en retirant les délimiteurs de code Markdown."""
@@ -513,6 +528,22 @@ def command_fetch_range(args):
     
     print(f"\nOpération terminée: {success_count} batchs sauvegardés avec succès.")
 
+def command_find(args):
+    """Handler pour la commande 'find'."""
+    manager = SimpleBatchManager(api_key=args.api_key)
+    end_date = args.end_date if args.end_date else args.start_date
+    batches = manager.find_by_date(args.start_date, end_date, limit=args.limit)
+    
+    if batches:
+        print(f"\n{len(batches)} lots trouvés entre {args.start_date} et {end_date}:")
+        # Tri par date de création
+        sorted_batches = sorted(batches, key=lambda b: b.created_at)
+        for batch in sorted_batches:
+            created_time = datetime.fromtimestamp(batch.created_at).strftime('%Y-%m-%d %H:%M:%S')
+            print(f"- ID: {batch.id}, Status: {batch.status}, Créé le: {created_time}")
+    else:
+        print("Aucun lot trouvé pour la période spécifiée.")
+
 def main():
     """Fonction principale"""
     parser = argparse.ArgumentParser(description='Gestionnaire simple pour les batchs OpenAI')
@@ -553,6 +584,13 @@ def main():
     fetch_range_parser.add_argument('--save-raw', action='store_true', help='Sauvegarde les résultats bruts')
     fetch_range_parser.add_argument('--destination', type=str, help='Répertoire de destination pour les résultats')
     fetch_range_parser.set_defaults(func=command_fetch_range)
+    
+    # Commande 'find'
+    find_parser = subparsers.add_parser('find', help='Trouver des lots par plage de dates', parents=[parent_parser])
+    find_parser.add_argument('start_date', help='Date de début (YYYY-MM-DD)')
+    find_parser.add_argument('end_date', nargs='?', help='Date de fin (YYYY-MM-DD). Si omis, la recherche se fait sur la date de début.')
+    find_parser.add_argument('--limit', type=int, default=2000, help='Nombre maximum de lots à scanner en partant des plus récents.')
+    find_parser.set_defaults(func=command_find)
     
     args = parser.parse_args()
     

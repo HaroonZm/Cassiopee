@@ -413,7 +413,7 @@ def test_directory(model, test_dir, device, recursive=False):
     
     return results
 
-def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model="gpt-4o-mini", pred_model="gpt-4o-mini", tiles_size=(16, 16)):
+def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model="gpt-4o-mini", pred_model="gpt-4o-mini", tiles_size=(16, 16), api_key=None, local_api_url=None):
     """
     Convertit un fichier Python en représentation matricielle puis en tuiles pour l'analyse
     en appelant matrix_generator_classic.py puis matrix_tiling.py.
@@ -424,6 +424,8 @@ def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model=
         token_model: Modèle à utiliser pour la tokenisation
         pred_model: Modèle à utiliser pour la prédiction
         tiles_size: Taille des tuiles (lignes, colonnes)
+        api_key: Clé API OpenAI pour la génération de matrice
+        local_api_url: URL de l'API LLM locale pour la génération de matrice
     
     Returns:
         Chemin vers le dossier contenant les tuiles générées
@@ -452,6 +454,10 @@ def generate_matrix_and_tiles_from_python(py_file, output_dir=None, token_model=
             "--output", output_dir,
             "--api", "completions"
         ]
+        if api_key:
+            matrix_cmd.extend(["--api_key", api_key])
+        if local_api_url:
+            matrix_cmd.extend(["--local_api_url", local_api_url])
         
         print(f"Étape 1: Génération de la matrice...")
         print(f"Exécution de la commande: {' '.join(matrix_cmd)}")
@@ -734,7 +740,7 @@ def analyze_python_file(model_path, python_file, device=None):
     else:
         # Convertir le fichier Python en matrice
         temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_matrices")
-        matrix_file = generate_matrix_and_tiles_from_python(python_file, temp_dir)
+        matrix_file = generate_matrix_and_tiles_from_python(python_file, temp_dir, token_model=args.token_model, pred_model=args.pred_model, api_key=args.api_key, local_api_url=args.local_api_url)
     
     if matrix_file:
         # Vérifier si le chemin est un répertoire ou un fichier
@@ -826,7 +832,7 @@ def analyze_python_directory(model_path, directory, recursive=False, device=None
         print("Génération des matrices à partir des fichiers Python...")
         for py_file in tqdm(py_files, desc="Génération et analyse des fichiers Python"):
             # Note: Ici nous utilisons generate_matrix_and_tiles_from_python, pas generate_matrix_from_python
-            matrix_file = generate_matrix_and_tiles_from_python(py_file, temp_dir)
+            matrix_file = generate_matrix_and_tiles_from_python(py_file, temp_dir, token_model=args.token_model, pred_model=args.pred_model, api_key=args.api_key, local_api_url=args.local_api_url)
             if matrix_file:
                 # Vérifier si le chemin est un répertoire ou un fichier
                 if os.path.isdir(matrix_file):
@@ -954,7 +960,7 @@ def analyze_python_directory_parallel(model_path, directory, recursive=False, de
             file_specific_temp_dir = os.path.join(temp_dir, os.path.basename(py_file).replace('.py', ''))
             os.makedirs(file_specific_temp_dir, exist_ok=True)
             
-            matrix_file = generate_matrix_and_tiles_from_python(py_file, file_specific_temp_dir)
+            matrix_file = generate_matrix_and_tiles_from_python(py_file, file_specific_temp_dir, token_model=args.token_model, pred_model=args.pred_model, api_key=args.api_key, local_api_url=args.local_api_url)
             
             if not matrix_file:
                 return None
@@ -1050,14 +1056,16 @@ def main():
     parser.add_argument('--input', required=True, help='Chemin vers le fichier ou dossier à analyser')
     parser.add_argument('--recursive', action='store_true', help='Rechercher récursivement dans les sous-dossiers')
     parser.add_argument('--device', default='auto', help='Device à utiliser (auto, cuda, cpu)')
-    parser.add_argument('--token-model', default='gpt-4o-mini', help='Modèle de tokenisation à utiliser')
-    parser.add_argument('--pred-model', default='gpt-4o-mini', help='Modèle de prédiction à utiliser')
+    parser.add_argument('--token_model', type=str, default='gpt-4o-mini', help='Modèle à utiliser pour la tokenisation via tiktoken.')
+    parser.add_argument('--pred_model', type=str, default='gpt-4o-mini', help='Modèle de prédiction à utiliser pour la génération de matrice.')
     parser.add_argument('--visualize-tiles', action='store_true', help='Visualiser les tuiles générées')
     parser.add_argument('--visualize-activations', action='store_true', help='Visualiser les activations du modèle')
     parser.add_argument('--viz-output', help='Dossier de sortie pour les visualisations')
     parser.add_argument('--parallel', action='store_true', help='Activer le traitement parallèle pour les dossiers')
     parser.add_argument('--workers', type=int, default=None, help='Nombre de workers pour le traitement parallèle')
     parser.add_argument('--clear-cache', action='store_true', help='Nettoyer le cache avant analyse')
+    parser.add_argument("--api_key", type=str, default=None, help="Clé API OpenAI pour la génération de matrice.")
+    parser.add_argument("--local_api_url", type=str, default=None, help="URL de l'API LLM locale pour la génération de matrice.")
     
     args = parser.parse_args()
     
@@ -1107,7 +1115,9 @@ def main():
                     args.input, 
                     output_dir=temp_dir,
                     token_model=args.token_model,
-                    pred_model=args.pred_model
+                    pred_model=args.pred_model,
+                    api_key=args.api_key,
+                    local_api_url=args.local_api_url
                 )
                 
                 # Définir le dossier de visualisation commun

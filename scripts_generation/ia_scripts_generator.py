@@ -22,7 +22,7 @@ from openai import OpenAI
 # ==============================================
 # Remplacez None par votre clé API OpenAI entre guillemets
 # Exemple: OPENAI_API_KEY = "sk-votreCleFournieParOpenAI"
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 # ==============================================
 
 # Configuration du logging
@@ -165,10 +165,7 @@ class FlexibleBatchProcessor:
         elif api_key:
             self.client = OpenAI(api_key=api_key)
         else:
-            env_api_key = os.environ.get("OPENAI_API_KEY")
-            if not env_api_key:
-                raise ValueError("Aucune clé API OpenAI trouvée. Définissez-la dans le script, passez-la en paramètre ou utilisez la variable d'environnement OPENAI_API_KEY.")
-            self.client = OpenAI(api_key=env_api_key)
+            raise ValueError("Aucune clé API OpenAI trouvée. Définissez la variable d'environnement OPENAI_API_KEY.")
         
         # Déterminer le type de dataset
         self.dataset_type = self._detect_dataset_type()

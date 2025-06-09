@@ -32,8 +32,8 @@ def charger_script_depuis_fichier(nom_fichier):
     with open(chemin_fichier, "r", encoding="utf-8") as f:
         return f.read()
 
-# Initialisation du client OpenAI avec clé API depuis variable d'environnement
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "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"))
+# Variable globale pour le client API, sera initialisée dans main
+client = None
 
 # Dictionnaire des modèles et leur compatibilité avec les endpoints
 MODELES_COMPATIBLES = {
@@ -248,548 +248,253 @@ def analyser_predictions_token_par_token(script, modele_tokenisation="gpt-4o-min
     
     # Ajuster dynamiquement le nombre de tokens d'amorce
     amorce_tokens = max(1, min(3, len(tokens_reference) // 3))
-    logger.info(f"Utilisation de {amorce_tokens} tokens comme amorce sur {len(tokens_reference)} tokens au total")
     
-    # Initialiser le contexte avec les tokens d'amorce
-    contexte_initial = ""
-    for i in range(min(amorce_tokens, len(tokens_reference))):
-        contexte_initial += tokens_reference[i]
-        
-        # Ajouter à notre liste de résultats (sans prédiction pour l'amorce)
+    logger.info(f"\nUtilisation de {amorce_tokens} token(s) d'amorce...")
+    
+    # Traitement des tokens d'amorce (sans prédiction)
+    for i in range(amorce_tokens):
         resultats_analyse.append({
-            "position": i,
-            "token_id": token_ids[i],
-            "attendu": tokens_reference[i],
-            "amorce": True,
-            "alternatives": []
+            "index": i,
+            "token": tokens_reference[i],
+            "amorce": True
         })
     
-    contexte_actuel = contexte_initial
-    
-    # Analyser token par token à partir du premier token après l'amorce
-    logger.info(f"Analyse des tokens un par un en utilisant l'API {api_type}...")
-    for i in tqdm(range(amorce_tokens, len(tokens_reference))):
-        token_attendu = tokens_reference[i]
-        token_id_attendu = token_ids[i]
-        
-        # Vérifier si le token précédent est une tabulation
-        token_precedent_est_tabulation = False
-        if i > 0:
-            token_precedent = tokens_reference[i-1]
-            if ("/n" not in token_precedent):
-                token_precedent_est_tabulation = token_precedent.strip() == "" and len(token_precedent) > 1
-        
-        try:
-            # Choisir l'API en fonction du paramètre
-            if api_type.lower() == "chat":
-                # Utiliser l'API chat/completions
-                token_predit, alternatives = analyser_avec_chat_completions(contexte_actuel, modele_prediction)
+    # Barre de progression pour l'analyse
+    with tqdm(total=len(tokens_reference) - amorce_tokens, desc="Analyse des tokens") as pbar:
+        # Boucle sur les tokens du script à partir du premier token après l'amorce
+        for i in range(amorce_tokens, len(tokens_reference)):
+            # Construire le contexte pour la prédiction
+            contexte = "".join(tokens_reference[:i])
+            
+            # Choisir la fonction d'analyse appropriée
+            if api_type == "chat":
+                token_predit, alternatives = analyser_avec_chat_completions(contexte, modele_prediction)
             else:
-                # Utiliser l'API completions (méthode d'origine)
-                token_predit, alternatives = analyser_avec_completions(contexte_actuel, modele_prediction)
+                token_predit, alternatives = analyser_avec_completions(contexte, modele_prediction)
             
-            # Initialiser les flags pour la correction standard et la correction adaptée
-            correct = token_predit == token_attendu
-            correct_adapte = correct
+            # Token de référence actuel
+            token_actuel = tokens_reference[i]
             
-            # Appliquer la règle spéciale pour les tokens après tabulation
-            if token_precedent_est_tabulation and token_attendu.startswith(" ") and token_attendu.strip():
-                # Si le token sans espace correspond à la prédiction, marquer comme correct adapté
-                token_sans_espace = token_attendu.lstrip(" ")
-                correct_adapte = correct or token_predit == token_sans_espace
-                
-                # Ajouter une version adaptée aux alternatives pour affichage
-                for alt in alternatives:
-                    if alt["token"] == token_sans_espace:
-                        alt["token_adapte"] = token_attendu
-                        alt["adapte"] = True
+            # Vérifier si la prédiction est correcte
+            prediction_correcte = token_predit == token_actuel
+            prediction_correcte_top10 = token_actuel in [alt["token"] for alt in alternatives]
             
-            # Vérifier si le token attendu ou sa version adaptée est dans les alternatives
-            token_dans_top10 = correct or correct_adapte or any(alt["token"] == token_attendu for alt in alternatives) or any(alt.get("adapte", False) for alt in alternatives)
-            
-            # Ajouter le résultat à notre liste
+            # Stocker les résultats
             resultats_analyse.append({
-                "position": i,
-                "token_id": token_id_attendu,
-                "attendu": token_attendu,
-                "predit": token_predit,
-                "correct": correct,
-                "correct_adapte": correct_adapte,
-                "correct_top10": token_dans_top10,
-                "alternatives": alternatives,
-                "token_precedent_est_tabulation": token_precedent_est_tabulation,
-                "amorce": False
+                "index": i,
+                "token": token_actuel,
+                "contexte": contexte,
+                "prediction": token_predit,
+                "correct": prediction_correcte,
+                "correct_top10": prediction_correcte_top10,
+                "alternatives": alternatives
             })
             
-            # Mettre à jour le contexte pour la prochaine itération avec le token attendu
-            contexte_actuel += token_attendu
+            # Mettre à jour la barre de progression
+            pbar.update(1)
             
-            # Pause pour respecter le rate limit
-            time.sleep(0.5)
-            
-        except Exception as e:
-            logger.error(f"Erreur lors de la requête pour le token {i}: {e}")
-            
-            # Stocker une prédiction avec erreur
-            resultats_analyse.append({
-                "position": i,
-                "token_id": token_id_attendu,
-                "attendu": token_attendu,
-                "predit": "ERROR",
-                "correct": False,
-                "correct_adapte": False,
-                "correct_top10": False,
-                "alternatives": [],
-                "token_precedent_est_tabulation": token_precedent_est_tabulation,
-                "amorce": False
-            })
-            
-            # Continuer avec le token attendu
-            contexte_actuel += token_attendu
-    
-    logger.info(contexte_actuel)
     return resultats_analyse, tokens_reference
 
 def construire_matrice_logprob(tokens_reference, resultats_analyse, top_k=10):
     """
-    Construit une matrice de log probabilités avec la taille dynamique,
-    en padding avec 100 et anomalies à -50.
+    Construit une matrice 2D où chaque ligne représente un token et chaque colonne
+    représente un logprob.
+    
+    Args:
+        tokens_reference: La liste des tokens du script original
+        resultats_analyse: Les résultats de l'analyse token par token
+        top_k: Le nombre d'alternatives à considérer pour les logprobs
+        
+    Returns:
+        tuple: La matrice de logprobs et une liste de dictionnaires décrivant chaque token
     """
-    # 1) Reconstituer le texte complet et découper en lignes
-    texte_complet = ''.join(tokens_reference)
-    lignes_texte  = texte_complet.split('\n')
-
-    # 2) Parcourir les tokens pour déterminer tokens_par_ligne et positions
-    tokens_par_ligne = []
-    position_tokens_dans_matrice = []
-    ligne_courante = 0
-    position_dans_ligne = 0
-
-    for idx, token in enumerate(tokens_reference):
-        # Enregistrer la position
-        position_tokens_dans_matrice.append((ligne_courante, position_dans_ligne))
-        position_dans_ligne += 1
-
-        # Si le token contient un saut de ligne, on change de ligne
-        if '\n' in token:
-            tokens_par_ligne.append(position_dans_ligne)
-            ligne_courante += 1
-            position_dans_ligne = 0
-            if ligne_courante >= len(lignes_texte):
+    # Filtrer les tokens d'amorce des résultats d'analyse
+    resultats_filtres = [r for r in resultats_analyse if not r.get("amorce", False)]
+    
+    # Nombre de tokens à analyser (ceux qui ne sont pas des amorces)
+    nombre_tokens = len(resultats_filtres)
+    
+    # Initialiser la matrice avec une valeur par défaut (ex: -100 pour log(probabilité très faible))
+    matrice = np.full((nombre_tokens, top_k + 1), -100.0, dtype=np.float32)
+    
+    # Structure pour garder une trace des tokens
+    structure_tokens = []
+    
+    # Dictionnaire pour mapper les tokens à leur index dans la matrice de logprobs
+    token_to_index = {}
+    
+    # Remplir la matrice
+    for i, res in enumerate(resultats_filtres):
+        # Ajouter le token de référence à la structure
+        structure_tokens.append({
+            "index": res["index"],
+            "token": res["token"],
+            "prediction_correcte": res["correct"]
+        })
+        
+        # Remplir les logprobs des alternatives
+        for j, alt in enumerate(res.get("alternatives", [])[:top_k]):
+            matrice[i, j] = alt["logprob"]
+        
+        # Ajouter la logprob du token de référence (s'il est dans les alternatives)
+        token_ref_logprob = -100.0
+        for alt in res.get("alternatives", []):
+            if alt["token"] == res["token"]:
+                token_ref_logprob = alt["logprob"]
                 break
-
-    # Ajouter la dernière ligne si nécessaire
-    if position_dans_ligne > 0:
-        tokens_par_ligne.append(position_dans_ligne)
-
-    # 3) Calculer les dimensions dynamiques
-    n_lignes_dyn   = len(lignes_texte)
-    max_tokens_dyn = max(tokens_par_ligne) if tokens_par_ligne else 0
-
-    # 4) Utiliser les dimensions dynamiques directement (sans forcer à 244x244)
-    n_lignes, max_tokens = n_lignes_dyn, max_tokens_dyn
-    logger.info(f"Construction d'une matrice avec dimensions dynamiques : {n_lignes} lignes × {max_tokens} colonnes (padding=100)")
-
-    # 5) Initialiser la matrice de padding avec les dimensions dynamiques
-    matrice = np.full((n_lignes, max_tokens), 100.0)
-
-    # 6) Remplir la matrice avec log-probabilités ou valeurs spéciales
-    for idx_token, (i, j) in enumerate(position_tokens_dans_matrice):
-        # Ignorer toute position hors de la matrice
-        if i >= n_lignes or j >= max_tokens:
-            continue
-
-        # Chercher le résultat d'analyse correspondant
-        resultat = next((r for r in resultats_analyse if r["position"] == idx_token), None)
-        if not resultat:
-            matrice[i, j] = -50.0
-            continue
-
-        # Tokens d'amorce
-        if resultat.get("amorce", False):
-            matrice[i, j] = -10.0
-            continue
-
-        # Sinon calculer la log-proba
-        attendu  = resultat["attendu"]
-        predit   = resultat.get("predit")
-        alternatives = resultat.get("alternatives", [])
-
-        # Valeur par défaut pour anomalie
-        val_logprob = -50.0
-
-        # Si correct (stricte ou adaptée), prendre la logprob de la prédiction
-        if resultat.get("correct", False) or resultat.get("correct_adapte", False):
-            for alt in alternatives:
-                if alt["token"] == predit:
-                    val_logprob = alt["logprob"]
-                    break
-        else:
-            # Sinon chercher le token attendu (ou adapté) dans les alternatives
-            for alt in alternatives:
-                if alt["token"] == attendu or alt.get("token_adapte") == attendu:
-                    val_logprob = alt["logprob"]
-                    break
-
-        matrice[i, j] = val_logprob
-
-    # 7) Retourner la matrice et la structure complète
-    structure_tokens = {
-        "lignes": n_lignes,
-        "max_tokens": max_tokens,
-        "tokens_par_ligne": tokens_par_ligne,
-        "position_tokens": position_tokens_dans_matrice
-    }
+        matrice[i, top_k] = token_ref_logprob # Dernière colonne pour le token de référence
+            
     return matrice, structure_tokens
-
 
 def afficher_matrice_brute(matrice, structure_tokens):
     """
-    Affiche la matrice 2D de log probabilités brute dans la console
+    Affiche la matrice brute de logprobs dans la console.
     
     Args:
-        matrice (numpy.ndarray): La matrice 2D de log probabilités
-        structure_tokens (dict): Informations sur la structure de la matrice
+        matrice: La matrice de logprobs à afficher
+        structure_tokens: La structure des tokens
     """
-    logger.info("\nMATRICE BRUTE DE LOG PROBABILITÉS:")
-    logger.info(f"Dimensions: {matrice.shape[0]} lignes x {matrice.shape[1]} colonnes")
+    logger.info("\n--- Matrice de Log-Probabilités (brute) ---")
     
-    # Calculer la largeur maximale pour l'affichage
-    max_width = 10  # Largeur par défaut pour chaque valeur
+    # En-tête du tableau
+    header = ["Token (Réf)", "Correct?"] + [f"Alt {i+1}" for i in range(matrice.shape[1] - 1)] + ["LogProb(Réf)"]
+    print("\t".join(header))
     
-    # Créer une ligne de séparation
-    header_sep = "-" * (max_width * matrice.shape[1] + 10)
-    logger.info(header_sep)
-    
-    # Afficher les indices de colonnes
-    logger.info("     ", end="")
-    for j in range(matrice.shape[1]):
-        logger.info(f"{j:^{max_width}}", end="")
-    logger.info()  # Nouvelle ligne
-    
-    # Ligne de séparation après les indices de colonnes
-    logger.info("     " + "-" * (max_width * matrice.shape[1]))
-    
-    # Afficher chaque ligne avec son indice
+    # Affichage de chaque ligne de la matrice
     for i in range(matrice.shape[0]):
-        logger.info(f"{i:3d} |", end="")
-        for j in range(matrice.shape[1]):
-            val = matrice[i, j]
-            if val == 100:
-                # Padding
-                logger.info(f"{'PAD':^{max_width}}", end="")
-            elif val == -50:
-                # Anomalie
-                logger.info(f"{'ANOM':^{max_width}}", end="")
-            else:
-                # Log probabilité normale
-                logger.info(f"{val:^{max_width}.4f}", end="")
-        logger.info()  # Nouvelle ligne
-    
-    # Ligne de séparation finale
-    logger.info(header_sep)
-    
-    # Légende (une seule fois)
-    logger.info("Légende:")
-    logger.info("  - PAD  : Padding (valeur 100)")
-    logger.info("  - ANOM : Anomalie (valeur -50)")
-    logger.info("  - Autres valeurs : Log probabilités réelles")
-    logger.info(header_sep)
+        token_info = structure_tokens[i]
+        token_display = repr(token_info['token'])[1:-1]
+        
+        # Limiter la longueur pour l'affichage
+        if len(token_display) > 15:
+            token_display = token_display[:12] + "..."
+            
+        is_correct = "Oui" if token_info['prediction_correcte'] else "Non"
+        
+        # Formatter les valeurs de logprob
+        logprobs = [f"{val:.2f}" for val in matrice[i]]
+        
+        # Construire la ligne
+        row = [token_display, is_correct] + logprobs
+        
+        print("\t".join(row))
 
 def sauvegarder_resultats(resultats_analyse, script, matrice, structure_tokens, modele_tokenisation="gpt-4o-mini", nom_fichier=None):
-    """Sauvegarde les résultats d'analyse dans un fichier texte bien formaté"""
+    """
+    Sauvegarde les résultats d'analyse dans un fichier texte.
     
+    Args:
+        resultats_analyse (list): Les résultats de l'analyse token par token.
+        script (str): Le script original analysé.
+        matrice (np.ndarray): La matrice de logprobs.
+        structure_tokens (list): La structure des tokens.
+        modele_tokenisation (str): Le modèle utilisé pour la tokenisation.
+        nom_fichier (str): Le chemin du fichier où sauvegarder les résultats.
+    """
     if nom_fichier is None:
-        # Générer un nom de fichier basé sur la date et l'heure
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        nom_fichier = f"analyse_tokens_{timestamp}.txt"
+        nom_fichier = f"resultats_analyse_{timestamp}.txt"
+        
+    logger.info(f"Sauvegarde des résultats dans {nom_fichier}...")
     
-    with open(nom_fichier, 'w', encoding='utf-8') as f:
-        # Écrire l'en-tête
-        f.write("="*80 + "\n")
-        f.write("ANALYSE DES PRÉDICTIONS DE TOKENS\n")
-        f.write("="*80 + "\n\n")
+    with open(nom_fichier, "w", encoding="utf-8") as f:
+        f.write(f"--- Rapport d'analyse du {datetime.datetime.now()} ---\n\n")
+        f.write(f"Modèle de tokenisation: {modele_tokenisation}\n")
         
-        # Écrire le script original
-        f.write("SCRIPT ORIGINAL:\n")
-        f.write("-"*80 + "\n")
-        f.write(script + "\n")
-        f.write("-"*80 + "\n\n")
-        
-        # Écrire l'information sur la tokenisation
-        f.write("INFORMATION SUR LA TOKENISATION:\n")
-        f.write("-"*80 + "\n")
-        f.write(f"Tokenisation utilisée: tiktoken pour le modèle {modele_tokenisation}\n")
-        f.write("Il s'agit de la tokenisation officielle utilisée par les modèles OpenAI.\n")
-        f.write("-"*80 + "\n\n")
-        
-        # Écrire la liste des tokens identifiés
-        f.write("TOKENS IDENTIFIÉS:\n")
-        f.write("-"*80 + "\n")
-        
-        for resultat in resultats_analyse:
-            i = resultat["position"]
-            token = resultat["attendu"]
-            token_id = resultat.get("token_id", "N/A")
-            
-            # Utiliser repr pour une représentation claire des caractères spéciaux
-            token_display = repr(token)[1:-1]
-            
-            f.write(f"Token {i}: '{token_display}' (ID: {token_id})\n")
-        
-        f.write("-"*80 + "\n\n")
-        
-        # Ajouter des informations sur la matrice 2D
-        f.write("INFORMATIONS SUR LA MATRICE 2D DE LOG PROBABILITÉS:\n")
-        f.write("-"*80 + "\n")
-        f.write(f"Dimensions de la matrice: {structure_tokens['lignes']} lignes x {structure_tokens['max_tokens']} tokens max\n")
-        f.write(f"Nombre de tokens par ligne: {structure_tokens['tokens_par_ligne']}\n")
-        f.write("Convention de valeurs:\n")
-        f.write("  - Log probabilité normale: Valeur réelle (typiquement entre -1 et -20)\n")
-        f.write("  - Anomalie (token hors top-10): -50\n")
-        f.write("  - Padding (positions vides): 100\n\n")
-        
-        f.write("Matrice 2D (format texte simplifiée):\n")
-        for i in range(matrice.shape[0]):
-            f.write("[")
-            for j in range(matrice.shape[1]):
-                val = matrice[i, j]
-                if val == 100:
-                    f.write("PAD, ")
-                elif val == -50:
-                    f.write("ANOM, ")
-                else:
-                    f.write(f"{val:.2f}, ")
-            f.write("]\n")
-        
-        f.write("\nNote: La matrice a été sauvegardée au format numpy dans 'matrice_logprob.npy'\n")
-        f.write("-"*80 + "\n\n")
-        
-        # Écrire les résultats d'analyse
-        f.write("ANALYSE TOKEN PAR TOKEN:\n")
-        f.write("-"*80 + "\n")
-        
-        for resultat in resultats_analyse:
-            position = resultat["position"]
-            token_attendu = resultat["attendu"]
-            token_id = resultat.get("token_id", "N/A")
-            
-            # Utiliser repr pour une représentation claire des caractères spéciaux
-            token_attendu_display = repr(token_attendu)[1:-1]
-            
-            # Si c'est un token d'amorce, afficher différemment
-            if resultat.get("amorce", False):
-                f.write(f"Position {position}: '{token_attendu_display}' (ID: {token_id}) (token d'amorce)\n")
-                f.write("-"*80 + "\n\n")
-                continue
-            
-            # Pour les tokens normaux
-            token_predit = resultat.get("predit", "INCONNU")
-            correct = resultat.get("correct", False)
-            correct_adapte = resultat.get("correct_adapte", False)
-            correct_top10 = resultat.get("correct_top10", False)
-            token_precedent_est_tabulation = resultat.get("token_precedent_est_tabulation", False)
-            
-            # Utiliser repr pour une représentation claire des caractères spéciaux
-            token_predit_display = repr(token_predit)[1:-1]
-            
-            # En-tête pour ce token
-            f.write(f"Position {position}: '{token_attendu_display}' (ID: {token_id})")
-            
-            # Mentionner si le token précédent est une tabulation
-            if token_precedent_est_tabulation:
-                f.write(" [Après tabulation]")
-            
-            f.write("\n")
-            
-            # Afficher la prédiction principale
-            if correct:
-                prediction_status = "✓ CORRECT"
-            elif correct_adapte:
-                prediction_status = "✓ CORRECT (avec adaptation)"
-                # Si la prédiction est correcte après adaptation, afficher la forme attendue
-                token_sans_espace = token_attendu.lstrip(" ")
-                if token_predit == token_sans_espace:
-                    f.write(f"Note: Le token prédit '{token_predit_display}' est considéré correct ")
-                    f.write(f"car il correspond au token attendu sans l'espace initial.\n")
-            else:
-                prediction_status = "✗ INCORRECT"
-            
-            f.write(f"Prédiction principale: '{token_predit_display}' ({prediction_status})\n\n")
-            
-            # Afficher les alternatives
-            f.write("Top 10 tokens les plus probables:\n")
-            
-            # Vérifier si nous avons des alternatives
-            alternatives = resultat.get("alternatives", [])
-            if alternatives:
-                # Déterminer si le token attendu est dans les alternatives
-                token_attendu_in_alternatives = False
-                token_attendu_rank = -1
-                
-                for i, alt in enumerate(alternatives):
-                    alt_token = alt["token"]
-                    alt_logprob = alt["logprob"]
-                    
-                    # Utiliser repr pour une représentation claire des caractères spéciaux
-                    alt_token_display = repr(alt_token)[1:-1]
-                    
-                    # Vérifier si c'est le token attendu (normal ou adapté)
-                    is_expected = alt_token == token_attendu
-                    is_expected_adapte = alt.get("adapte", False)
-                    
-                    if is_expected:
-                        token_attendu_in_alternatives = True
-                        token_attendu_rank = i + 1
-                    elif is_expected_adapte and not token_attendu_in_alternatives:
-                        token_attendu_in_alternatives = True
-                        token_attendu_rank = i + 1
-                    
-                    # Marquer le token attendu avec un astérisque
-                    marker = "* " if (is_expected or is_expected_adapte) else "  "
-                    
-                    # Afficher cette alternative
-                    f.write(f"{marker}{i+1}. '{alt_token_display}' (logprob: {alt_logprob:.4f})")
-                    
-                    # Ajouter une indication si c'est aussi la prédiction principale
-                    if alt_token == token_predit:
-                        f.write(" [Prédiction principale]")
-                    
-                    # Ajouter une indication si c'est un token adapté
-                    if is_expected_adapte:
-                        token_adapte_display = repr(alt.get("token_adapte", token_attendu))[1:-1]
-                        f.write(f" [Correspond à '{token_adapte_display}' avec adaptation]")
-                    
-                    f.write("\n")
-                
-                # Si le token attendu n'est pas dans les alternatives, le mentionner
-                if not token_attendu_in_alternatives and token_attendu != token_predit:
-                    f.write("\nLe token attendu n'est pas dans le top 10 des prédictions.\n")
-                elif token_attendu_rank > 0:
-                    f.write(f"\nLe token attendu est à la position {token_attendu_rank} dans les prédictions.\n")
-            else:
-                f.write("Aucune alternative disponible (erreur possible).\n")
-            
-            # Séparateur entre les tokens
-            f.write("\n" + "-"*80 + "\n\n")
-        
-        # Écrire un résumé
         total_tokens = len([r for r in resultats_analyse if not r.get("amorce", False)])
         correct_tokens = len([r for r in resultats_analyse if r.get("correct", False) and not r.get("amorce", False)])
-        correct_adapte_tokens = len([r for r in resultats_analyse if r.get("correct_adapte", False) and not r.get("amorce", False)])
-        correct_top10_tokens = len([r for r in resultats_analyse if r.get("correct_top10", False) and not r.get("amorce", False)])
-        
-        f.write("\nRÉSUMÉ:\n")
-        f.write("-"*80 + "\n")
-        f.write(f"Total des tokens analysés: {total_tokens}\n")
-        f.write(f"Tokens correctement prédits (1ère position, stricte): {correct_tokens}\n")
-        f.write(f"Tokens correctement prédits (1ère position, avec adaptation): {correct_adapte_tokens}\n")
-        f.write(f"Tokens correctement prédits (top 10): {correct_top10_tokens}\n")
         
         if total_tokens > 0:
             precision = (correct_tokens / total_tokens) * 100
-            precision_adaptee = (correct_adapte_tokens / total_tokens) * 100
-            precision_top10 = (correct_top10_tokens / total_tokens) * 100
-            f.write(f"Précision stricte (1ère position): {precision:.2f}%\n")
-            f.write(f"Précision adaptée (1ère position): {precision_adaptee:.2f}%\n")
-            f.write(f"Précision (top 10): {precision_top10:.2f}%\n")
+            f.write(f"Précision du modèle: {precision:.2f}% ({correct_tokens}/{total_tokens} tokens corrects)\n")
         
-        f.write("="*80 + "\n")
-    
-    logger.info(f"Résultats sauvegardés dans le fichier: {nom_fichier}")
-    return nom_fichier
+        f.write("\n--- Script analysé ---\n")
+        f.write(script)
+        f.write("\n\n--- Analyse détaillée token par token ---\n")
+        
+        for res in resultats_analyse:
+            if res.get("amorce", True):
+                f.write(f"Token {res['index']} (amorce): {repr(res['token'])}\n")
+            else:
+                f.write(f"\nToken {res['index']}: {repr(res['token'])}\n")
+                f.write(f"  Contexte: {repr(res['contexte'])}\n")
+                f.write(f"  Prédiction: {repr(res['prediction'])}\n")
+                f.write(f"  Correct: {'Oui' if res['correct'] else 'Non'}\n")
+                f.write("  Top 10 Alternatives (logprobs):\n")
+                for alt in res.get("alternatives", []):
+                    f.write(f"    - {repr(alt['token'])}: {alt['logprob']:.4f}\n")
+        
+        f.write("\n\n--- Matrice de log-probabilités ---\n")
+        f.write("Index\tToken\tCorrect?\t" + "\t".join([f"Alt {i+1}" for i in range(matrice.shape[1] - 1)]) + "\tLogProb(Ref)\n")
+        
+        for i, token_info in enumerate(structure_tokens):
+            row_data = [
+                str(token_info['index']),
+                repr(token_info['token']),
+                "Oui" if token_info['prediction_correcte'] else "Non"
+            ] + [f"{val:.4f}" for val in matrice[i]]
+            f.write("\t".join(row_data) + "\n")
+            
+    logger.info(f"Rapport d'analyse sauvegardé dans {nom_fichier}")
 
 def sauvegarder_matrice_numpy(matrice, nom_fichier="matrice_logprob.npy"):
     """
-    Sauvegarde la matrice au format numpy pour une utilisation ultérieure.
+    Sauvegarde la matrice au format numpy.
     
     Args:
-        matrice (numpy.ndarray): La matrice 2D de log probabilités
-        nom_fichier (str): Nom du fichier pour sauvegarder la matrice
+        matrice: La matrice à sauvegarder.
+        nom_fichier: Le chemin du fichier.
     """
     np.save(nom_fichier, matrice)
     logger.info(f"Matrice sauvegardée au format numpy dans {nom_fichier}")
 
-def main(script_input=None, modele_tokenisation="gpt-4o-mini", modele_prediction="gpt-4o-mini", api_type="completions"):
-    """Fonction principale qui exécute l'analyse"""
-    
-    # Utiliser le script fourni en argument ou demander à l'utilisateur d'en saisir un
-    if script_input is None:
-        script_to_analyze = """
-def hello_world():
-    print("Hello, world!")
-    return 0
-        """
-        logger.info("Aucun script fourni, utilisation du script par défaut.")
-    else:
-        script_to_analyze = script_input
-    
-    logger.info(f"Démarrage de l'analyse token par token avec tokenisation tiktoken ({modele_tokenisation})...")
-    resultats_analyse, tokens_reference = analyser_predictions_token_par_token(script_to_analyze, modele_tokenisation, modele_prediction, api_type)
-    
-    # Construire la matrice 2D de log probabilités
-    matrice, structure_tokens = construire_matrice_logprob(tokens_reference, resultats_analyse)
-    
-    # Afficher la matrice brute dans la console
-    afficher_matrice_brute(matrice, structure_tokens)
-    
-    # Sauvegarder la matrice au format numpy
-    sauvegarder_matrice_numpy(matrice)
-    
-    # Sauvegarder les résultats dans un fichier
-    nom_fichier = f"resultats_{api_type}.txt"
-    sauvegarder_resultats(resultats_analyse, script_to_analyze, matrice, structure_tokens, modele_tokenisation, nom_fichier)
-    
-    # Afficher un bref résumé dans la console
-    total_tokens = len([r for r in resultats_analyse if not r.get("amorce", False)])
-    correct_tokens = len([r for r in resultats_analyse if r.get("correct", False) and not r.get("amorce", False)])
-    correct_top10_tokens = len([r for r in resultats_analyse if r.get("correct_top10", False) and not r.get("amorce", False)])
-    
-    logger.info(f"\nRésumé de l'analyse ({api_type}):")
-    logger.info(f"Total des tokens analysés: {total_tokens}")
-    logger.info(f"Tokens correctement prédits (1ère position): {correct_tokens}")
-    logger.info(f"Tokens correctement prédits (top 10): {correct_top10_tokens}")
-    
-    if total_tokens > 0:
-        precision = (correct_tokens / total_tokens) * 100
-        precision_top10 = (correct_top10_tokens / total_tokens) * 100
-        logger.info(f"Précision (1ère position): {precision:.2f}%")
-        logger.info(f"Précision (top 10): {precision_top10:.2f}%")
-       
-    return matrice, structure_tokens
+def main():
+    """Fonction principale qui exécute l'analyse en ligne de commande"""
+    global client
 
-if __name__ == "__main__":
-    # CLI
     parser = argparse.ArgumentParser(
         description="Analyse des prédictions token par token pour un ou plusieurs scripts.")
+    
+    parser.add_argument(
+        "-m", "--model",
+        help="Modèle de prédiction à utiliser (ex: gpt-4o-mini)",
+        type=str,
+        default="gpt-4o-mini",
+    )
+    
     parser.add_argument(
         "-f", "--file",
         help="Nom du fichier unique à analyser (dans le dossier d'entrée). Ex: 'foo.py'",
         type=str,
         default=None,
     )
+    
     parser.add_argument(
         "--all",
         help="Analyser tous les fichiers Python (*.py) du dossier d'entrée",
         action="store_true",
     )
+    
     parser.add_argument(
         "-r", "--recursive",
         help="Rechercher les fichiers Python de manière récursive dans les sous-dossiers",
         action="store_true",
     )
+    
     parser.add_argument(
         "-d", "--directory", "--input",
         help="Dossier contenant les scripts à analyser",
         type=str,
         default=None,
     )
+    
     parser.add_argument(
         "-o", "--output",
         help="Dossier où sauvegarder les résultats",
         type=str,
         default=None,
     )
+    
     parser.add_argument(
         "--api",
         help="Type d'API à utiliser: 'completions' (par défaut) ou 'chat'",
@@ -797,7 +502,31 @@ if __name__ == "__main__":
         choices=["completions", "chat"],
         default="completions",
     )
+    
+    parser.add_argument(
+        "--api_key",
+        help="Clé API OpenAI. Peut aussi être définie via la variable d'environnement OPENAI_API_KEY.",
+        type=str,
+        default=os.environ.get("OPENAI_API_KEY")
+    )
+    parser.add_argument(
+        "--local_api_url",
+        help="URL de l'API d'un LLM local (ex: http://localhost:11434/v1). Si spécifié, --api_key est ignorée.",
+        type=str,
+        default=os.environ.get("LOCAL_API_URL")
+    )
+    
     args = parser.parse_args()
+
+    # Initialisation du client OpenAI
+    if args.local_api_url:
+        logger.info(f"Utilisation de l'API locale à : {args.local_api_url}")
+        client = OpenAI(base_url=args.local_api_url, api_key="ollama") # La clé pour les serveurs locaux est souvent une valeur factice
+    elif args.api_key:
+        logger.info("Utilisation de l'API OpenAI.")
+        client = OpenAI(api_key=args.api_key)
+    else:
+        parser.error("Aucune clé API ou URL locale n'a été fournie. Veuillez utiliser --api_key, --local_api_url ou définir la variable d'environnement OPENAI_API_KEY.")
 
     # Détermination du dossier d'entrée
     if args.directory:
@@ -870,8 +599,8 @@ if __name__ == "__main__":
         script = fpath.read_text(encoding="utf-8")
         resultats_analyse, tokens_reference = analyser_predictions_token_par_token(
             script,
-            modele_tokenisation="gpt-4o-mini",
-            modele_prediction="gpt-4o-mini",
+            modele_tokenisation=args.model,
+            modele_prediction=args.model,
             api_type=args.api
         )
         matrice, structure = construire_matrice_logprob(tokens_reference, resultats_analyse)
@@ -891,3 +620,8 @@ if __name__ == "__main__":
 
         logger.info(f"→ Matrice enregistrée : {matrix_path.name}")
         logger.info(f"→ Rapport enregistré  : {result_path.name}")
+
+        print(f"Matrice sauvegardée dans: {matrix_path}")
+
+if __name__ == "__main__":
+    main()
