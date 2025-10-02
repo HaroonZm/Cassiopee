@@ -144,4 +144,4 @@ Les contributions sont les bienvenues. Veuillez consulter le fichier CONTRIBUTIN
 
 ## Licence
 
-Ce projet est sous licence [préciser la licence].
+Ce projet est sous licence MIT.
