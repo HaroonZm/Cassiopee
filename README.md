@@ -1,7 +1,8 @@
 # Cassiopée - Détection de code généré par IA
 
 Nous proposons une implémentation de la méthode issue du papier de recherche CodeVision: Detecting LLM-Generated Code Using 2D Token Probability Maps and Vision Models
- https://arxiv.org/abs/2501.03288. Cette application fournit une interface graphique pour faciliter l'utilisation de l'ensemble du pipeline, de la génération de scripts d'entraînement jusqu'à la détection finale.
+ https://arxiv.org/abs/2501.03288.
+Cette application fournit une interface graphique pour faciliter l'utilisation de l'ensemble du pipeline, de la génération de scripts d'entraînement jusqu'à la détection finale.
 
 ## Installation
 
@@ -114,10 +115,6 @@ Cet onglet permet de visualiser les matrices générées et les activations du m
 - Le traitement des matrices est réalisé à l'aide de NumPy
 - Les modèles de détection sont implémentés avec PyTorch
 - Les requêtes à l'API OpenAI utilisent la bibliothèque officielle OpenAI
-
-## Contribution
-
-Les contributions sont les bienvenues. Veuillez consulter le fichier CONTRIBUTING.md pour plus d'informations.
 
 ## Licence
 
