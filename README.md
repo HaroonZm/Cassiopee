@@ -1,6 +1,6 @@
 # Cassiopée - Détection de code généré par IA
 
-Nous proposons une implémentation de la méthode issue du papier de recherche CodeVision: Detecting LLM-Generated Code Using 2D Token Probability Maps and Vision Models
+Nous proposons une implémentation de la méthode issue du papier de recherche __CodeVision: Detecting LLM-Generated Code Using 2D Token Probability Maps and Vision Models__
  https://arxiv.org/abs/2501.03288.
 Cette application fournit une interface graphique pour faciliter l'utilisation de l'ensemble du pipeline, de la génération de scripts d'entraînement jusqu'à la détection finale.
 
