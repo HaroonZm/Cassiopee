@@ -73,15 +73,6 @@ Cet onglet permet de récupérer les résultats des traitements par batch soumis
 
 Cet onglet permet de générer des matrices de log-probabilités pour l'analyse de code, ce qui constitue la base de la détection.
 
-## Utilisation
-
-**Fonctionnalités principales:**
-- Deux méthodes de génération: directe ou par batch
-- Analyse de fichiers individuels ou de dossiers complets
-- Sélection des modèles de tokenisation et de prédiction
-- Options de traitement batch (taille, intervalle de sondage, etc.)
-- Gestion des erreurs et des reconnexions
-- Console de sortie en temps réel
 
 ### 4. Génération des Tuiles
 
@@ -122,16 +113,12 @@ Cet onglet permet de visualiser les matrices générées et les activations du m
    - Utiliser l'onglet "Test U-Net" pour évaluer les performances
 
 4. **Analyse**:
-   - Utiliser l'onglet "Visualisation" pour comprendre les patterns détectés
- être plus précises et mieux localisées que GradCAM, notamment pour des modèles comme VGG16 ou ResNet50.
-
+   - Utiliser l'onglet "Visualisation" pour comprendre les patterns détectés 
 ## Notes techniques
 - L'application utilise PyQt5 pour l'interface graphique
 - Le traitement des matrices est réalisé à l'aide de NumPy
 - Les modèles de détection sont implémentés avec PyTorch
 - Les requêtes à l'API OpenAI utilisent la bibliothèque officielle OpenAI
-- Publication originale: [Saliency As A Schedule: Intuitive Image Attribution](https://ieeexplore.ieee.org/document/10647374)
-- GradCAM: [Grad-CAM: Visual Explanations from Deep Networks](https://arxiv.org/abs/1610.02391)
 
 ## Licence
 Ce code est fourni à des fins éducatives et de recherche.
