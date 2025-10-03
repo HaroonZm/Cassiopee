@@ -1,6 +1,7 @@
-# Cassiopée - Système de détection de code généré par IA
+# Cassiopée - Détection de code généré par IA
 
-Cassiopée est un système complet d'analyse et de détection de code généré par intelligence artificielle. Cette application fournit une interface graphique pour faciliter l'utilisation de l'ensemble du pipeline, de la génération de scripts d'entraînement jusqu'à la détection finale.
+Nous proposons une implémentation de la méthode issue du papier de recherche CodeVision: Detecting LLM-Generated Code Using 2D Token Probability Maps and Vision Models
+ https://arxiv.org/abs/2501.03288. Cette application fournit une interface graphique pour faciliter l'utilisation de l'ensemble du pipeline, de la génération de scripts d'entraînement jusqu'à la détection finale.
 
 ## Installation
 
@@ -81,38 +82,15 @@ Cet onglet permet de découper les matrices générées en tuiles plus petites p
 
 ### 5. Entraînement U-Net
 
-Cet onglet permet d'entraîner le modèle de détection (U-Net ou ResNet) sur les tuiles ou matrices générées.
-
-**Fonctionnalités principales:**
-- Choix entre entraînement sur tuiles ou matrices complètes
-- Sélection du type de modèle (UNet ou ResNet)
-- Configuration des hyperparamètres d'entraînement
-- Options de normalisation et de redimensionnement
-- Visualisation des courbes d'apprentissage en temps réel
-- Early stopping et stratification des données
-- Équilibrage des classes
+Cet onglet permet d'entraîner le modèle de détection sur les tuiles ou matrices générées.
 
 ### 6. Test U-Net
 
 Cet onglet permet d'évaluer les performances du modèle entraîné et de l'utiliser pour détecter si un code est généré par IA ou écrit par un humain.
 
-**Fonctionnalités principales:**
-- Analyse de fichiers individuels ou de dossiers
-- Visualisation des résultats de détection
-- Affichage des scores de confiance
-- Statistiques globales sur les analyses
-- Options de visualisation des tuiles et des activations
-- Interface glisser-déposer
-
 ### 7. Visualisation
 
 Cet onglet permet de visualiser les matrices générées et les activations du modèle pour mieux comprendre le processus de détection.
-
-**Fonctionnalités principales:**
-- Visualisation des matrices brutes (heatmap ou catégorique)
-- Visualisation des activations du modèle
-- Options de sauvegarde des visualisations
-- Configuration des paramètres d'affichage
 
 ## Workflow typique
 
@@ -125,7 +103,6 @@ Cet onglet permet de visualiser les matrices générées et les activations du m
    - Utiliser l'onglet "Génération des Tuiles" pour découper les matrices en tuiles
 
 3. **Entraînement et évaluation**:
-   - Utiliser l'onglet "Entraînement U-Net" pour entraîner le modèle de détection
    - Utiliser l'onglet "Test U-Net" pour évaluer les performances
 
 4. **Analyse**:
