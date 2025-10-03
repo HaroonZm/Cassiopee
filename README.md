@@ -13,11 +13,13 @@ cd Cassiopee
 ```
 
 2. Installer les dépendances:
-```bash
-pip install -r requirements.txt
-```
+  Pytorch, Numpy,PyQt5
 
 3. Lancer l'application:
+```bash
+python main.py
+```
+
 
 ## Vue d'ensemble de l'interface
 
